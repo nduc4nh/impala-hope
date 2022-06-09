@@ -1,0 +1,8 @@
+====
+---- QUERY : STRESS-Q1
+select count(*) from (select * from lineitem limit 10) p
+---- RESULTS
+10
+---- TYPES
+bigint
+====

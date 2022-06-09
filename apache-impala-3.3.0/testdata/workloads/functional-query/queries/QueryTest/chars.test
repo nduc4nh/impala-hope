@@ -1,0 +1,239 @@
+====
+---- QUERY
+select (cast("xyzzzzz12" as char(-1)))
+---- CATCH
+Syntax error
+====
+---- QUERY
+select count(*), count(cs), count(cl), count(vc) from chars_tiny
+---- TYPES
+bigint,bigint,bigint,bigint
+---- RESULTS
+9,8,8,8
+====
+---- QUERY
+select * from chars_tiny where cs = cast('6a' as CHAR(2))
+---- TYPES
+char,char,string
+---- HS2_TYPES
+char,char,varchar
+---- RESULTS
+'6a   ','6b                                                                                                                                          ','6c'
+'6a   ','6b                                                                                                                                          ','6c'
+====
+---- QUERY
+select count(*) from chars_tiny where vc != cast('5c' as varchar(3))
+---- TYPES
+bigint
+---- RESULTS
+7
+====
+---- QUERY
+select count(*) from chars_tiny where cs != cast('a' as char(3))
+---- TYPES
+bigint
+---- RESULTS
+7
+====
+---- QUERY
+select count(DISTINCT cs) from chars_tiny where vc = cast('5c' as varchar(10))
+---- TYPES
+bigint
+---- RESULTS
+1
+====
+---- QUERY
+select count(DISTINCT cs) from chars_tiny where cs = cast('5a' as char(10))
+---- TYPES
+bigint
+---- RESULTS
+1
+====
+---- QUERY
+select cs, count(cl) from chars_tiny group by cs having count(vc) > 1
+---- TYPES
+char, bigint
+---- RESULTS
+'6a   ',2
+====
+---- QUERY
+select A.cs from chars_tiny as A, chars_tiny as B where
+cast(A.cs as char(1)) = cast(B.cl as char(1)) order by A.cs
+---- TYPES
+char
+---- RESULTS
+'1aaaa'
+'2aaaa'
+'3aaa '
+'4aa  '
+'5a   '
+'6a   '
+'6a   '
+'6a   '
+'6a   '
+====
+---- QUERY
+# Regression test for IMPALA-1316
+select A.vc from chars_tiny as A join chars_tiny using (vc) order by A.vc
+---- TYPES
+string
+---- HS2_TYPES
+varchar
+---- RESULTS
+'1cccc'
+'2cccccc'
+'3ccc'
+'4cc'
+'5c'
+'6c'
+'6c'
+'6c'
+'6c'
+'c'
+====
+---- QUERY
+# Regression test for IMPALA-1322
+select count(*) from chars_tiny as A, chars_tiny as B
+where cast(A.cs as CHAR(1)) = cast(B.vc as CHAR(1));
+---- TYPES
+bigint
+---- RESULTS
+9
+====
+---- QUERY
+select min(cs), max(vc), ndv(cl), ndv(vc), appx_median(cs), appx_median(vc)
+from chars_tiny
+---- TYPES
+string, string, bigint, bigint, string, string
+---- RESULTS
+'1aaaa','c',7,7,'5a   ','5c'
+====
+---- QUERY
+# Regression test for IMPALA-1316
+select t1.vc, COUNT(1) FROM chars_tiny t1 GROUP BY 1 ORDER BY t1.vc
+---- TYPES
+string, bigint
+---- HS2_TYPES
+varchar, bigint
+---- RESULTS
+'1cccc',1
+'2cccccc',1
+'3ccc',1
+'4cc',1
+'5c',1
+'6c',2
+'c',1
+'NULL',1
+====
+---- QUERY
+# Regression test for IMPALA-1316
+select t1.cl, COUNT(1) FROM chars_tiny t1 GROUP BY 1 ORDER BY t1.cl
+---- TYPES
+char, bigint
+---- RESULTS
+'1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1
+'2bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1
+'3bbbbb                                                                                                                                      ',1
+'4bbbb                                                                                                                                       ',1
+'5bbb                                                                                                                                        ',1
+'6b                                                                                                                                          ',2
+'b                                                                                                                                           ',1
+'NULL',1
+====
+---- QUERY
+# Regression test for IMPALA-1344
+select cs, LAST_VALUE(cs) OVER (ORDER BY cs rows between unbounded preceding and
+current row) FROM chars_tiny;
+---- TYPES
+char, string
+---- RESULTS
+'1aaaa','1aaaa'
+'2aaaa','2aaaa'
+'3aaa ','3aaa '
+'4aa  ','4aa  '
+'5a   ','5a   '
+'6a   ','6a   '
+'6a   ','6a   '
+'a    ','a    '
+'NULL','NULL'
+====
+---- QUERY
+# Test returning mix of nulls and non-nulls.
+WITH numbered AS (
+  SELECT *, row_number() over (order by cs) as rn
+  FROM chars_tiny)
+SELECT *
+FROM (
+  SELECT CASE WHEN rn % 2 = 0 THEN cs END cs,
+    CASE WHEN rn % 2 = 1 THEN cl END cl,
+    CASE WHEN rn % 3 = 0 THEN vc END vc
+  FROM numbered
+  UNION ALL
+  SELECT CASE WHEN rn % 2 = 1 THEN cs END cs,
+    CASE WHEN rn % 2 = 0 THEN cl END cl,
+    CASE WHEN rn % 3 = 1 THEN vc END vc
+  FROM numbered) v
+---- TYPES
+char, char, string
+---- HS2_TYPES
+char, char, varchar
+---- RESULTS
+'NULL','1bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','NULL'
+'2aaaa','NULL','NULL'
+'NULL','3bbbbb                                                                                                                                      ','3ccc'
+'4aa  ','NULL','NULL'
+'NULL','5bbb                                                                                                                                        ','NULL'
+'6a   ','NULL','6c'
+'NULL','6b                                                                                                                                          ','NULL'
+'a    ','NULL','NULL'
+'NULL','NULL','NULL'
+'1aaaa','NULL','1cccc'
+'NULL','2bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','NULL'
+'3aaa ','NULL','NULL'
+'NULL','4bbbb                                                                                                                                       ','4cc'
+'5a   ','NULL','NULL'
+'NULL','6b                                                                                                                                          ','NULL'
+'6a   ','NULL','6c'
+'NULL','b                                                                                                                                           ','NULL'
+'NULL','NULL','NULL'
+====
+---- QUERY
+# Scan non-NULL CHAR and VARCHAR from larger table.
+select date_char_col, date_varchar_col, count(*)
+from chars_medium
+group by 1, 2
+---- TYPES
+char, string, bigint
+---- HS2_TYPES
+char, varchar, bigint
+---- RESULTS
+'01/01/10','01/01/10',1100
+'01/02/10','01/02/10',1100
+'01/03/10','01/03/10',1100
+'01/10/10','01/10/10',1100
+'01/08/10','01/08/10',1100
+'01/07/10','01/07/10',1100
+'01/04/10','01/04/10',1100
+'01/09/10','01/09/10',1100
+'01/06/10','01/06/10',1100
+'01/05/10','01/05/10',1100
+====
+---- QUERY
+# Scan CHAR and VARCHAR with NULLs from larger table.
+select id, char_col, varchar_col
+from chars_medium
+where id in (3, 1000, 1234, 5678, 1111, 2222, 3333)
+---- TYPES
+int, char, string
+---- HS2_TYPES
+int, char, varchar
+---- RESULTS
+3,'3  ','3'
+1000,'0  ','NULL'
+1111,'111','NULL'
+1234,'234','NULL'
+2222,'NULL','NULL'
+3333,'333','333'
+5678,'NULL','NULL'
+1000,'0  ','NULL'
+====

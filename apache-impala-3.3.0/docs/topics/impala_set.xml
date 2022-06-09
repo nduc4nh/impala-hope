@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept rev="2.0.0" id="set">
+
+  <title>SET Statement</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>SET</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="Querying"/>
+      <data name="Category" value="Configuring"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Data Analysts"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p rev="2.0.0">
+      The <codeph>SET</codeph> statement specifies values for query options that control the
+      runtime behavior of other statements within the same session.
+    </p>
+
+    <p>
+      When issued in <codeph>impala-shell</codeph>, the <codeph>SET</codeph> command is
+      interpreted as an <codeph>impala-shell</codeph> command that has differences from the SQL
+      <codeph>SET</codeph> statement. See
+      <xref
+        href="impala_shell_commands.xml#shell_commands"/> for the information about
+      the <codeph>SET</codeph> command in <codeph>impala-shell</codeph>.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/syntax_blurb"/>
+
+<codeblock>SET
+<ph rev="2.11.0 IMPALA-2181">SET ALL</ph>
+SET <varname>query_option</varname>=<varname>option_value</varname>
+SET <varname>query_option</varname>=""
+</codeblock>
+
+    <p rev="2.11.0 IMPALA-2181">
+      <codeph>SET</codeph> and <codeph>SET ALL</codeph> with no arguments return a result set
+      consisting of all the applicable query options and their current values.
+    </p>
+
+    <p>
+      The <varname>query_option</varname> and <varname>option_value</varname> are
+      case-insensitive.
+    </p>
+
+    <p>
+      Unlike the <codeph>impala-shell</codeph> command version of <codeph>SET</codeph>, when
+      used as a SQL statement, the string values for <varname>option_value</varname> need to be
+      quoted, e.g. <codeph>SET option="new_value"</codeph>.
+    </p>
+
+    <p>
+      The <codeph>SET <varname>query_option</varname> = ""</codeph> statement unsets the value
+      of the <varname>query_option</varname> in the current session, reverting it to the default
+      state. In <codeph>impala-shell</codeph>, use the <codeph>UNSET</codeph> command to set a
+      query option to it default.
+    </p>
+
+    <p>
+      Each query option has a specific allowed notation for its arguments. See
+      <xref href="impala_query_options.xml#query_options"/> for the details of each query
+      option.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+    <p>
+      In <keyword keyref="impala211_full"/> and higher, the outputs of the <codeph>SET</codeph>
+      and <codeph>SET ALL</codeph> statements were reorganized as below:
+    </p>
+
+    <ul>
+      <li>
+        <p>
+          The options are divided into groups: <codeph>Regular Query Options</codeph>,
+          <codeph>Advanced Query Options</codeph>, <codeph>Development Query Options</codeph>,
+          and <codeph>Deprecated Query Options</codeph>.
+        </p>
+        <ul>
+          <li>
+            <p>
+              The advanced options are intended for use in specific kinds of performance tuning
+              and debugging scenarios.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              The development options are related to internal development of Impala or features
+              that are not yet finalized. These options might be changed or removed without
+              notice.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              The deprecated options are related to features that are removed or changed so that
+              the options no longer have any purpose. These options might be removed in future
+              versions.
+            </p>
+          </li>
+        </ul>
+      </li>
+
+      <li>
+        <p>
+          By default, only the first two groups, regular and advanced, are displayed by the
+          <codeph>SET</codeph> command. Use <codeph>SET ALL</codeph> to see all groups of
+          options.
+        </p>
+      </li>
+
+      <li>
+        <p>
+          <cmdname>impala-shell</cmdname> options and user-specified variables are always
+          displayed at the end of the list of query options, after all appropriate option
+          groups.
+        </p>
+      </li>
+    </ul>
+
+    <p conref="../shared/impala_common.xml#common/added_in_20"/>
+
+    <p>
+      <codeph>SET</codeph> has always been available as an <cmdname>impala-shell</cmdname>
+      command. Promoting it to a SQL statement lets you use this feature in client applications
+      through the JDBC and ODBC APIs.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/permissions_blurb_no"/>
+
+    <p conref="../shared/impala_common.xml#common/related_info"/>
+
+    <p>
+      See <xref href="impala_query_options.xml#query_options"/> for the query options you can
+      adjust using this statement.
+    </p>
+
+  </conbody>
+
+</concept>

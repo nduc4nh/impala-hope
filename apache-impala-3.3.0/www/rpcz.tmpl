@@ -1,0 +1,277 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+{{> www/common-header.tmpl }}
+
+<h2>RPC durations</h2>
+
+<p class="lead">This page shows the durations of all RPCs served by this
+ <samp>{{__common__.process-name}}</samp> process.
+</p>
+
+<label>
+  <input type="checkbox" checked="true" id="toggle" onClick="toggleRefresh()"/>
+  <span id="refresh_on">Auto-refresh on</span>
+</label>  Last updated: <span id="last-updated"></span>
+
+{{?services}}
+<h2>KRPC Services</h2>
+{{/services}}
+{{#services}}
+<h3><samp>{{service_name}}</samp></h3>
+<table class="table table-hover table-bordered" id="{{service_name}}_metrics">
+  <tbody>
+  <tr>
+    <td>
+      <table class="table table-hover">
+        <tr>
+          <th>Queue Size</th>
+          <th>Idle Threads</th>
+          <th>Current Memory Usage</th>
+          <th>Peak Memory Usage</th>
+          <th>RPCs Rejected due to Queue Overflow</th>
+        </tr>
+        <tr>
+          <td id="{{service_name}}_queue_size">{{queue_size}}</td>
+          <td id="{{service_name}}_idle_threads">{{idle_threads}}</td>
+          <td id="{{service_name}}_mem_usage">{{mem_usage}}</td>
+          <td id="{{service_name}}_mem_peak">{{mem_peak}}</td>
+          <td id="{{service_name}}_rpcs_queue_overflow">{{rpcs_queue_overflow}}</td>
+        </tr>
+      </table>
+      <table class="table table-hover">
+        <tr>
+          <th>Incoming Queueing Time</th>
+          <td id="{{service_name}}_incoming_queue_time" colspan=2>{{incoming_queue_time}}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td>
+    {{#rpc_method_metrics}}
+      <table class="table table-bordered table-hover">
+        <tr><td colspan=2>
+          <strong>Method: <i>{{method_name}}</i></strong>
+        </td></tr>
+        <tr>
+          <td>Handler Latency</td>
+          <td class="{{method_name}}_handler_latency">{{handler_latency}}</td>
+        </tr>
+        <tr>
+          <td>Payload Size</td>
+          <td class="{{method_name}}_payload_size">{{payload_size}}</td>
+        </tr>
+      </table>
+    {{/rpc_method_metrics}}
+    </td>
+  </tr>
+  </tbody>
+</table>
+{{/services}}
+
+<h3>Per connection metrics for KRPC</h3>
+<table class="table table-bordered table-hover" id="per_conn_metrics">
+  <thead>
+    <tr>
+      <th>Remote IP</th>
+      <th>Outbound Queue Size (count)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#per_conn_metrics}}
+    <tr>
+      <td>{{remote_ip}}</td>
+      <td>{{outbound_queue_size}}</td>
+    </tr>
+    {{/per_conn_metrics}}
+  </tbody>
+</table>
+
+{{?servers}}
+<h2>Impala Thrift RPC Services
+  <button class="btn btn-warning btn-xs" onClick="reset_all();">
+    Reset all
+  </button>
+</h2>
+{{/servers}}
+{{#servers}}
+
+<h3><samp>{{name}} </samp>
+  <button class="btn btn-warning btn-xs" onClick="reset_server('{{name}}');">
+    Reset stats
+  </button>
+</h3>
+
+<table class='table table-hover table-bordered' id='{{name}}'>
+  <tr>
+    <th>Method</th>
+    <th>Duration summary</th>
+    <th>In Flight</th>
+    <th></th>
+  </tr>
+  {{#methods}}
+  <tr>
+    <td><samp>{{name}}</samp></td>
+    <td>{{summary}}</td>
+    <td>{{in_flight}}</td>
+    <td align="center">
+      <button class="btn btn-warning btn-xs"
+              onClick="reset_method('{{server_name}}', '{{name}}');">
+        Reset
+      </button>
+    </td>
+  </tr>
+  {{/methods}}
+</table>
+{{/servers}}
+
+<script>
+function reset_all() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', "/rpcz_reset", true);
+  xhr.send();
+}
+
+function reset_method(server, method) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', "/rpcz_reset?server=" + server + "&method=" + method, true);
+  xhr.send();
+}
+
+function reset_server(server) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', "/rpcz_reset?server=" + server, true);
+  xhr.send();
+}
+
+// Update all metrics for services in "servers", which use Impala's old RPC layer.
+function update_impala_services(json) {
+  for (var i = 0; i < json["servers"].length; ++i) {
+    var tbl_json = json["servers"][i];
+    var table = document.getElementById(tbl_json["name"]);
+    if (!table) continue;
+    // Delete all existing rows, stopping at 1 to save the header
+    for (var j = table.rows.length - 1; j >= 1; --j) table.deleteRow(j);
+    tbl_json["methods"].forEach(function(method) {
+      var row = table.insertRow();
+      row.insertCell().innerHTML = "<samp>" + method.name + "</samp>";
+      row.insertCell().innerHTML = method.summary;
+      row.insertCell().innerHTML = method.in_flight;
+      var reset_cell = row.insertCell();
+      reset_cell.align = "center";
+      var button = document.createElement("button");
+      button.className = "btn btn-warning btn-xs";
+      button.appendChild(document.createTextNode("Reset"));
+      button.onclick = function() { reset_method(method.server_name, method.name); }
+      reset_cell.appendChild(button);
+    });
+  }
+}
+
+// Update all krpc metrics from the "services" member of "json".
+function update_krpc_services(json) {
+  // Update each service
+  for (var i = 0; i < json["services"].length; ++i) {
+    var svc_json = json["services"][i];
+    var svc_name = svc_json["service_name"];
+    var table = document.getElementById(svc_name + "_metrics");
+
+    // Skip updates for unknown services.
+    if (!table) continue;
+
+    // Update service metrics
+    var keys = ["queue_size", "idle_threads", "mem_usage", "mem_peak",
+        "rpcs_queue_overflow", "incoming_queue_time"];
+    for (var j = 0; j < keys.length; ++j) {
+      var key = keys[j];
+      var cell = document.getElementById(svc_name + "_" + key);
+      // Skip update for unknown values.
+      if (!cell) continue;
+      cell.innerHTML = svc_json[key];
+    }
+
+    // Update metrics for individual methods.
+    var num_methods = svc_json["rpc_method_metrics"].length;
+    for (var j = 0; j < num_methods; ++j) {
+      var method_json = svc_json["rpc_method_metrics"][j];
+      var method_name = method_json["method_name"];
+      // Update all metrics for this method.
+      var keys = ["handler_latency", "payload_size"];
+      for (var l = 0; l < keys.length; ++l) {
+        var key = keys[l];
+        var cell = $(table).find("." + method_name + "_" + key)[0];
+        // Skip update for unknown values.
+        if (!cell) continue;
+        cell.innerHTML = method_json[key];
+      }
+    }
+  }
+}
+
+function update_krpc_conn_metrics_datatable(json) {
+  var table = $('#per_conn_metrics').DataTable();
+  var rows = $.map(json["per_conn_metrics"], function(row) {
+    return [[row["remote_ip"], row["outbound_queue_size"]]];
+  });
+
+  table.clear().rows.add(rows).draw();
+}
+
+$(document).ready(function() {
+  table = $('#per_conn_metrics').DataTable({
+    "order": [[ 0, "asc" ]],
+    "pageLength": 50
+  });
+});
+
+function refresh() {
+  var xhr = new XMLHttpRequest();
+  xhr.responseType = 'text';
+  xhr.timeout = 60000;
+  xhr.onload = function(ignored_arg) {
+    if (xhr.status != 200) return;
+    var blob = xhr.response;
+    json = JSON.parse(blob);
+    update_impala_services(json);
+    update_krpc_services(json);
+    update_krpc_conn_metrics_datatable(json);
+    document.getElementById("last-updated").textContent = new Date();
+  }
+
+  xhr.ontimeout = function() {}
+  xhr.open('GET', "/rpcz?json", true);
+  xhr.send();
+}
+
+document.getElementById("last-updated").textContent = new Date();
+var intervalId = setInterval(refresh, 1000);
+
+function toggleRefresh() {
+  if (document.getElementById("toggle").checked == true) {
+    intervalId = setInterval(refresh, 1000);
+    document.getElementById("refresh_on").textContent = "Auto-refresh on";
+  } else {
+    clearInterval(intervalId);
+    document.getElementById("refresh_on").textContent = "Auto-refresh off";
+  }
+}
+</script>
+
+{{> www/common-footer.tmpl }}

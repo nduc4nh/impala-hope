@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="shell_running_commands">
+
+  <title>Running Commands and SQL Statements in impala-shell</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>Running Commands and SQL Statements</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="impala-shell"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="Data Analysts"/>
+      <data name="Category" value="Developers"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      The following are a few of the key syntax and usage rules for running commands and SQL
+      statements in <codeph>impala-shell</codeph>.
+    </p>
+
+    <ul>
+      <li>
+        To see the full set of available commands, press <b>TAB</b> twice.
+      </li>
+
+      <li>
+        To cycle through and edit previous commands, click the up-arrow and down-arrow keys.
+      </li>
+
+      <li>
+        Use the standard set of keyboard shortcuts in GNU Readline library for editing and
+        cursor movement, such as <b>Ctrl-A</b> for the beginning of line and <b>Ctrl-E</b> for
+        the end of line.
+      </li>
+
+      <li>
+        Commands and SQL statements must be terminated by a semi-colon.
+      </li>
+
+      <li>
+        Commands and SQL statements can span multiple lines.
+      </li>
+
+      <li>
+        Use <codeph>--</codeph> to denote a single-line comment and /* */ to
+        denote a multi-line comment.
+
+        <p> A comment is considered part of the
+          statement it precedes, so when you enter a <codeph>--</codeph> or
+            <codeph>/* */</codeph> comment, you get a continuation prompt until
+          you finish entering a statement ending with a semicolon. For example:
+        </p>
+<codeblock>[impala] > -- This is a test comment
+                  > SHOW TABLES LIKE 't*';
+</codeblock>
+      </li>
+
+      <li>
+        If a comment contains the
+          <codeph>${<varname>variable_name</varname>}</codeph> and it is not for
+        a variable substitution, the <codeph>$</codeph> character must be
+        escaped, e.g. <codeph>-- \${hello}</codeph>.
+      </li>
+    </ul>
+
+    <p>
+      For information on available <codeph>impala-shell</codeph> commands, see
+      <xref href="impala_shell_commands.xml#shell_commands"/>.
+    </p>
+
+  </conbody>
+
+  <concept id="impala-shell_variable">
+
+    <title>Variable Substitution in impala-shell</title>
+
+    <conbody>
+
+      <p rev="2.5.0 IMPALA-2179 IMPALA-2180">
+        In <keyword keyref="impala25_full"/> and higher, you can define substitution variables
+        to be used within SQL statements processed by <cmdname>impala-shell</cmdname>.
+        <ol>
+          <li>
+            You specify the variable and its value as below.
+            <ul>
+              <li>
+                On the command line, you specify the option
+                <codeph>--var=<varname>variable_name</varname>=<varname>value</varname></codeph>
+              </li>
+
+              <li>
+                Within an interactive session or a script file processed by the
+                <codeph>-f</codeph> option, use the <codeph>SET
+                VAR:<varname>variable_name</varname>=<varname>value</varname></codeph> command.
+              </li>
+            </ul>
+          </li>
+
+          <li>
+            Use the above variable in SQL statements in the <codeph>impala-shell</codeph>
+            session using the notation:
+            <codeph>${VAR:<varname>variable_name</varname>}</codeph>.
+          </li>
+        </ol>
+      </p>
+
+      <note>
+        Because this feature is part of <cmdname>impala-shell</cmdname> rather than the
+        <cmdname>impalad</cmdname> backend, make sure the client system you are connecting from
+        has the most recent <cmdname>impala-shell</cmdname>. You can use this feature with a new
+        <cmdname>impala-shell</cmdname> connecting to an older <cmdname>impalad</cmdname>, but
+        not the reverse.
+      </note>
+
+      <p rev="2.5.0 IMPALA-2179 IMPALA-2180">
+        For example, here are some <cmdname>impala-shell</cmdname> commands that define
+        substitution variables and then use them in SQL statements executed through the
+        <codeph>-q</codeph> and <codeph>-f</codeph> options. Notice how the <codeph>-q</codeph>
+        argument strings are single-quoted to prevent shell expansion of the
+        <codeph>${var:value}</codeph> notation, and any string literals within the queries are
+        enclosed by double quotation marks.
+      </p>
+
+<codeblock rev="2.5.0 IMPALA-2179 IMPALA-2180">
+$ impala-shell --var=tname=table1 --var=colname=x --var=coltype=string -q 'CREATE TABLE ${var:tname} (${var:colname} ${var:coltype}) STORED AS PARQUET'
+Query: CREATE TABLE table1 (x STRING) STORED AS PARQUET
+</codeblock>
+
+      <p rev="2.5.0 IMPALA-2179 IMPALA-2180">
+        The below example shows a substitution variable passed in by the <codeph>--var</codeph>
+        option, and then referenced by statements issued interactively. Then the variable is
+        reset with the <codeph>SET</codeph> command.
+      </p>
+
+<codeblock rev="2.5.0 IMPALA-2179 IMPALA-2180">
+$ impala-shell --quiet --var=tname=table1
+
+[impala] > SELECT COUNT(*) FROM ${var:tname};
+
+[impala] > SET VAR:tname=table2;
+[impala] > SELECT COUNT(*) FROM ${var:tname};
+</codeblock>
+
+    </conbody>
+
+  </concept>
+
+</concept>

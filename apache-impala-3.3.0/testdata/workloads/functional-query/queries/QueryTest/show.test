@@ -1,0 +1,312 @@
+====
+---- QUERY
+# use functional
+use functional
+====
+---- QUERY
+# Simple pattern literal
+show tables "alltypes"
+---- RESULTS
+'alltypes'
+---- TYPES
+STRING
+====
+---- QUERY
+# Pattern with wildcard
+show tables "all*ypes"
+---- RESULTS
+'alltypes'
+'allcomplextypes'
+---- TYPES
+STRING
+====
+---- QUERY
+# Empty string matches nothing
+show tables ""
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that regex metacharacters are being escaped
+show tables '+alltypes'
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+# Fully qualified names will not match
+show tables "functional.alltypes"
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+# Database names are case insensitive.
+USE FUNCTIONAL
+---- RESULTS
+====
+---- QUERY
+# Different database
+# We have no SHOW TABLES with no pattern test since the set of tables is
+# changing often, and may be different depending on whether benchmark data is
+# loaded, for example.
+show tables '*'
+---- RESULTS: VERIFY_IS_SUBSET
+'alltypes'
+'alltypesagg'
+'alltypesaggmultifiles'
+'alltypesaggmultifilesnopart'
+'alltypesaggnonulls'
+'alltypeserror'
+'alltypeserrornonulls'
+'alltypesinsert'
+'alltypesmixedformat'
+'alltypesnopart'
+'alltypesnopart_insert'
+'alltypessmall'
+'alltypestiny'
+'dimtbl'
+'emptytable'
+'greptiny'
+'insert_overwrite_nopart'
+'insert_overwrite_partitioned'
+'jointbl'
+'liketbl'
+'nullescapedtable'
+'nullinsert'
+'nullinsert_alt'
+'nulltable'
+'rankingssmall'
+'stringpartitionkey'
+'tblwithraggedcolumns'
+'testtbl'
+'text_comma_backslash_newline'
+'text_dollar_hash_pipe'
+'tinyinttable'
+'tinytable'
+'uservisitssmall'
+'zipcode_incomes'
+---- TYPES
+STRING
+====
+---- QUERY
+# Choice amongst patterns
+show tables "alltypes|stringpartitionkey|testtbl"
+---- RESULTS
+'alltypes'
+'stringpartitionkey'
+'testtbl'
+---- TYPES
+STRING
+====
+---- QUERY
+# Show tables in
+show tables in functional
+---- RESULTS: VERIFY_IS_SUBSET
+'alltypes'
+'alltypesagg'
+'alltypesaggmultifiles'
+'alltypesaggmultifilesnopart'
+'alltypesaggnonulls'
+'alltypeserror'
+'alltypeserrornonulls'
+'alltypesinsert'
+'alltypesmixedformat'
+'alltypesnopart'
+'alltypesnopart_insert'
+'alltypessmall'
+'alltypestiny'
+'dimtbl'
+'emptytable'
+'greptiny'
+'insert_overwrite_nopart'
+'insert_overwrite_partitioned'
+'jointbl'
+'liketbl'
+'nullescapedtable'
+'nullinsert'
+'nullinsert_alt'
+'nulltable'
+'overflow'
+'rankingssmall'
+'stringpartitionkey'
+'tblwithraggedcolumns'
+'testtbl'
+'text_comma_backslash_newline'
+'text_dollar_hash_pipe'
+'tinyinttable'
+'tinytable'
+'uservisitssmall'
+'zipcode_incomes'
+---- TYPES
+STRING
+====
+---- QUERY
+# Show tables in with a pattern
+show tables in functional like 'alltypesagg*'
+---- RESULTS
+'alltypesagg'
+'alltypesaggmultifiles'
+'alltypesaggmultifilesnopart'
+'alltypesaggnonulls'
+---- TYPES
+STRING
+====
+---- QUERY
+# Impala only considers '*' and '|' as meta-characters in SHOW statements
+# See IMPALA-3744
+show tables in functional like 'alltypesag.'
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+show tables in functional like 'alltypesag.*'
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+show tables in functional like 'alltypesagg%'
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+show tables in functional like 'alltypesag_'
+---- RESULTS
+---- TYPES
+STRING
+====
+---- QUERY
+# Coverage of syntax variations.
+show tables in functional 'alltypesagg'
+---- RESULTS
+'alltypesagg'
+---- TYPES
+STRING
+====
+---- QUERY
+show tables in functional like 'alltypesagg'
+---- RESULTS
+'alltypesagg'
+---- TYPES
+STRING
+====
+---- QUERY
+show tables 'alltypesagg'
+---- RESULTS
+'alltypesagg'
+---- TYPES
+STRING
+====
+---- QUERY
+show tables like 'alltypesagg'
+---- RESULTS
+'alltypesagg'
+---- TYPES
+STRING
+====
+---- QUERY
+# Show databases
+show databases like 'tpcds'
+---- RESULTS
+'tpcds',''
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show databases like 'functional'
+---- RESULTS
+'functional',''
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show databases like 'functional'
+---- RESULTS
+'functional',''
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show databases like 'def*'
+---- RESULTS
+'default','Default Hive database'
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+# Impala only considers '*' and '|' as meta-characters in SHOW statements
+# See IMPALA-3744
+show databases like 'defaul.*'
+---- RESULTS
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show databases like 'defaul_'
+---- RESULTS
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show databases like 'def%'
+---- RESULTS
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show databases like 'defaul.'
+---- RESULTS
+---- TYPES
+STRING,STRING
+====
+---- QUERY
+show files in alltypesagg
+---- LABELS
+Path,Size,Partition
+---- RESULTS
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__/000000_0',regex:.*,'year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=1/100101.txt',regex:.*,'year=2010/month=1/day=1'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=2/100102.txt',regex:.*,'year=2010/month=1/day=2'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=3/100103.txt',regex:.*,'year=2010/month=1/day=3'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=4/100104.txt',regex:.*,'year=2010/month=1/day=4'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=5/100105.txt',regex:.*,'year=2010/month=1/day=5'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=6/100106.txt',regex:.*,'year=2010/month=1/day=6'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=7/100107.txt',regex:.*,'year=2010/month=1/day=7'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=8/100108.txt',regex:.*,'year=2010/month=1/day=8'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=9/100109.txt',regex:.*,'year=2010/month=1/day=9'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=10/100110.txt',regex:.*,'year=2010/month=1/day=10'
+---- TYPES
+STRING,STRING,STRING
+====
+---- QUERY
+show files in functional.alltypesagg
+---- LABELS
+Path,Size,Partition
+---- RESULTS
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__/000000_0',regex:.*,'year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=1/100101.txt',regex:.*,'year=2010/month=1/day=1'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=2/100102.txt',regex:.*,'year=2010/month=1/day=2'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=3/100103.txt',regex:.*,'year=2010/month=1/day=3'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=4/100104.txt',regex:.*,'year=2010/month=1/day=4'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=5/100105.txt',regex:.*,'year=2010/month=1/day=5'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=6/100106.txt',regex:.*,'year=2010/month=1/day=6'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=7/100107.txt',regex:.*,'year=2010/month=1/day=7'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=8/100108.txt',regex:.*,'year=2010/month=1/day=8'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=9/100109.txt',regex:.*,'year=2010/month=1/day=9'
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=10/100110.txt',regex:.*,'year=2010/month=1/day=10'
+---- TYPES
+STRING,STRING,STRING
+====
+---- QUERY
+show files in alltypesagg partition(year=2010,month=1,day=NULL)
+---- LABELS
+Path,Size,Partition
+---- RESULTS
+'$NAMENODE/test-warehouse/alltypesagg/year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__/000000_0',regex:.*,'year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__'
+---- TYPES
+STRING,STRING,STRING
+====

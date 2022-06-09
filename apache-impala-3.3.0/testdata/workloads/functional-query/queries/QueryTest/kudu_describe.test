@@ -1,0 +1,67 @@
+====
+---- QUERY
+describe functional_kudu.alltypes
+---- LABELS
+NAME,TYPE,COMMENT,PRIMARY_KEY,NULLABLE,DEFAULT_VALUE,ENCODING,COMPRESSION,BLOCK_SIZE
+---- RESULTS
+'bigint_col','bigint','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'bool_col','boolean','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'date_string_col','string','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'double_col','double','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'float_col','float','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'id','int','','true','false','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'int_col','int','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'month','int','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'smallint_col','smallint','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'string_col','string','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'timestamp_col','timestamp','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'tinyint_col','tinyint','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'year','int','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+---- TYPES
+STRING,STRING,STRING,STRING,STRING,STRING,STRING,STRING,STRING
+====
+---- QUERY
+# Test composite primary key and column options.
+create table describe_test
+(pk1 int,
+ pk2 int,
+ pk3 string,
+ c1 string null default 'abc' comment 'testing',
+ c2 int not null default 100 encoding plain_encoding compression snappy,
+ c3 int null block_size 8388608,
+ primary key (pk1, pk2, pk3))
+partition by hash (pk1) partitions 3
+stored as kudu;
+describe describe_test;
+---- LABELS
+NAME,TYPE,COMMENT,PRIMARY_KEY,NULLABLE,DEFAULT_VALUE,ENCODING,COMPRESSION,BLOCK_SIZE
+---- RESULTS
+'pk1','int','','true','false','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'pk2','int','','true','false','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'pk3','string','','true','false','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'c1','string','testing','false','true','abc','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'c2','int','','false','false','100','PLAIN_ENCODING','SNAPPY','0'
+'c3','int','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','8388608'
+---- TYPES
+STRING,STRING,STRING,STRING,STRING,STRING,STRING,STRING,STRING
+====
+---- QUERY
+# Test decimal columns and primary key
+create table describe_decimal_test
+(
+ decimal_default decimal PRIMARY KEY,
+ decimal_4 decimal(9, 9) not null,
+ decimal_8 decimal(18, 2) not null default 100.00,
+ decimal_16 decimal(38, 0) null)
+stored as kudu;
+describe describe_decimal_test;
+---- LABELS
+NAME,TYPE,COMMENT,PRIMARY_KEY,NULLABLE,DEFAULT_VALUE,ENCODING,COMPRESSION,BLOCK_SIZE
+---- RESULTS
+'decimal_default','decimal(9,0)','','true','false','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'decimal_4','decimal(9,9)','','false','false','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'decimal_8','decimal(18,2)','','false','false','100.00','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+'decimal_16','decimal(38,0)','','false','true','','AUTO_ENCODING','DEFAULT_COMPRESSION','0'
+---- TYPES
+STRING,STRING,STRING,STRING,STRING,STRING,STRING,STRING,STRING
+====

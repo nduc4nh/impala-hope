@@ -1,0 +1,32 @@
+{"type": "record",
+ "namespace": "org.apache.impala",
+ "name": "ComplexTypesTbl",
+ /* Field names have mixed casing to test the case-insensitive matching of
+    fields in Parquet files. */
+ "fields": [
+     {"name": "ID", "type": "long"},
+     {"name": "Int_Array", "type": {"type": "array", "items": "int"}},
+     {"name": "int_array_array", "type": {"type": "array", "items":
+         {"type": "array", "items": "int"}}},
+     {"name": "Int_Map", "type": {"type": "map", "values": "int"}},
+     {"name": "int_map_array", "type": {"type": "array", "items":
+         {"type": "map", "values": "int"}}},
+     {"name": "nested_Struct", "type":
+         {"type": "record", "name": "r1", "fields": [
+              {"name": "a", "type": "int"},
+              {"name": "B", "type": {"type": "array", "items": "int"}},
+              {"name": "c", "type": {"type": "record", "name": "r2", "fields": [
+                  {"name": "D", "type": {"type": "array", "items":
+                      {"type": "array", "items":
+                          {"type": "record", "name": "r3", "fields": [
+                              {"name": "e", "type": "int"},
+                              {"name": "f", "type": "string"}]}}}}
+              ]}},
+              {"name": "G", "type": {"type": "map", "values": {
+                   "type": "record", "name": "r4", "fields": [
+                       {"name": "h", "type": {"type": "record", "name": "r5", "fields": [
+                           {"name": "i", "type": {"type": "array", "items": "double"}}]}}
+                  ]}}}
+          ]}}
+ ]
+}

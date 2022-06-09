@@ -1,0 +1,158 @@
+====
+---- QUERY
+# Test to select from table with additional columns at the end that are not in the 
+# schema and with missing columns
+select * from tblwithraggedcolumns
+---- RESULTS
+'hello',1
+'\\r\\r\\n',NULL
+'',NULL
+'foo',2
+'a',3
+'',NULL
+'b',4
+'c',NULL
+'d',NULL
+'ColumnWithCarriageReturn',123
+'at16bytes',NULL
+'NoDelimiter',0
+---- TYPES
+string, int
+====
+---- QUERY
+select int_col from tblwithraggedcolumns
+---- RESULTS
+0
+1
+123
+2
+3
+4
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+---- TYPES
+int
+====
+---- QUERY
+select str_col from tblwithraggedcolumns
+---- RESULTS
+'hello'
+'\\r\\r\\n'
+''
+'foo'
+'a'
+''
+'b'
+'c'
+'d'
+'ColumnWithCarriageReturn'
+'at16bytes'
+'NoDelimiter'
+---- TYPES
+string
+====
+---- QUERY
+# Quoting test
+SELECT `table_alias`.`int_col` AS `default_int_col`
+FROM `functional`.`alltypes` `table_alias`
+GROUP BY `default_int_col`
+LIMIT 10
+---- RESULTS
+0
+7
+3
+9
+4
+6
+1
+5
+2
+8
+---- TYPES
+int
+====
+---- QUERY
+# Test string-literal escape sequences
+SELECT ASCII("\0"), ASCII("\\"), ASCII("\b"), ASCII("\n"), ASCII("\r"), ASCII("\t"), ASCII("\Z")
+---- RESULTS
+0,92,8,10,13,9,26
+---- TYPES
+int, int, int, int, int, int, int
+====
+---- QUERY
+# Test escaping non-escape chars. We expect the escape to be simply removed.
+SELECT ASCII("\a"), ASCII("\X"), ASCII("\z"), ASCII("\?"), ASCII("\*")
+---- RESULTS
+97,88,122,63,42
+---- TYPES
+int, int, int, int, int
+====
+---- QUERY
+# Test escaping '%' and '_' which handled specially.
+# We expect '\\%' and '\%' to result in '\%' (similarly for '_')
+SELECT "\%", "\\%", "\_", "\\_"
+---- RESULTS
+'\\%','\\%','\\_','\\_'
+---- TYPES
+string, string, string, string
+====
+---- QUERY
+# Test query filed in IMPALA-65
+SELECT "quote \"", 'quote \''
+---- RESULTS
+'quote "','quote '''
+---- TYPES
+string, string
+====
+---- QUERY
+#  Select from table that contains unsupported primitive types
+SELECT int_col, str_col, bigint_col from functional.unsupported_types
+---- RESULTS
+0,'aaaa',0
+1,'bbbb',10
+2,'cccc',20
+NULL,'NULL',NULL
+4,'eeee',40
+---- TYPES
+int, string, bigint
+====
+---- QUERY
+# where clause is a SlotRef
+SELECT count(*) from functional.alltypes where bool_col
+---- RESULTS
+3650
+---- TYPES
+bigint
+====
+---- QUERY
+# having clause is a SlotRef
+SELECT count(*) from functional.alltypes group by bool_col having bool_col
+---- RESULTS
+3650
+---- TYPES
+bigint
+====
+---- QUERY
+# IMPALA-3812: Verfiy that the correct error message is shown when the star expansion adds
+# the BINARY unsupported type to the select list.
+select * from functional.unsupported_types
+---- CATCH
+Unsupported type 'BINARY' in 'functional.unsupported_types.bin_col'.
+====
+---- QUERY
+# IMPALA-3812: Verfiy that DATE type is displayed correctly in the describe table.
+describe functional.unsupported_types
+---- RESULTS
+'int_col','int',''
+'dec_col','decimal(10,0)',''
+'date_col','date',''
+'str_col','string',''
+'bin_col','binary',''
+'bigint_col','bigint',''
+---- TYPES
+STRING, STRING, STRING
+====

@@ -1,0 +1,88 @@
+====
+---- HIVE_QUERY
+# Create a table with Hive and run insert, select, and drop from Impala on it.
+use $DATABASE;
+create table tt (x int) tblproperties (
+  'transactional'='true',
+  'transactional_properties'='insert_only');
+
+insert into tt values (1);
+====
+---- QUERY
+invalidate metadata tt;
+select * from tt
+---- RESULTS
+1
+====
+---- HIVE_QUERY
+# Insert from Hive to test refresh table from Impala in the below test.
+use $DATABASE;
+insert into tt values (2);
+====
+---- QUERY
+refresh tt;
+select * from tt order by x;
+---- RESULTS
+1
+2
+====
+---- QUERY
+# Do a second refresh on an already refreshed ACID table.
+refresh tt;
+select * from tt order by x;
+---- RESULTS
+1
+2
+====
+---- QUERY
+insert overwrite table tt values (3);
+insert into tt values (4);
+====
+---- QUERY
+refresh tt;
+select * from tt order by x;
+---- RESULTS
+3
+4
+====
+---- QUERY
+create table upgraded_table (x int);
+insert into upgraded_table values (1);
+# Upgrade to the table to insert only acid when there are already values in it.
+alter table upgraded_table set tblproperties
+ ('transactional' = 'true', 'transactional_properties' = 'insert_only');
+insert into upgraded_table values (2);
+insert into upgraded_table values (3);
+====
+---- QUERY
+select * from upgraded_table;
+---- RESULTS
+1
+2
+3
+====
+---- QUERY
+drop table tt;
+show tables;
+---- RESULTS
+'upgraded_table'
+====
+---- QUERY
+# After dropping the table I re-create and drop it again to check that all the locks
+# are released properly from HMS.
+create table tt (x int) tblproperties (
+  'transactional'='true',
+  'transactional_properties'='insert_only');
+====
+---- QUERY
+show tables;
+---- RESULTS
+'upgraded_table'
+'tt'
+====
+---- QUERY
+drop table tt;
+show tables;
+---- RESULTS
+'upgraded_table'
+====

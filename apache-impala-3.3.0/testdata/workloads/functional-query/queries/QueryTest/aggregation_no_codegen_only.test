@@ -1,0 +1,13 @@
+====
+---- QUERY
+# Regression test for IMPALA-901.
+# The second value is carefully chosen to be equal to (int8_t)HashUtil::FNV_SEED, which
+# causes the hash collision that caused the bug.
+INSERT INTO imp_901 VALUES(-59), (NULL);
+SELECT col FROM imp_901 GROUP BY 1;
+---- TYPES
+tinyint
+---- RESULTS
+NULL
+-59
+====

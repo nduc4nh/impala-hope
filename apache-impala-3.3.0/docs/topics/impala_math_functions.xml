@@ -1,0 +1,2035 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="math_functions">
+
+  <title>Impala Mathematical Functions</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>Mathematical Functions</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Impala Functions"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="Data Analysts"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Querying"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      Mathematical functions, or arithmetic functions, perform numeric calculations that are
+      typically more complex than basic addition, subtraction, multiplication, and division. For
+      example, these functions include trigonometric, logarithmic, and base conversion
+      operations.
+    </p>
+
+    <note>
+      In Impala, exponentiation uses the <codeph>pow()</codeph> function rather than an
+      exponentiation operator such as <codeph>**</codeph>.
+    </note>
+
+    <p conref="../shared/impala_common.xml#common/related_info"/>
+
+    <p>
+      The mathematical functions operate mainly on these data types:
+      <xref href="impala_int.xml#int"/>, <xref href="impala_bigint.xml#bigint"/>,
+      <xref href="impala_smallint.xml#smallint"/>, <xref href="impala_tinyint.xml#tinyint"/>,
+      <xref href="impala_double.xml#double"/>, <xref href="impala_float.xml#float"/>, and
+      <xref href="impala_decimal.xml#decimal"/>. For the operators that perform the standard
+      operations such as addition, subtraction, multiplication, and division, see
+      <xref href="impala_operators.xml#arithmetic_operators"/>.
+    </p>
+
+    <p>
+      Functions that perform bitwise operations are explained in
+      <xref href="impala_bit_functions.xml#bit_functions"/>.
+    </p>
+
+    <p>
+      <b>Function reference:</b>
+    </p>
+
+    <p>
+      Impala supports the following mathematical functions:
+    </p>
+
+    <ul>
+      <li>
+        <xref href="#math_functions/abs">ABS</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/acos">ACOS</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/asin">ASIN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/atan">ATAN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/atan2">ATAN2</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/bin">BIN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/ceil">CEIL, CEILING, DCEIL</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/conv">CONV</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/cos">COS</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/cosh">COSH</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/cot">COT</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/degrees">DEGREES</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/e">E</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/exp">EXP</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/factorial">FACTORIAL</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/floor">FLOOR, DFLOOR</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/fmod">FMOD</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/fnv_hash">FNV_HASH</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/greatest">GREATEST</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/hex">HEX</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/is_inf">IS_INF</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/is_nan">IS_NAN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/least">LEAST</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/ln">LN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/log">LOG</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/log10">LOG10</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/log2">LOG2</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/max_int">MAX_INT, MAX_TINYINT, MAX_SMALLINT,
+        MAX_BIGINT</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/min_int">MIN_INT, MIN_TINYINT, MIN_SMALLINT,
+        MIN_BIGINT</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/mod">MOD</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/murmur_hash">MURMUR_HASH</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/negative">NEGATIVE</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/pi">PI</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/pmod">PMOD</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/positive">POSITIVE</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/pow">POW, POWER, DPOW, FPOW</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/precision">PRECISION</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/quotient">QUOTIENT</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/radians">RADIANS</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/rand">RAND, RANDOM</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/round">ROUND, DROUND</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/scale">SCALE</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/sign">SIGN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/sin">SIN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/sinh">SINH</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/sqrt">SQRT</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/tan">TAN</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/tanh">TANH</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/truncate">TRUNCATE, DTRUNC, TRUNC</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/unhex">UNHEX</xref>
+      </li>
+
+      <li>
+        <xref href="#math_functions/width_bucket">WIDTH_BUCKET</xref>
+      </li>
+    </ul>
+
+    <dl>
+      <dlentry rev="1.4.0" id="abs">
+
+        <dt rev="1.4.0 2.0.1">
+          ABS(numeric_type a)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the absolute value of the argument.
+          <p
+            rev="2.0.1"
+            conref="../shared/impala_common.xml#common/return_type_same"/>
+
+          <p>
+            <b>Usage notes:</b> Use this function to ensure all return values are positive. This
+            is different than the <codeph>POSITIVE()</codeph> function, which returns its
+            argument unchanged (even if the argument was negative).
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="acos">
+
+        <dt>
+          ACOS(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the arccosine of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="asin">
+
+        <dt>
+          ASIN(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the arcsine of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="atan">
+
+        <dt>
+          ATAN(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the arctangent of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="atan2" rev="2.3.0 IMPALA-1771">
+
+        <dt rev="2.3.0 IMPALA-1771">
+          ATAN2(DOUBLE a, DOUBLE b)
+        </dt>
+
+        <dd rev="2.3.0 IMPALA-1771">
+          <b>Purpose:</b> Returns the arctangent of the two arguments, with the signs of the
+          arguments used to determine the quadrant of the result.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="bin">
+
+        <dt>
+          BIN(BIGINT a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the binary representation of an integer value, that is, a
+          string of 0 and 1 digits.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="ceil">
+
+        <dt rev="1.4.0">
+          CEIL(DOUBLE a), CEIL(DECIMAL(p,s) a), CEILING(DOUBLE a), CEILING(DECIMAL(p,s) a),
+          DCEIL(DOUBLE a), DCEIL(DECIMAL(p,s) a)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the smallest integer that is greater than or equal to the
+          argument.
+          <p>
+            <b>Return type:</b> Same as the input value
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="conv">
+
+        <dt>
+          CONV(BIGINT n, INT from_base, INT to_base), CONV(STRING s, INT from_base, INT to_base)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a string representation of the first argument converted from
+          <codeph>from_base</codeph> to <codeph>to_base</codeph>. The first argument can be
+          specified as a number or a string. For example, <codeph>CONV(100, 2, 10)</codeph> and
+          <codeph>CONV('100', 2, 10)</codeph> both return <codeph>'4'</codeph>.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If <codeph>to_base</codeph> is negative, the first argument is treated as signed,
+            and otherwise, it is treated as unsigned. For example:
+          </p>
+          <ul>
+            <li>
+              <codeph>conv(-17, 10, -2) </codeph>returns <codeph>'-10001'</codeph>,<codeph>
+              -17</codeph> in base 2.
+            </li>
+
+            <li>
+              <codeph>conv(-17, 10, 10)</codeph> returns
+              <codeph>'18446744073709551599'</codeph>. <codeph>-17</codeph> is interpreted as an
+              unsigned, 2^64-17, and then the value is returned in base 10.
+            </li>
+          </ul>
+          <p>
+            The function returns <codeph>NULL</codeph> when the following illegal arguments are
+            specified:
+          </p>
+          <ul>
+            <li>
+              Any argument is <codeph>NULL</codeph>.
+            </li>
+
+            <li>
+              <codeph>from_base</codeph> or <codeph>to_base</codeph> is below
+              <codeph>-36</codeph> or above <codeph>36</codeph>.
+            </li>
+
+            <li>
+              <codeph>from_base</codeph> or <codeph>to_base</codeph> is <codeph>-1</codeph>,
+              <codeph>0</codeph>, or <codeph>1</codeph>.
+            </li>
+
+            <li>
+              The first argument represents a positive number and <codeph>from_base</codeph> is
+              a negative number.
+            </li>
+          </ul>
+          <p>
+            If the first argument represents a negative number and <codeph>from_base</codeph> is
+            a negative number, the function returns <codeph>0</codeph>.
+          </p>
+
+          <p>
+            If the first argument represents a number larger than the maximum
+            <codeph>bigint</codeph>, the function returns:
+          </p>
+          <ul>
+            <li>
+              The string representation of -1 in <codeph>to_base</codeph> if
+              <codeph>to_base</codeph> is negative.
+            </li>
+
+            <li>
+              The string representation of 18446744073709551615' (2^64 - 1) in
+              <codeph>to_base</codeph> if <codeph>to_base</codeph> is positive.
+            </li>
+          </ul>
+          <p>
+            If the first argument does not represent a valid number in
+            <codeph>from_base</codeph>, e.g. 3 in base 2 or '1a23' in base 10, the digits in the
+            first argument are evaluated from left-to-right and used if a valid digit in
+            <codeph>from_base</codeph>. The invalid digit and the digits to the right are
+            ignored.
+          </p>
+
+          <p>
+            For example:
+            <ul>
+              <li>
+                <codeph> conv(445, 5, 10)</codeph> is converted to <codeph>conv(44, 5,
+                10)</codeph> and returns <codeph>'24'</codeph>.
+              </li>
+
+              <li>
+                <codeph> conv('1a23', 10, 16)</codeph> is converted to <codeph>conv('1', 10 ,
+                16)</codeph> and returns <codeph>'1'</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="cos">
+
+        <dt>
+          COS(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the cosine of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="cosh" rev="2.3.0 IMPALA-1771">
+
+        <dt rev="2.3.0 IMPALA-1771">
+          COSH(DOUBLE a)
+        </dt>
+
+        <dd rev="2.3.0 IMPALA-1771">
+          <b>Purpose:</b> Returns the hyperbolic cosine of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="cot" rev="2.3.0 IMPALA-1771">
+
+        <dt rev="2.3.0 IMPALA-1771">
+          COT(DOUBLE a)
+        </dt>
+
+        <dd rev="2.3.0 IMPALA-1771">
+          <b>Purpose:</b> Returns the cotangent of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="degrees">
+
+        <dt>
+          DEGREES(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts argument value from radians to degrees.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="e">
+
+        <dt>
+          E()
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://en.wikipedia.org/wiki/E_(mathematical_constant"
+            scope="external" format="html">mathematical
+          constant e</xref>.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="exp">
+
+        <dt>
+          EXP(DOUBLE a), DEXP(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://en.wikipedia.org/wiki/E_(mathematical_constant"
+            scope="external" format="html">mathematical
+          constant e</xref> raised to the power of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="factorial">
+
+        <dt rev="2.3.0">
+          FACTORIAL(integer_type a)
+        </dt>
+
+        <dd rev="2.3.0">
+          <b>Purpose:</b> Computes the
+          <xref
+            href="https://en.wikipedia.org/wiki/Factorial" scope="external"
+            format="html">factorial</xref>
+          of an integer value. It works with any integer type.
+          <p
+            conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p>
+            <b>Usage notes:</b> You can use either the <codeph>factorial()</codeph> function or
+            the <codeph>!</codeph> operator. The factorial of 0 is 1. Likewise, the
+            <codeph>factorial()</codeph> function returns 1 for any negative value. The maximum
+            positive value for the input argument is 20; a value of 21 or greater overflows the
+            range for a <codeph>BIGINT</codeph> and causes an error.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+<codeblock>select factorial(5);
++--------------+
+| factorial(5) |
++--------------+
+| 120          |
++--------------+
+
+select 5!;
++-----+
+| 5!  |
++-----+
+| 120 |
++-----+
+
+select factorial(0);
++--------------+
+| factorial(0) |
++--------------+
+| 1            |
++--------------+
+
+select factorial(-100);
++-----------------+
+| factorial(-100) |
++-----------------+
+| 1               |
++-----------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="floor">
+
+        <dt>
+          FLOOR(DOUBLE a), FLOOR(DECIMAL(p,s) a), DFLOOR(DOUBLE a), DFLOOR(DECIMAL(p,s) a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the largest integer that is less than or equal to the
+          argument.
+          <p>
+            <b>Return type:</b> Same as the input type
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="fmod">
+
+        <dt>
+          FMOD(DOUBLE a, DOUBLE b), FMOD(FLOAT a, FLOAT b)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the modulus of a floating-point number.
+          <p>
+            <b>Return type:</b> <codeph>FLOAT</codeph> or <codeph>DOUBLE</codeph>, depending on
+            type of arguments
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_111"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Because this function operates on <codeph>DOUBLE</codeph> or <codeph>FLOAT</codeph>
+            values, it is subject to potential rounding errors for values that cannot be
+            represented precisely. Prefer to use whole numbers, or values that you know can be
+            represented precisely by the <codeph>DOUBLE</codeph> or <codeph>FLOAT</codeph>
+            types.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples show equivalent operations with the <codeph>fmod()</codeph>
+            function and the <codeph>%</codeph> arithmetic operator, for values not subject to
+            any rounding error.
+          </p>
+<codeblock>select fmod(10,3);
++-------------+
+| fmod(10, 3) |
++-------------+
+| 1           |
++-------------+
+
+select fmod(5.5,2);
++--------------+
+| fmod(5.5, 2) |
++--------------+
+| 1.5          |
++--------------+
+
+select 10 % 3;
++--------+
+| 10 % 3 |
++--------+
+| 1      |
++--------+
+
+select 5.5 % 2;
++---------+
+| 5.5 % 2 |
++---------+
+| 1.5     |
++---------+
+</codeblock>
+          <p>
+            The following examples show operations with the <codeph>fmod()</codeph> function for
+            values that cannot be represented precisely by the <codeph>DOUBLE</codeph> or
+            <codeph>FLOAT</codeph> types, and thus are subject to rounding error.
+            <codeph>fmod(9.9,3.0)</codeph> returns a value slightly different than the expected
+            0.9 because of rounding. <codeph>fmod(9.9,3.3)</codeph> returns a value quite
+            different from the expected value of 0 because of rounding error during intermediate
+            calculations.
+          </p>
+<codeblock>select fmod(9.9,3.0);
++--------------------+
+| fmod(9.9, 3.0)     |
++--------------------+
+| 0.8999996185302734 |
++--------------------+
+
+select fmod(9.9,3.3);
++-------------------+
+| fmod(9.9, 3.3)    |
++-------------------+
+| 3.299999713897705 |
++-------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.2.2" id="fnv_hash">
+
+        <dt rev="1.2.2">
+          FNV_HASH(type v),
+        </dt>
+
+        <dd rev="1.2.2">
+          <b>Purpose:</b> Returns a consistent 64-bit value derived from the input argument, for
+          convenience of implementing hashing logic in an application.
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            You might use the return value in an application where you perform load balancing,
+            bucketing, or some other technique to divide processing or storage.
+          </p>
+
+          <p>
+            Because the result can be any 64-bit value, to restrict the value to a particular
+            range, you can use an expression that includes the <codeph>ABS()</codeph> function
+            and the <codeph>%</codeph> (modulo) operator. For example, to produce a hash value
+            in the range 0-9, you could use the expression <codeph>ABS(FNV_HASH(x)) %
+            10</codeph>.
+          </p>
+
+          <p>
+            This function implements the same algorithm that Impala uses internally for hashing,
+            on systems where the CRC32 instructions are not available.
+          </p>
+
+          <p>
+            This function implements the
+            <xref
+              href="http://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function"
+              scope="external" format="html">Fowler–Noll–Vo
+            hash function</xref>, in particular the FNV-1a variation. This is not a perfect hash
+            function: some combinations of values could produce the same result value. It is not
+            suitable for cryptographic use.
+          </p>
+
+          <p>
+            Similar input values of different types could produce different hash values, for
+            example the same numeric value represented as <codeph>SMALLINT</codeph> or
+            <codeph>BIGINT</codeph>, <codeph>FLOAT</codeph> or <codeph>DOUBLE</codeph>, or
+            <codeph>DECIMAL(5,2)</codeph> or <codeph>DECIMAL(20,5)</codeph>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+<codeblock>[localhost:21000] &gt; create table h (x int, s string);
+[localhost:21000] &gt; insert into h values (0, 'hello'), (1,'world'), (1234567890,'antidisestablishmentarianism');
+[localhost:21000] &gt; select x, fnv_hash(x) from h;
++------------+----------------------+
+| x          | fnv_hash(x)          |
++------------+----------------------+
+| 0          | -2611523532599129963 |
+| 1          | 4307505193096137732  |
+| 1234567890 | 3614724209955230832  |
++------------+----------------------+
+[localhost:21000] &gt; select s, fnv_hash(s) from h;
++------------------------------+---------------------+
+| s                            | fnv_hash(s)         |
++------------------------------+---------------------+
+| hello                        | 6414202926103426347 |
+| world                        | 6535280128821139475 |
+| antidisestablishmentarianism | -209330013948433970 |
++------------------------------+---------------------+
+[localhost:21000] &gt; select s, abs(fnv_hash(s)) % 10 from h;
++------------------------------+-------------------------+
+| s                            | abs(fnv_hash(s)) % 10.0 |
++------------------------------+-------------------------+
+| hello                        | 8                       |
+| world                        | 6                       |
+| antidisestablishmentarianism | 4                       |
++------------------------------+-------------------------+</codeblock>
+          <p>
+            For short argument values, the high-order bits of the result have relatively low
+            entropy:
+          </p>
+<codeblock>[localhost:21000] &gt; create table b (x boolean);
+[localhost:21000] &gt; insert into b values (true), (true), (false), (false);
+[localhost:21000] &gt; select x, fnv_hash(x) from b;
++-------+---------------------+
+| x     | fnv_hash(x)         |
++-------+---------------------+
+| true  | 2062020650953872396 |
+| true  | 2062020650953872396 |
+| false | 2062021750465500607 |
+| false | 2062021750465500607 |
++-------+---------------------+</codeblock>
+          <p>
+            <b>Added in:</b> Impala 1.2.2
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="greatest">
+
+        <dt rev="1.4.0">
+          GREATEST(BIGINT a[, BIGINT b ...]), GREATEST(DOUBLE a[, DOUBLE b ...]),
+          GREATEST(DECIMAL(p,s) a[, DECIMAL(p,s) b ...]), GREATEST(STRING a[, STRING b ...]),
+          GREATEST(TIMESTAMP a[, TIMESTAMP b ...])
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the largest value from a list of expressions.
+          <p conref="../shared/impala_common.xml#common/return_same_type"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="hex">
+
+        <dt>
+          HEX(BIGINT a), HEX(STRING a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the hexadecimal representation of an integer value, or of the
+          characters in a string.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="is_inf">
+
+        <dt rev="1.4.0">
+          IS_INF(DOUBLE a)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Tests whether a value is equal to the special value <q>inf</q>,
+          signifying infinity.
+          <p>
+            <b>Return type:</b> <codeph>BOOLEAN</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/infinity_and_nan"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="is_nan">
+
+        <dt rev="1.4.0">
+          IS_NAN(DOUBLE a)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Tests whether a value is equal to the special value <q>NaN</q>,
+          signifying <q>not a number</q>.
+          <p>
+            <b>Return type:</b> <codeph>BOOLEAN</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/infinity_and_nan"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="least">
+
+        <dt rev="1.4.0">
+          LEAST(BIGINT a[, BIGINT b ...]), LEAST(DOUBLE a[, DOUBLE b ...]), LEAST(DECIMAL(p,s)
+          a[, DECIMAL(p,s) b ...]), LEAST(STRING a[, STRING b ...]), LEAST(TIMESTAMP a[,
+          TIMESTAMP b ...])
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the smallest value from a list of expressions.
+          <p conref="../shared/impala_common.xml#common/return_same_type"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="ln">
+
+        <dt>
+          LN(DOUBLE a), DLOG1(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://en.wikipedia.org/wiki/Natural_logarithm"
+            scope="external" format="html">natural
+          logarithm</xref> of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="log">
+
+        <dt>
+          LOG(DOUBLE base, DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the logarithm of the second argument to the specified base.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="log10">
+
+        <dt>
+          LOG10(DOUBLE a), DLOG10(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the logarithm of the argument to the base 10.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="log2">
+
+        <dt>
+          LOG2(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the logarithm of the argument to the base 2.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="max_int">
+
+        <dt rev="1.4.0">
+          MAX_INT(), MAX_TINYINT(), MAX_SMALLINT(), MAX_BIGINT()
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the largest value of the associated integral type.
+          <p>
+            <b>Return type:</b> The same as the integral type being checked.
+          </p>
+
+          <p>
+            <b>Usage notes:</b> Use the corresponding <codeph>min_</codeph> and
+            <codeph>max_</codeph> functions to check if all values in a column are within the
+            allowed range, before copying data or altering column definitions. If not, switch to
+            the next higher integral type or to a <codeph>DECIMAL</codeph> with sufficient
+            precision.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="min_int">
+
+        <dt rev="1.4.0">
+          MIN_INT(), MIN_TINYINT(), MIN_SMALLINT(), MIN_BIGINT()
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the smallest value of the associated integral type (a negative
+          number).
+          <p>
+            <b>Return type:</b> The same as the integral type being checked.
+          </p>
+
+          <p>
+            <b>Usage notes:</b> Use the corresponding <codeph>min_</codeph> and
+            <codeph>max_</codeph> functions to check if all values in a column are within the
+            allowed range, before copying data or altering column definitions. If not, switch to
+            the next higher integral type or to a <codeph>DECIMAL</codeph> with sufficient
+            precision.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="mod" rev="2.2.0">
+
+        <dt rev="2.2.0">
+          MOD(numeric_type a, same_type b)
+        </dt>
+
+        <dd rev="2.2.0">
+          <b>Purpose:</b> Returns the modulus of a number. Equivalent to the <codeph>%</codeph>
+          arithmetic operator. Works with any size integer type, any size floating-point type,
+          and <codeph>DECIMAL</codeph> with any precision and scale.
+          <p
+            conref="../shared/impala_common.xml#common/return_type_same"/>
+
+          <p conref="../shared/impala_common.xml#common/added_in_220"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Because this function works with <codeph>DECIMAL</codeph> values, prefer it over
+            <codeph>fmod()</codeph> when working with fractional values. It is not subject to
+            the rounding errors that make <codeph>fmod()</codeph> problematic with
+            floating-point numbers.
+          </p>
+
+          <p rev="IMPALA-6202">
+            Query plans shows the <codeph>MOD()</codeph> function as the <codeph>%</codeph>
+            operator.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples show how the <codeph>mod()</codeph> function works for whole
+            numbers and fractional values, and how the <codeph>%</codeph> operator works the
+            same way. In the case of <codeph>mod(9.9,3)</codeph>, the type conversion for the
+            second argument results in the first argument being interpreted as
+            <codeph>DOUBLE</codeph>, so to produce an accurate <codeph>DECIMAL</codeph> result
+            requires casting the second argument or writing it as a <codeph>DECIMAL</codeph>
+            literal, 3.0.
+          </p>
+<codeblock>select mod(10,3);
++-------------+
+| mod(10, 3) |
++-------------+
+| 1           |
++-------------+
+
+select mod(5.5,2);
++--------------+
+| mod(5.5, 2) |
++--------------+
+| 1.5          |
++--------------+
+
+select 10 % 3;
++--------+
+| 10 % 3 |
++--------+
+| 1      |
++--------+
+
+select 5.5 % 2;
++---------+
+| 5.5 % 2 |
++---------+
+| 1.5     |
++---------+
+
+select mod(9.9,3.3);
++---------------+
+| mod(9.9, 3.3) |
++---------------+
+| 0.0           |
++---------------+
+
+select mod(9.9,3);
++--------------------+
+| mod(9.9, 3)        |
++--------------------+
+| 0.8999996185302734 |
++--------------------+
+
+select mod(9.9, cast(3 as decimal(2,1)));
++-----------------------------------+
+| mod(9.9, cast(3 as decimal(2,1))) |
++-----------------------------------+
+| 0.9                               |
++-----------------------------------+
+
+select mod(9.9,3.0);
++---------------+
+| mod(9.9, 3.0) |
++---------------+
+| 0.9           |
++---------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="murmur_hash" rev="IMPALA-3651 2.12.0">
+
+        <dt rev="2.12.0">
+          MURMUR_HASH(type v)
+        </dt>
+
+        <dd rev="2.12.0">
+          <b>Purpose:</b> Returns a consistent 64-bit value derived from the input argument, for
+          convenience of implementing <xref
+            keyref="MurmurHash"> MurmurHash2</xref>
+          non-cryptographic hash function.
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            You might use the return value in an application where you perform load balancing,
+            bucketing, or some other technique to divide processing or storage. This function
+            provides a good performance for all kinds of keys such as number, ascii string and
+            UTF-8. It can be recommended as general-purpose hashing function.
+          </p>
+
+          <p>
+            Regarding comparison of murmur_hash with fnv_hash, murmur_hash is based on Murmur2
+            hash algorithm and fnv_hash function is based on FNV-1a hash algorithm. Murmur2 and
+            FNV-1a can show very good randomness and performance compared with well known other
+            hash algorithms, but Murmur2 slightly show better randomness and performance than
+            FNV-1a. See
+            <xref keyref="hash_functions1"
+              >[1]</xref><xref keyref="hash_functions2">[2]</xref><xref
+              keyref="hash_functions1">[3]</xref>
+            for details.
+          </p>
+
+          <p>
+            Similar input values of different types could produce different hash values, for
+            example the same numeric value represented as <codeph>SMALLINT</codeph> or
+            <codeph>BIGINT</codeph>, <codeph>FLOAT</codeph> or <codeph>DOUBLE</codeph>, or
+            <codeph>DECIMAL(5,2)</codeph> or <codeph>DECIMAL(20,5)</codeph>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+<codeblock>[localhost:21000] &gt; create table h (x int, s string);
+[localhost:21000] &gt; insert into h values (0, 'hello'), (1,'world'), (1234567890,'antidisestablishmentarianism');
+[localhost:21000] &gt; select x, murmur_hash(x) from h;
++------------+----------------------+
+| x          | murmur_hash(x)       |
++------------+----------------------+
+| 0          | 6960269033020761575  |
+| 1          | -780611581681153783  |
+| 1234567890 | -5754914572385924334 |
++------------+----------------------+
+[localhost:21000] &gt; select s, murmur_hash(s) from h;
++------------------------------+----------------------+
+| s                            | murmur_hash(s)       |
++------------------------------+----------------------+
+| hello                        | 2191231550387646743  |
+| world                        | 5568329560871645431  |
+| antidisestablishmentarianism | -2261804666958489663 |
++------------------------------+----------------------+ </codeblock>
+          <p>
+            For short argument values, the high-order bits of the result have relatively higher
+            entropy than fnv_hash:
+          </p>
+<codeblock>[localhost:21000] &gt; create table b (x boolean);
+[localhost:21000] &gt; insert into b values (true), (true), (false), (false);
+[localhost:21000] &gt; select x, murmur_hash(x) from b;
++-------+----------------------+
+| x     | murmur_hash(x)       |
++-------+---------------------++
+| true  | -5720937396023583481 |
+| true  | -5720937396023583481 |
+| false | 6351753276682545529  |
+| false | 6351753276682545529  |
++-------+--------------------+-+</codeblock>
+          <p>
+            <b>Added in:</b> Impala 2.12.0
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="negative">
+
+        <dt rev="2.0.1">
+          NEGATIVE(numeric_type a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument with the sign reversed; returns a positive value
+          if the argument was already negative.
+          <p rev="2.0.1"
+            conref="../shared/impala_common.xml#common/return_type_same"/>
+
+          <p>
+            <b>Usage notes:</b> Use <codeph>-ABS(a)</codeph> instead if you need to ensure all
+            return values are negative.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="pi">
+
+        <dt rev="1.4.0">
+          PI()
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the constant pi.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="pmod">
+
+        <dt>
+          PMOD(BIGINT a, BIGINT b), PMOD(DOUBLE a, DOUBLE b)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the positive modulus of a number. Primarily for
+          <xref href="https://issues.apache.org/jira/browse/HIVE-656"
+            scope="external" format="html">HiveQL
+          compatibility</xref>.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph> or <codeph>DOUBLE</codeph>, depending on
+            type of arguments
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples show how the <codeph>FMOD()</codeph> function sometimes
+            returns a negative value depending on the sign of its arguments, and the
+            <codeph>PMOD()</codeph> function returns the same value as <codeph>FMOD()</codeph>,
+            but sometimes with the sign flipped.
+          </p>
+<codeblock>select fmod(-5,2);
++-------------+
+| fmod(-5, 2) |
++-------------+
+| -1          |
++-------------+
+
+select pmod(-5,2);
++-------------+
+| pmod(-5, 2) |
++-------------+
+| 1           |
++-------------+
+
+select fmod(-5,-2);
++--------------+
+| fmod(-5, -2) |
++--------------+
+| -1           |
++--------------+
+
+select pmod(-5,-2);
++--------------+
+| pmod(-5, -2) |
++--------------+
+| -1           |
++--------------+
+
+select fmod(5,-2);
++-------------+
+| fmod(5, -2) |
++-------------+
+| 1           |
++-------------+
+
+select pmod(5,-2);
++-------------+
+| pmod(5, -2) |
++-------------+
+| -1          |
++-------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="positive">
+
+        <dt rev="2.0.1">
+          POSITIVE(numeric_type a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the original argument unchanged (even if the argument is
+          negative).
+          <p rev="2.0.1"
+            conref="../shared/impala_common.xml#common/return_type_same"/>
+
+          <p>
+            <b>Usage notes:</b> Use <codeph>ABS()</codeph> instead if you need to ensure all
+            return values are positive.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="pow">
+
+        <dt rev="1.4.0">
+          POW(DOUBLE a, DOUBLE p), POWER(DOUBLE a, DOUBLE p), DPOW(DOUBLE a, DOUBLE p),
+          FPOW(DOUBLE a, DOUBLE p)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Returns the first argument raised to the power of the second argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="precision">
+
+        <dt rev="1.4.0">
+          PRECISION(numeric_expression)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Computes the precision (number of decimal digits) needed to represent
+          the type of the argument expression as a <codeph>DECIMAL</codeph> value.
+          <p
+            conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Typically used in combination with the <codeph>SCALE()</codeph> function, to
+            determine the appropriate
+            <codeph>DECIMAL(<varname>precision</varname>,<varname>scale</varname>)</codeph> type
+            to declare in a <codeph>CREATE TABLE</codeph> statement or <codeph>CAST()</codeph>
+            function.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/precision_scale_example"
+          />
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="quotient">
+
+        <dt>
+          QUOTIENT(BIGINT numerator, BIGINT denominator), QUOTIENT(DOUBLE numerator, DOUBLE
+          denominator)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the first argument divided by the second argument, discarding
+          any fractional part. Avoids promoting integer arguments to <codeph>DOUBLE</codeph> as
+          happens with the <codeph>/</codeph> SQL operator. <ph rev="IMPALA-278">Also includes
+          an overload that accepts <codeph>DOUBLE</codeph> arguments, discards the fractional
+          part of each argument value before dividing, and again returns
+          <codeph>BIGINT</codeph>. With integer arguments, this function works the same as the
+          <codeph>DIV</codeph> operator.</ph>
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="radians">
+
+        <dt>
+          RADIANS(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts argument value from degrees to radians.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="rand">
+
+        <dt>
+          RAND(), RAND(BIGINT seed), RANDOME(), RANDOME(BIGINT seed)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a random value between 0 and 1. After <codeph>RAND()</codeph>
+          is called with a seed argument, it produces a consistent random sequence based on the
+          seed value.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b> Currently, the random sequence is reset after each query, and
+            multiple calls to <codeph>RAND()</codeph> within the same query return the same
+            value each time. For different number sequences that are different for each query,
+            pass a unique seed value to each call to <codeph>RAND()</codeph>. For example,
+            <codeph>SELECT RAND(UNIX_TIMESTAMP()) FROM ...</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples show how <codeph>rand()</codeph> can produce sequences of
+            varying predictability, so that you can reproduce query results involving random
+            values or generate unique sequences of random values for each query. When
+            <codeph>rand()</codeph> is called with no argument, it generates the same sequence
+            of values each time, regardless of the ordering of the result set. When
+            <codeph>rand()</codeph> is called with a constant integer, it generates a different
+            sequence of values, but still always the same sequence for the same seed value. If
+            you pass in a seed value that changes, such as the return value of the expression
+            <codeph>unix_timestamp(now())</codeph>, each query will use a different sequence of
+            random values, potentially more useful in probability calculations although more
+            difficult to reproduce at a later time. Therefore, the final two examples with an
+            unpredictable seed value also include the seed in the result set, to make it
+            possible to reproduce the same random sequence later.
+          </p>
+<codeblock>select x, rand() from three_rows;
++---+-----------------------+
+| x | rand()                |
++---+-----------------------+
+| 1 | 0.0004714746030380365 |
+| 2 | 0.5895895192351144    |
+| 3 | 0.4431900859080209    |
++---+-----------------------+
+
+select x, rand() from three_rows order by x desc;
++---+-----------------------+
+| x | rand()                |
++---+-----------------------+
+| 3 | 0.0004714746030380365 |
+| 2 | 0.5895895192351144    |
+| 1 | 0.4431900859080209    |
++---+-----------------------+
+
+select x, rand(1234) from three_rows order by x;
++---+----------------------+
+| x | rand(1234)           |
++---+----------------------+
+| 1 | 0.7377511392057646   |
+| 2 | 0.009428468537250751 |
+| 3 | 0.208117277924026    |
++---+----------------------+
+
+select x, rand(1234) from three_rows order by x desc;
++---+----------------------+
+| x | rand(1234)           |
++---+----------------------+
+| 3 | 0.7377511392057646   |
+| 2 | 0.009428468537250751 |
+| 1 | 0.208117277924026    |
++---+----------------------+
+
+select x, unix_timestamp(now()), rand(unix_timestamp(now()))
+  from three_rows order by x;
++---+-----------------------+-----------------------------+
+| x | unix_timestamp(now()) | rand(unix_timestamp(now())) |
++---+-----------------------+-----------------------------+
+| 1 | 1440777752            | 0.002051228658320023        |
+| 2 | 1440777752            | 0.5098743483004506          |
+| 3 | 1440777752            | 0.9517714925817081          |
++---+-----------------------+-----------------------------+
+
+select x, unix_timestamp(now()), rand(unix_timestamp(now()))
+  from three_rows order by x desc;
++---+-----------------------+-----------------------------+
+| x | unix_timestamp(now()) | rand(unix_timestamp(now())) |
++---+-----------------------+-----------------------------+
+| 3 | 1440777761            | 0.9985985015512437          |
+| 2 | 1440777761            | 0.3251255333074953          |
+| 1 | 1440777761            | 0.02422675025846192         |
++---+-----------------------+-----------------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="round">
+
+        <dt>
+          ROUND(DOUBLE a), ROUND(DOUBLE a, INT d), ROUND(DECIMAL a, int_type d), DROUND(DOUBLE
+          a), DROUND(DOUBLE a, INT d), DROUND(DECIMAL(p,s) a, int_type d)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Rounds a floating-point value. By default (with a single argument),
+          rounds to the nearest integer. Values ending in .5 are rounded up for positive
+          numbers, down for negative numbers (that is, away from zero). The optional second
+          argument specifies how many digits to leave after the decimal point; values greater
+          than zero produce a floating-point return value rounded to the requested number of
+          digits to the right of the decimal point.
+          <p rev="1.4.0">
+            <b>Return type:</b> Same as the input type
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="scale">
+
+        <dt rev="1.4.0">
+          SCALE(numeric_expression)
+        </dt>
+
+        <dd rev="1.4.0">
+          <b>Purpose:</b> Computes the scale (number of decimal digits to the right of the
+          decimal point) needed to represent the type of the argument expression as a
+          <codeph>DECIMAL</codeph> value.
+          <p
+            conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Typically used in combination with the <codeph>PRECISION()</codeph> function, to
+            determine the appropriate
+            <codeph>DECIMAL(<varname>precision</varname>,<varname>scale</varname>)</codeph> type
+            to declare in a <codeph>CREATE TABLE</codeph> statement or <codeph>CAST()</codeph>
+            function.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/precision_scale_example"
+          />
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="sign">
+
+        <dt>
+          SIGN(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns -1, 0, or 1 to indicate the signedness of the argument value.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="sin">
+
+        <dt>
+          SIN(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the sine of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="sinh" rev="2.3.0 IMPALA-1771">
+
+        <dt rev="2.3.0 IMPALA-1771">
+          SINH(DOUBLE a)
+        </dt>
+
+        <dd rev="2.3.0 IMPALA-1771">
+          <b>Purpose:</b> Returns the hyperbolic sine of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="sqrt">
+
+        <dt>
+          SQRT(DOUBLE a), DSQRT(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the square root of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="tan">
+
+        <dt>
+          TAN(DOUBLE a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the tangent of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="tanh" rev="2.3.0 IMPALA-1771">
+
+        <dt rev="2.3.0 IMPALA-1771">
+          TANH(DOUBLE a)
+        </dt>
+
+        <dd rev="2.3.0 IMPALA-1771">
+          <b>Purpose:</b> Returns the hyperbolic tangent of the argument.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="truncate">
+
+        <dt rev="2.3.0">
+          TRUNCATE(DOUBLE_or_DECIMAL a[, digits_to_leave]), DTRUNC(DOUBLE_or_DECIMAL a[,
+          digits_to_leave]), TRUNC(DOUBLE_or_DECIMAL a[, digits_to_leave])
+        </dt>
+
+        <dd rev="2.3.0">
+          <b>Purpose:</b> Removes some or all fractional digits from a numeric value.
+          <p>
+            <b>Arguments:</b> With a single floating-point argument, removes all fractional
+            digits, leaving an integer value. The optional second argument specifies the number
+            of fractional digits to include in the return value, and only applies when the
+            argument type is <codeph>DECIMAL</codeph>. A second argument of 0 truncates to a
+            whole integer value. A second argument of negative N sets N digits to 0 on the left
+            side of the decimal
+          </p>
+
+          <p rev="2.10.0 IMPALA-5529">
+            <b>Scale argument:</b> The scale argument applies only when truncating
+            <codeph>DECIMAL</codeph> values. It is an integer specifying how many significant
+            digits to leave to the right of the decimal point. A scale argument of 0 truncates
+            to a whole integer value. A scale argument of negative N sets N digits to 0 on the
+            left side of the decimal point.
+          </p>
+
+          <p>
+            <codeph>TRUNCATE()</codeph>, <codeph>DTRUNC()</codeph>,
+            <ph
+              rev="2.10.0 IMPALA-5529">and <codeph>TRUNC()</codeph></ph> are
+            aliases for the same function.
+          </p>
+
+          <p>
+            <b>Return type:</b> Same as the input type
+          </p>
+
+          <p>
+            <b>Added in:</b> The <codeph>TRUNC()</codeph> alias was added in
+            <keyword keyref="impala210_full"/>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p rev="2.10.0 IMPALA-5529">
+            You can also pass a <codeph>DOUBLE</codeph> argument, or <codeph>DECIMAL</codeph>
+            argument with optional scale, to the <codeph>DTRUNC()</codeph> or
+            <codeph>TRUNCATE</codeph> functions. Using the <codeph>TRUNC()</codeph> function for
+            numeric values is common with other industry-standard database systems, so you might
+            find such <codeph>TRUNC()</codeph> calls in code that you are porting to Impala.
+          </p>
+
+          <p>
+            The <codeph>TRUNC()</codeph> function also has a signature that applies to
+            <codeph>TIMESTAMP</codeph> values. See
+            <xref
+              keyref="datetime_functions"/> for details.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples demonstrate the <codeph>TRUNCATE()</codeph> and
+            <codeph>DTRUNC()</codeph> signatures for this function:
+          </p>
+<codeblock>select truncate(3.45);
++----------------+
+| truncate(3.45) |
++----------------+
+| 3              |
++----------------+
+
+select truncate(-3.45);
++-----------------+
+| truncate(-3.45) |
++-----------------+
+| -3              |
++-----------------+
+
+select truncate(3.456,1);
++--------------------+
+| truncate(3.456, 1) |
++--------------------+
+| 3.4                |
++--------------------+
+
+select dtrunc(3.456,1);
++------------------+
+| dtrunc(3.456, 1) |
++------------------+
+| 3.4              |
++------------------+
+
+select truncate(3.456,2);
++--------------------+
+| truncate(3.456, 2) |
++--------------------+
+| 3.45               |
++--------------------+
+
+select truncate(3.456,7);
++--------------------+
+| truncate(3.456, 7) |
++--------------------+
+| 3.4560000          |
++--------------------+
+</codeblock>
+          <p rev="2.10.0 IMPALA-5529">
+            The following examples demonstrate using <codeph>trunc()</codeph> with
+            <codeph>DECIMAL</codeph> or <codeph>DOUBLE</codeph> values, and with an optional
+            scale argument for <codeph>DECIMAL</codeph> values. (The behavior is the same for
+            the <codeph>truncate()</codeph> and <codeph>dtrunc()</codeph> aliases also.)
+          </p>
+<codeblock rev="2.10.0 IMPALA-5529">
+create table t1 (d decimal(20,7));
+
+-- By default, no digits to the right of the decimal point.
+insert into t1 values (1.1), (2.22), (3.333), (4.4444), (5.55555);
+select trunc(d) from t1 order by d;
++----------+
+| trunc(d) |
++----------+
+| 1        |
+| 2        |
+| 3        |
+| 4        |
+| 5        |
++----------+
+
+-- 1 digit to the right of the decimal point.
+select trunc(d,1) from t1 order by d;
++-------------+
+| trunc(d, 1) |
++-------------+
+| 1.1         |
+| 2.2         |
+| 3.3         |
+| 4.4         |
+| 5.5         |
++-------------+
+
+-- 2 digits to the right of the decimal point,
+-- including trailing zeroes if needed.
+select trunc(d,2) from t1 order by d;
++-------------+
+| trunc(d, 2) |
++-------------+
+| 1.10        |
+| 2.22        |
+| 3.33        |
+| 4.44        |
+| 5.55        |
++-------------+
+
+insert into t1 values (9999.9999), (8888.8888);
+
+-- Negative scale truncates digits to the left
+-- of the decimal point.
+select trunc(d,-2) from t1 where d > 100 order by d;
++--------------+
+| trunc(d, -2) |
++--------------+
+| 8800         |
+| 9900         |
++--------------+
+
+-- The scale of the result is adjusted to match the
+-- scale argument.
+select trunc(d,2),
+  precision(trunc(d,2)) as p,
+  scale(trunc(d,2)) as s
+from t1 order by d;
++-------------+----+---+
+| trunc(d, 2) | p  | s |
++-------------+----+---+
+| 1.10        | 15 | 2 |
+| 2.22        | 15 | 2 |
+| 3.33        | 15 | 2 |
+| 4.44        | 15 | 2 |
+| 5.55        | 15 | 2 |
+| 8888.88     | 15 | 2 |
+| 9999.99     | 15 | 2 |
++-------------+----+---+
+</codeblock>
+<codeblock rev="2.10.0 IMPALA-5529">
+create table dbl (d double);
+
+insert into dbl values
+  (1.1), (2.22), (3.333), (4.4444), (5.55555),
+  (8888.8888), (9999.9999);
+
+-- With double values, there is no optional scale argument.
+select trunc(d) from dbl order by d;
++----------+
+| trunc(d) |
++----------+
+| 1        |
+| 2        |
+| 3        |
+| 4        |
+| 5        |
+| 8888     |
+| 9999     |
++----------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="unhex">
+
+        <dt>
+          UNHEX(STRING a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a string of characters with ASCII values corresponding to
+          pairs of hexadecimal digits in the argument.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="width_bucket">
+
+        <dt>
+          WIDTH_BUCKET(DECIMAL expr, DECIMAL min_value, DECIMAL max_value, INT num_buckets)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the bucket number in which the <codeph>expr</codeph> value
+          would fall in the histogram where its range between <codeph>min_value</codeph> and
+          <codeph>max_value</codeph> is divided into <codeph>num_buckets</codeph> buckets of
+          identical sizes.
+        </dd>
+
+        <dd>
+          The function returns:
+          <ul>
+            <li>
+              <codeph>NULL</codeph> if any argument is <codeph>NULL</codeph>.
+            </li>
+
+            <li>
+              <codeph>0</codeph> if <codeph>expr</codeph> &lt; <codeph>min_value</codeph>.
+            </li>
+
+            <li>
+              <codeph>num_buckets + 1</codeph> if <codeph>expr</codeph> >=
+              <codeph>max_val</codeph>.
+            </li>
+
+            <li>
+              If none of the above, the bucket number where <codeph>expr</codeph> falls.
+            </li>
+          </ul>
+          <p>
+            <b>Arguments:</b>The following rules apply to the arguments.
+            <ul>
+              <li>
+                <codeph>min_val</codeph> is the minimum value of the histogram range.
+              </li>
+
+              <li>
+                <codeph>max_val</codeph> is the maximum value of the histogram range.
+              </li>
+
+              <li>
+                <codeph>num_buckets</codeph> must be greater than <codeph>0</codeph>.
+              </li>
+
+              <li>
+                <codeph>min_value</codeph> must be less than <codeph>max_value</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            Each bucket contains values equal to or greater than the base value of that bucket
+            and less than the base value of the next bucket. For example, with
+            <codeph>width_bucket(8, 1, 10, 3)</codeph>, the bucket ranges are actually the 0th
+            "underflow bucket" with the range (-infinity to 0.999...), (1 to 3.999...), (4, to
+            6.999...), (7 to 9.999...), and the "overflow bucket" with the range (10 to
+            infinity).
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+
+          <p>
+            <b>Added in:</b> <keyword keyref="impala31"/>.
+          </p>
+
+          <p>
+            <b>Examples:</b>
+          </p>
+
+          <p>
+            The below function creates <codeph>3</codeph> buckets between the range of
+            <codeph>1</codeph> and <codeph>20</codeph> with the bucket width of 6.333, and
+            returns <codeph>2</codeph> for the bucket #2 where the value <codeph>8</codeph>
+            falls in:
+<codeblock>width_bucket(8, 1, 20, 3)</codeblock>
+          </p>
+
+          <p>
+            The below statement returns a list of accounts with the energy spending and the
+            spending bracket each account falls in, between 0 and 11. Bucket 0 (underflow
+            bucket) will be assigned to the accounts whose energy spendings are less than $50.
+            Bucket 11 (overflow bucket) will be assigned to the accounts whose energy spendings
+            are more than or equal to $1000.
+          </p>
+<codeblock>SELECT account, invoice_amount, WIDTH_BUCKET(invoice_amount,50,1000,10)
+FROM invoices_june2018
+ORDER BY 3;</codeblock>
+        </dd>
+
+      </dlentry>
+    </dl>
+
+  </conbody>
+
+</concept>

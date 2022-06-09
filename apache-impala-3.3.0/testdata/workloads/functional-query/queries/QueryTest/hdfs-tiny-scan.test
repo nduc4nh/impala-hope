@@ -1,0 +1,26 @@
+====
+---- QUERY
+select * from tinytable
+---- TYPES
+string, string
+---- RESULTS
+'aaaaaaa','bbbbbbb'
+'ccccc','dddd'
+'eeeeeeee','f'
+====
+---- QUERY
+select a from tinytable
+---- TYPES
+string
+---- RESULTS
+'aaaaaaa'
+'ccccc'
+'eeeeeeee'
+====
+---- QUERY
+select count(*) from alltypessmall
+---- TYPES
+bigint
+---- RESULTS
+100
+====

@@ -1,0 +1,1274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <parent>
+    <groupId>org.apache.impala</groupId>
+    <artifactId>impala-parent</artifactId>
+    <version>0.1-SNAPSHOT</version>
+    <relativePath>../impala-parent/pom.xml</relativePath>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.apache.impala</groupId>
+  <artifactId>impala-frontend</artifactId>
+  <version>0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Apache Impala Query Engine Frontend</name>
+
+  <dependencies>
+    <!-- Force json-smart dependency.
+         See https://issues.apache.org/jira/browse/HADOOP-14903 -->
+    <dependency>
+      <groupId>net.minidev</groupId>
+      <artifactId>json-smart</artifactId>
+      <version>2.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.impala</groupId>
+      <artifactId>query-event-hook-api</artifactId>
+      <version>${impala.query.event.hook.api.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.impala</groupId>
+      <artifactId>impala-data-source-api</artifactId>
+      <version>${impala.extdatasrc.api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-hdfs</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-hdfs-client</artifactId>
+      <version>${hadoop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-auth</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-aws</artifactId>
+      <version>${hadoop.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-azure</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-azure-datalake</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ranger</groupId>
+      <artifactId>ranger-plugins-common</artifactId>
+      <version>${ranger.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.sun.jersey</groupId>
+          <artifactId>jersey-bundle</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.ranger</groupId>
+      <artifactId>ranger-plugins-audit</artifactId>
+      <version>${ranger.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.kafka</groupId>
+          <artifactId>kafka_2.11</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- this is needed by ranger-plugins-audit -->
+    <dependency>
+      <groupId>javax.mail</groupId>
+      <artifactId>mail</artifactId>
+      <version>1.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-core-common</artifactId>
+      <version>${sentry.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.impala</groupId>
+      <artifactId>yarn-extras</artifactId>
+      <version>${yarn-extras.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-core-model-db</artifactId>
+      <version>${sentry.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-provider-common</artifactId>
+      <version>${sentry.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-provider-db</artifactId>
+      <version>${sentry.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hive.hcatalog</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>ant-contrib</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-provider-file</artifactId>
+      <version>${sentry.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-provider-cache</artifactId>
+      <version>${sentry.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>ant-contrib</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-policy-common</artifactId>
+      <version>${sentry.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-binding-hive</artifactId>
+      <version>${sentry.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hive.hcatalog</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-policy-engine</artifactId>
+      <version>${sentry.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.sentry</groupId>
+      <artifactId>sentry-service-api</artifactId>
+      <version>${sentry.version}</version>
+      <exclusions>
+        <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>json-smart</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.parquet</groupId>
+      <artifactId>parquet-hadoop-bundle</artifactId>
+      <version>${parquet.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-client</artifactId>
+      <version>${hbase.version}</version>
+       <exclusions>
+         <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+         <exclusion>
+           <groupId>net.minidev</groupId>
+           <artifactId>json-smart</artifactId>
+         </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-common</artifactId>
+      <version>${hbase.version}</version>
+       <exclusions>
+         <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+         <exclusion>
+           <groupId>net.minidev</groupId>
+           <artifactId>json-smart</artifactId>
+         </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-protocol</artifactId>
+      <version>${hbase.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-lang</groupId>
+      <artifactId>commons-lang</artifactId>
+      <version>2.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>net.sourceforge.czt.dev</groupId>
+      <artifactId>java-cup</artifactId>
+      <version>0.11-a-czt02-cdh</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.thrift</groupId>
+      <artifactId>libthrift</artifactId>
+      <version>${thrift.version}</version>
+      <!-- httpcore overriden below -->
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpcore</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Override httpcore from libthrift to a later maintenance version. Noticed
+        certain SPNEGO auth errors when connecting to kerberized HTTP endpoints
+        using v4.4.1 pulled by libthrift. -->
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
+      <version>${httpcomponents.core.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.kudu</groupId>
+      <artifactId>kudu-client</artifactId>
+      <version>${kudu.version}</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.postgresql/postgresql -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${postgres.jdbc.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr-runtime</artifactId>
+      <version>3.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-cli</groupId>
+      <artifactId>commons-cli</artifactId>
+      <version>1.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+    </dependency>
+
+    <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>2.3.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>org.ehcache</groupId>
+        <artifactId>sizeof</artifactId>
+        <version>0.3.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.googlecode.json-simple</groupId>
+      <artifactId>json-simple</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish</groupId>
+      <artifactId>javax.json</artifactId>
+      <version>1.0.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.github.davidmoten</groupId>
+      <artifactId>flatbuffers-java</artifactId>
+      <version>1.6.0.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+      <version>3.2.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>2.23.4</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.directory.server</groupId>
+      <artifactId>apacheds-test-framework</artifactId>
+      <version>2.0.0.AM25</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
+      <version>1.3</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+        <version>2.5.2</version>
+      </plugin>
+    </plugins>
+  </reporting>
+
+  <properties>
+    <buildOutputDirectory>${project.build.directory}/classes</buildOutputDirectory>
+  </properties>
+
+  <build>
+    <outputDirectory>${buildOutputDirectory}</outputDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.3</version>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+        </configuration>
+      </plugin>
+
+      <!-- Build fe/tests/ to jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.6</version>
+      <executions>
+        <execution>
+          <goals>
+            <goal>test-jar</goal>
+          </goals>
+        </execution>
+      </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>net.sourceforge.czt.dev</groupId>
+        <artifactId>cup-maven-plugin</artifactId>
+        <version>1.6-cdh</version>
+        <executions>
+          <execution>
+            <id>cup</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <cupDefinition>sql-parser.cup</cupDefinition>
+          <className>SqlParser</className>
+          <symbolsName>SqlParserSymbols</symbolsName>
+          <outputDirectory>${project.build.directory}/generated-sources/cup</outputDirectory>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>de.jflex</groupId>
+        <artifactId>maven-jflex-plugin</artifactId>
+        <version>1.4.3</version>
+        <executions>
+          <execution>
+            <id>jflex</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <backup>false</backup>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <!-- TODO(todd): consider removing this execution or moving it to
+               some kind of 'dist' profile. No need to copy all of these jars
+               on every build of the FE! -->
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <excludeTypes>pom</excludeTypes>
+              <includeScope>runtime</includeScope>
+              <silent>true</silent>
+            </configuration>
+          </execution>
+          <!--
+            Write the runtime classpath to a file in the target directory
+            so it can be picked up by bin/set-classpath.sh
+          -->
+          <execution>
+            <id>write-classpath</id>
+            <goals>
+              <goal>build-classpath</goal>
+            </goals>
+            <configuration>
+              <outputFile>${project.build.directory}/build-classpath.txt</outputFile>
+              <includeScope>runtime</includeScope>
+              <excludeTypes>pom</excludeTypes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.20</version>
+        <configuration>
+          <trimStackTrace>false</trimStackTrace>
+          <reportsDirectory>${surefire.reports.dir}</reportsDirectory>
+          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          <argLine>${surefireJacocoArg}</argLine>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.5</version>
+        <executions>
+          <!-- Tell maven about our generated files -->
+          <execution>
+            <id>add-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <!-- Make sure Eclipse knows where to find generated sources.
+                        Note that the flex plugin appears to do this for you, but we have
+                        to do this manually for the CUP and Thrift generated code
+                        -->
+                <source>${project.basedir}/generated-sources/gen-java</source>
+                <source>${project.build.directory}/generated-sources/cup</source>
+                <source>${project.basedir}/src/compat-hive-${hive.major.version}/java</source>
+               </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.7.6.201602180812</version>
+        <executions>
+          <execution>
+            <id>prepare-jacoco-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <destFile>${jacoco.data.file}</destFile>
+              <propertyName>surefireJacocoArg</propertyName>
+            </configuration>
+          </execution>
+          <execution>
+            <id>jacoco-report</id>
+            <phase>test</phase>
+            <goals>
+             <goal>report</goal>
+            </goals>
+            <configuration>
+              <dataFile>${jacoco.data.file}</dataFile>
+              <outputDirectory>${jacoco.report.dir}</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- Code coverage reporting is disabled by default and must be enabled
+               when running tests like this: mvn test -DcodeCoverage -->
+          <skip>${jacoco.skip}</skip>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.0.0-M1</version>
+        <executions>
+          <execution>
+            <id>enforce-banned-dependencies</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <!-- We shouldn't have a runtime dependency on Ant or the
+                         Jetty server -->
+                    <exclude>ant:*</exclude>
+                    <exclude>ant-contrib:*</exclude>
+                    <exclude>org.apache.ant:*</exclude>
+                    <exclude>org.eclipse.jetty:*</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-1.2-api</exclude>
+                    <!-- Assert that we only use artifacts from only the specified
+                         version of these components. -->
+                    <exclude>org.apache.hadoop:*</exclude>
+                    <exclude>org.apache.hbase:*</exclude>
+                    <exclude>org.apache.hive:*</exclude>
+                    <exclude>org.apache.kudu:*</exclude>
+                    <exclude>org.apache.sentry:*</exclude>
+                    <exclude>org.apache.parquet:*</exclude>
+                  </excludes>
+                  <includes>
+                    <!-- hadoop-yarn-common depends on some Jetty utilities. -->
+                    <include>org.eclipse.jetty:jetty-util</include>
+                    <!-- Include the allowed versions specifically -->
+                    <include>org.apache.hadoop:*:${hadoop.version}</include>
+                    <include>org.apache.hbase:*:${hbase.version}</include>
+                    <include>org.apache.hive:*:${hive.version}</include>
+                    <include>org.apache.hive:hive-storage-api:${hive.storage.api.version}</include>
+                    <include>org.apache.kudu:*:${kudu.version}</include>
+                    <include>org.apache.sentry:*:${sentry.version}</include>
+                    <include>org.apache.parquet:*:${parquet.version}</include>
+                  </includes>
+                </bannedDependencies>
+              </rules>
+              <fail>true</fail>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+
+    <pluginManagement>
+      <plugins>
+        <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>net.sourceforge.czt</groupId>
+                    <artifactId>maven-cup-plugin</artifactId>
+                    <versionRange>[1.6.4,)</versionRange>
+                    <goals>
+                      <goal>generate</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <versionRange>[1.6,)</versionRange>
+                    <goals>
+                      <goal>run</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <versionRange>[2.0,)</versionRange>
+                    <goals>
+                      <goal>copy-dependencies</goal>
+                      <goal>build-classpath</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>de.jflex</groupId>
+                    <artifactId>maven-jflex-plugin</artifactId>
+                    <versionRange>[1.4.3,)</versionRange>
+                    <goals>
+                      <goal>generate</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <execute></execute>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+        <!-- mvn eclipse:eclipse generates Eclipse .project and .classpath files
+             NOTE: This is a deprecated Maven plugin. It's recommended to use
+             the native Eclipse "import Maven project" functionality (m2e)
+             instead -->
+        <plugin>
+          <groupId>org.apache.maven.plugins </groupId>
+          <artifactId>maven-eclipse-plugin</artifactId>
+          <version>2.10</version>
+          <configuration>
+            <!-- By default, we separate Eclipse-built files from Maven-built
+                 files. Otherwise, they are both in target/classes, and Eclipse
+                 and Maven may clobber each other, complicating attaching to
+                 a running process. -->
+            <buildOutputDirectory>${eclipse.output.directory}</buildOutputDirectory>
+            <downloadSources>true</downloadSources>
+            <downloadJavadocs>false</downloadJavadocs>
+            <additionalConfig>
+              <file>
+                <!-- Saved "launch configuration" for attaching Eclipse debugger to port 30000 -->
+                <name>impala-fe-30000.launch</name>
+                <content><![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.jdt.launching.remoteJavaApplication">
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+<listEntry value="/impala-frontend"/>
+</listAttribute>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+<listEntry value="4"/>
+</listAttribute>
+<booleanAttribute key="org.eclipse.jdt.launching.ALLOW_TERMINATE" value="false"/>
+<mapAttribute key="org.eclipse.jdt.launching.CONNECT_MAP">
+<mapEntry key="hostname" value="localhost"/>
+<mapEntry key="port" value="30000"/>
+</mapAttribute>
+<stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="impala-frontend"/>
+<stringAttribute key="org.eclipse.jdt.launching.VM_CONNECTOR_ID" value="org.eclipse.jdt.launching.socketAttachConnector"/>
+</launchConfiguration>
+]]>
+                </content>
+              </file>
+            </additionalConfig>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+  <profiles>
+    <!-- Profile which includes all of the Hive 2.x dependencies and appropriate exclusions. -->
+    <profile>
+      <id>hive-2</id>
+      <activation>
+        <property>
+          <name>env.IMPALA_HIVE_MAJOR_VERSION</name>
+          <value>2</value>
+        </property>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-service</artifactId>
+          <version>${hive.version}</version>
+          <!--
+              hive-service pulls in an incoherent (not ${hadoop.version}) version of
+              hadoop-client via this dependency, which we don't need.
+          -->
+          <exclusions>
+            <exclusion>
+              <groupId>org.apache.hive</groupId>
+              <artifactId>hive-llap-server</artifactId>
+            </exclusion>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.calcite.avatica</groupId>
+              <artifactId>avatica</artifactId>
+            </exclusion>
+          <exclusion>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>ant</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-serde</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-exec</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <!-- Similarly, avoid pulling in the "Log4j 1.2 Bridge" -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-1.2-api</artifactId>
+            </exclusion>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.calcite.avatica</groupId>
+              <artifactId>avatica</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>ant</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.ant</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-common</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <!-- Similarly, avoid pulling in the "Log4j 1.2 Bridge" -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-1.2-api</artifactId>
+            </exclusion>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.ant</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-jdbc</artifactId>
+          <version>${hive.version}</version>
+          <scope>test</scope>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.ant</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-hbase-handler</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.calcite.avatica</groupId>
+              <artifactId>avatica</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-metastore</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+
+        <dependency>
+          <groupId>org.apache.hive.shims</groupId>
+          <artifactId>hive-shims-common</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <!-- Profile which includes all of the Hive 3.x dependencies and appropriate exclusions. -->
+    <profile>
+      <id>hive-3</id>
+      <activation>
+        <property>
+          <name>env.IMPALA_HIVE_MAJOR_VERSION</name>
+          <value>3</value>
+        </property>
+      </activation>
+      <dependencies>
+        <!-- This reduced dependency is derived from hive-exec and only contains classes needed
+             by Impala. See shaded-deps/pom.xml for more details -->
+        <dependency>
+          <groupId>org.apache.impala</groupId>
+          <artifactId>impala-minimal-hive-exec</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <!-- Needed for tests like JdbcTest which instantiates HiveDriver -->
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-jdbc</artifactId>
+          <version>${hive.version}</version>
+          <scope>test</scope>
+          <exclusions>
+            <exclusion>
+              <groupId>org.apache.hbase</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-1.2-api</artifactId>
+            </exclusion>
+            <!-- We should exclude hive-serde since it brings along a
+               different version of flatbuffers causing problems for loading tables -->
+            <exclusion>
+              <groupId>org.apache.hive</groupId>
+              <artifactId>hive-serde</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.hive</groupId>
+              <artifactId>hive-metastore</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.hive.shims</groupId>
+              <artifactId>hive-shims-0.20</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.ant</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-standalone-metastore</artifactId>
+          <version>${hive.version}</version>
+          <exclusions>
+            <!-- Impala uses log4j v1; avoid pulling in slf4j handling for log4j2 -->
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-1.2-api</artifactId>
+            </exclusion>
+            <!-- https://issues.apache.org/jira/browse/HADOOP-14903 -->
+            <exclusion>
+              <groupId>net.minidev</groupId>
+              <artifactId>json-smart</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.hive</groupId>
+              <artifactId>hive-serde</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.hive</groupId>
+              <artifactId>hive-shims</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.hadoop</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <!-- needed for JobConf, which HiveConf inherits from -->
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-mapreduce-client-core</artifactId>
+          <version>${hadoop.version}</version>
+          <exclusions>
+            <exclusion>
+              <groupId>*</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+        <!-- Needed by tests like TestCaseLoader instantiate HMS in embedded mode which
+        needs datanucleus as test dependency-->
+        <dependency>
+          <groupId>org.datanucleus</groupId>
+          <artifactId>javax.jdo</artifactId>
+          <version>3.2.0-m3</version>
+          <scope>test</scope>
+        </dependency>
+        <!-- IMPALA-8766: Include Knox jars on the classpath -->
+        <dependency>
+          <groupId>org.apache.knox</groupId>
+          <artifactId>gateway-cloud-bindings</artifactId>
+          <version>${knox.version}</version>
+          <exclusions>
+            <!-- Impala currently doesn't support GCS, so exclude those jars -->
+            <exclusion>
+              <groupId>com.google.cloud.bigdataoss</groupId>
+              <artifactId>*</artifactId>
+            </exclusion>
+          </exclusions>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>thrift-home-defined</id>
+      <activation>
+        <file>
+          <exists>${env.THRIFT_HOME}/bin/thrift</exists>
+          </file>
+      </activation>
+      <properties>
+        <thrift.executable>${env.THRIFT_HOME}/bin/thrift</thrift.executable>
+      </properties>
+    </profile>
+    <profile>
+      <id>jacoco-code-coverage</id>
+      <activation>
+        <property>
+          <!-- Enable code coverage if the 'codeCoverage' property is set.
+               Usage: mvn test -DcodeCoverage -->
+          <name>codeCoverage</name>
+        </property>
+      </activation>
+      <properties>
+        <jacoco.skip>false</jacoco.skip>
+        <!-- Due to Jacoco's runtime instrumentation some tests could fail.
+             In order to still produce a coverage report it is recommended
+             to ignore test failures. -->
+        <maven.test.failure.ignore>true</maven.test.failure.ignore>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>errorprone</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.3</version>
+            <configuration>
+              <showWarnings>true</showWarnings>
+              <compilerId>javac-with-errorprone</compilerId>
+              <forceJavacCompilerUse>true</forceJavacCompilerUse>
+              <compilerArgs>
+                <arg>-XepDisableWarningsInGeneratedCode</arg>
+                <arg>-XepExcludedPaths:.*/generated-.*/.*</arg>
+              </compilerArgs>
+            </configuration>
+            <dependencies>
+              <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-compiler-javac-errorprone</artifactId>
+                <version>2.8.3</version>
+              </dependency>
+              <!-- override plexus-compiler-javac-errorprone's dependency on
+                   Error Prone with the latest version -->
+              <dependency>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_core</artifactId>
+                <version>2.3.1</version>
+              </dependency>
+            </dependencies>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Profile which is automatically activated when building from
+         within Eclipse based on the presence of the m2e.version
+         property -->
+    <profile>
+      <id>eclipse-m2e</id>
+      <activation>
+        <property>
+          <name>m2e.version</name>
+        </property>
+      </activation>
+        <!-- By default, we separate Eclipse-built files from Maven-built
+             files. Otherwise, they are both in target/classes, and Eclipse
+             and Maven may clobber each other, complicating attaching to
+             a running process. -->
+        <properties>
+          <buildOutputDirectory>${project.build.directory}/${eclipse.output.directory}</buildOutputDirectory>
+        </properties>
+    </profile>
+  </profiles>
+
+  <dependencyManagement>
+    <dependencies>
+      <!--
+      Pin org.glassfish:javax.el explicitly.
+
+      HBase depends on this indirectly, and it's configured with
+      a range of versions. This causes Maven to talk to all configured
+      repositories, leading both to a lot of chattiness, and also
+      failures if one of the repositories is unavailable.
+      -->
+      <dependency>
+        <groupId>org.glassfish</groupId>
+        <artifactId>javax.el</artifactId>
+        <version>3.0.1-b08</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

@@ -1,0 +1,101 @@
+*~
+*.pyc
+derby.log
+thirdparty
+compile_commands.json
+cscope.files
+cscope.out
+cscope.in.out
+cscope.po.out
+org.eclipse.jdt.core.prefs
+org.eclipse.jdt.ui.prefs
+*benchmark_results.csv*
+load-*-generated.sql
+bin/version.info
+bin/impala-config-local.sh
+.cache
+.cdh
+.cdp
+
+# distcc options
+.impala_compiler_opts
+.impala_compiler_opts_v2
+
+pprof.out
+
+TempStatsStore
+
+# CMake:
+Makefile
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+CTestTestfile.cmake
+!CMakeLists.txt
+.cmake_build_type
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+
+# Build timestamp files
+.*timestamp
+
+# Docker generated files
+docker/build_context
+docker/docker-images.txt
+
+Testing/
+llvm-ir/
+shell/gen-py/
+shell/build/
+benchmark_results*.json
+target
+
+avro_schemas/
+logs/
+
+# Impala toolchain directory
+toolchain/
+
+# Core dumps and crash reports
+core
+core.*
+hs_err_pid*.log
+
+# Binaries disallowed by ASF rules
+*.jar
+*.so
+
+# Vim related files
+.swp
+.*.swn
+.*.swm
+.*.swo
+.*.swp
+.vimrc
+
+# GDB default log file
+gdb.txt
+.gdbinit
+
+# IntelliJ artifacts
+.idea
+*.iml
+*.ipr
+*.iws
+
+# OS X Artifacts
+.DS_Store
+
+# Eclipse
+.cproject
+.project
+.classpath
+.settings
+eclipse-classes/
+.pydevproject
+
+# Debugging
+ad-hoc.test
+nohup.out

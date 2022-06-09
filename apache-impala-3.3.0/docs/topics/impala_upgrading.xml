@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="upgrading">
+
+  <title>Upgrading Impala</title>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Upgrading"/>
+      <data name="Category" value="Administrators"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      Upgrading Impala involves building or acquiring new Impala-related binaries, and then
+      restarting Impala services.
+    </p>
+
+  </conbody>
+
+  <concept id="upgrade_manual">
+
+    <title>Upgrading Impala</title>
+
+    <conbody>
+
+      <ul>
+        <li>
+          <p>
+            Shut down all Impala-related daemons on all relevant hosts in the cluster:
+          </p>
+          <ol>
+            <li>
+              Stop <codeph>impalad</codeph> on each Impala node in your cluster:
+<codeblock>$ sudo service impala-server stop</codeblock>
+            </li>
+
+            <li>
+              Stop any instances of the state store in your cluster:
+<codeblock>$ sudo service impala-state-store stop</codeblock>
+            </li>
+
+            <li rev="1.2">
+              Stop any instances of the catalog service in your cluster:
+<codeblock>$ sudo service impala-catalog stop</codeblock>
+            </li>
+          </ol>
+        </li>
+
+        <li>
+          <p>
+            Follow the build procedure in the <filepath>README.md</filepath> file to produce new
+            Impala binaries.
+          </p>
+        </li>
+
+        <li>
+          <p>
+            Replace the binaries for all Impala-related daemons on all relevant hosts in the
+            cluster.
+          </p>
+        </li>
+
+        <li>
+          Check if there are new recommended or required configuration settings to put into
+          place in the configuration files, typically under
+          <filepath>/etc/impala/conf</filepath>. See
+          <xref href="impala_config_performance.xml#config_performance"/> for settings related
+          to performance and scalability.
+        </li>
+
+        <li>
+          <p>
+            Restart all Impala-related daemons on all relevant hosts in the cluster:
+          </p>
+          <ol>
+            <li>
+              Restart the Impala state store service on the desired nodes in your cluster.
+              Expect to see a process named <codeph>statestored</codeph> if the service started
+              successfully.
+<codeblock>$ sudo service impala-state-store start
+$ ps ax | grep [s]tatestored
+ 6819 ?        Sl     0:07 /usr/lib/impala/sbin/statestored -log_dir=/var/log/impala -state_store_port=24000
+</codeblock>
+              <p>
+                Restart the state store service <i>before</i> the Impala server service to avoid
+                <q>Not connected</q> errors when you run <codeph>impala-shell</codeph>.
+              </p>
+            </li>
+
+            <li rev="1.2">
+              Restart the Impala catalog service on whichever host it runs on in your cluster.
+              Expect to see a process named <codeph>catalogd</codeph> if the service started
+              successfully.
+<codeblock>$ sudo service impala-catalog restart
+$ ps ax | grep [c]atalogd
+ 6068 ?        Sl     4:06 /usr/lib/impala/sbin/catalogd
+</codeblock>
+            </li>
+
+            <li>
+              Restart the Impala daemon service on each node in your cluster. Expect to see a
+              process named <codeph>impalad</codeph> if the service started successfully.
+<codeblock>$ sudo service impala-server start
+$ ps ax | grep [i]mpalad
+ 7936 ?        Sl     0:12 /usr/lib/impala/sbin/impalad -log_dir=/var/log/impala -state_store_port=24000
+ -state_store_host=127.0.0.1 -be_port=22000
+</codeblock>
+            </li>
+          </ol>
+        </li>
+      </ul>
+
+      <note>
+        <p>
+          If the services did not start successfully (even though the <codeph>sudo
+          service</codeph> command might display <codeph>[OK]</codeph>), check for errors in the
+          Impala log file, typically in <filepath>/var/log/impala</filepath>.
+        </p>
+      </note>
+
+    </conbody>
+
+  </concept>
+
+  <concept id="concept_a2p_szq_jdb">
+
+    <title>Impala Upgrade Considerations</title>
+
+    <concept id="impala_privileges_30">
+
+      <title>Grant REFRESH Privilege to Impala Roles with SELECT or INSERT Privilege when Upgrading to <keyword keyref="impala30"/></title>
+
+      <conbody>
+
+        <p>
+          To use the fine grained privileges feature in
+          <keyword
+            keyref="impala30"/>, if a role has the <codeph>SELECT</codeph> or
+          <codeph>INSERT</codeph> privilege on an object in Impala before upgrading to
+          <keyword keyref="impala30"/>, grant that role the <codeph>REFRESH</codeph> privilege
+          after the upgrade.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-3916">
+
+      <title>List of Reserved Words Updated in <keyword keyref="impala30_full"
+        /></title>
+
+      <conbody>
+
+        <p>
+          The list of <keyword keyref="reserved_words">reserved words</keyword> in Impala was
+          updated in <keyword
+            keyref="impala30_full"/>. If you need to use a
+          reserved word as an identifier, e.g. a table name, enclose the word in back-ticks.
+        </p>
+
+        <p>
+          If you need to use the reserved words from previous versions of Impala, set the
+          <codeph>impalad</codeph> and <codeph>catalogd</codeph> startup flag.
+<codeblock>&#8209;&#8209;reserved_words_version=2.11.0</codeblock>
+          Note that this startup option will be deprecated in a future release.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-4924">
+
+      <title>Decimal V2 Used by Default in <keyword keyref="impala30_full"/></title>
+
+      <conbody>
+
+        <p>
+          In Impala, two different implementations of <codeph>DECIMAL</codeph> types are
+          supported. Starting in <keyword keyref="impala30_full"/>, <codeph>DECIMAL</codeph> V2
+          is used by default. See <keyword
+            keyref="decimal">DECIMAL Type</keyword>
+          for detail information.
+        </p>
+
+        <p>
+          If you need to continue using the first version of the <codeph>DECIMAL</codeph> type
+          for the backward compatibility of your queries, set the <codeph>DECIMAL_V2</codeph>
+          query option to <codeph>FALSE</codeph>:
+<codeblock>SET DECIMAL_V2=FALSE;</codeblock>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-5191">
+
+      <title>Behavior of Column Aliases Changed in <keyword
+          keyref="impala30_full"/></title>
+
+      <conbody>
+
+        <p>
+          To conform to the SQL standard, Impala no longer performs alias substitution in the
+          subexpressions of <codeph>GROUP BY</codeph>, <codeph>HAVING</codeph>, and
+          <codeph>ORDER BY</codeph>. See <keyword
+            keyref="aliases"/> for examples of
+          supported and unsupported aliases syntax.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-5037">
+
+      <title>Default PARQUET_ARRAY_RESOLUTION Changed in <keyword
+          keyref="impala30_full"/></title>
+
+      <conbody>
+
+        <p>
+          The default value for the <codeph>PARQUET_ARRAY_RESOLUTION</codeph> was changed to
+          <codeph>THREE_LEVEL</codeph> in <keyword
+            keyref="impala30_full"/>, to
+          match the Parquet standard 3-level encoding.
+        </p>
+
+        <p>
+          See <codeph><keyword keyref="parquet_array_resolution"/></codeph> for the information
+          about the query option.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-5293">
+
+      <title>Enable Clustering Hint for Inserts</title>
+
+      <conbody>
+
+        <p>
+          In <keyword keyref="impala30_full"/>, the
+          <keyword keyref="hints"
+            >clustered</keyword> hint is enabled by default.
+          The hint adds a local sort by the partitioning columns to a query plan.
+        </p>
+
+        <p>
+          The <codeph>clustered</codeph> hint is only effective for HDFS and Kudu tables.
+        </p>
+
+        <p>
+          As in previous versions, the <codeph>noclustered</codeph> hint prevents clustering. If
+          a table has ordering columns defined, the <codeph>noclustered</codeph> hint is ignored
+          with a warning.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-4319">
+
+      <title>Deprecated Query Options Removed in <keyword keyref="impala30_full"
+        /></title>
+
+      <conbody>
+
+        <p>
+          The following query options have been deprecated for several releases and removed:
+          <ul>
+            <li>
+              <codeph>DEFAULT_ORDER_BY_LIMIT</codeph>
+            </li>
+
+            <li>
+              <codeph>ABORT_ON_DEFAULT_LIMIT_EXCEEDED</codeph>
+            </li>
+
+            <li>
+              <codeph>V_CPU_CORES</codeph>
+            </li>
+
+            <li>
+              <codeph>RESERVATION_REQUEST_TIMEOUT</codeph>
+            </li>
+
+            <li>
+              <codeph>RM_INITIAL_MEM</codeph>
+            </li>
+
+            <li>
+              <codeph>SCAN_NODE_CODEGEN_THRESHOLD</codeph>
+            </li>
+
+            <li>
+              <codeph>MAX_IO_BUFFERS</codeph>
+            </li>
+
+            <li>
+              <codeph>RM_INITIAL_MEM</codeph>
+            </li>
+
+            <li>
+              <codeph>DISABLE_CACHED_READS</codeph>
+            </li>
+          </ul>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="impala-6648">
+
+      <title>Fine-grained Privileges Added in <keyword keyref="impala30_full"
+        /></title>
+
+      <conbody>
+
+        <p>
+          Starting in <keyword keyref="impala30_full"/>, finer grained privileges are enforced,
+          such as the <codeph>REFRESH</codeph>, <codeph>CREATE</codeph>, <codeph>DROP</codeph>,
+          and <codeph>ALTER</codeph> privileges. In particular, running <codeph>REFRESH</codeph>
+          or <codeph>INVALIDATE METADATA</codeph> now requires the new <codeph>REFRESH</codeph>
+          privilege. Users who did not previously have the <codeph>ALL</codeph> privilege will
+          no longer be able to run <codeph>REFRESH</codeph> or <codeph>INVALIDATE
+          METADATA</codeph> after an upgrade. Those users need to have the
+          <codeph>REFRESH</codeph> or <codeph>ALL</codeph> privilege granted to run
+          <codeph>REFRESH</codeph> or <codeph>INVALIDATE METADATA</codeph>.
+        </p>
+
+        <p>
+          See <keyword keyref="grant"/> for the new privileges, the scope, and other information
+          about the new privileges.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-3998">
+
+      <title>refresh_after_connect Impala Shell Option Removed in <keyword
+          keyref="impala30_full"/></title>
+
+      <conbody>
+
+        <p>
+          The deprecated <codeph>&#8209;&#8209;refresh_after_connect</codeph> option was removed
+          from Impala Shell in <keyword
+            keyref="impala30_full"/>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="impala-5607">
+
+      <title>Return Type Changed for EXTRACT and DATE_PART Functions in <keyword
+          keyref="impala30_full"/></title>
+
+      <conbody>
+
+        <p>
+          The following changes were made to the <codeph>EXTRACT</codeph> and
+          <codeph>DATE_PART</codeph> functions:
+          <ul>
+            <li>
+              The output type of the <codeph>EXTRACT</codeph> and <codeph>DATE_PART</codeph>
+              functions was changed to <codeph>BIGINT</codeph>.
+            </li>
+
+            <li>
+              <p>
+                Extracting the millisecond part from a <codeph>TIMESTAMP</codeph> returns the
+                seconds component and the milliseconds component. For example, <codeph>EXTRACT
+                (CAST('2006-05-12 18:27:28.123456789' AS TIMESTAMP), 'MILLISECOND')</codeph>
+                will return <codeph>28123</codeph>.
+              </p>
+            </li>
+          </ul>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="impala-7985">
+
+      <title>Port Change for SHUTDOWN Command</title>
+
+      <conbody>
+
+        <p>
+          If you used the <codeph>SHUTDOWN</codeph> command in Impala 3.1, and specified a port
+          explicitly, change the port number parameter, in Impala 3.2, to use the KRPC port.
+        </p>
+
+      </conbody>
+
+    </concept>
+    <concept id="impala-7800">
+      <title>Change in Client Connection Timeout</title>
+      <conbody>
+        <p>The default behavior of client connection timeout changed.</p>
+        <p>In Impala 3.2 and lower, client waited indefinitely to open the new
+          session if the maximum number of threads specified by
+            <codeph>--fe_service_threads</codeph> has been allocated.</p>
+        <p>In Impala 3.3 and higher, a new startup flag,
+            <codeph>--accepted_client_cnxn_timeout</codeph>, was added to
+          control how the server should treat new connection requests if we have
+          run out of the configured number of server threads.</p>
+        <p>If <codeph>--accepted_client_cnxn_timeout > 0</codeph>, new
+          connection requests are rejected after the specified timeout.</p>
+        <p>If <codeph>--accepted_client_cnxn_timeout=0</codeph>, clients waits
+          indefinitely to connect to Impala. You can use this setting to restore
+          the pre-Impala 3.3 behavior.</p>
+        <p>The default timeout is 5 minutes. </p>
+      </conbody>
+    </concept>
+
+    <concept id="concept_mkn_ygr_jdb">
+
+      <title>Default Setting Changes</title>
+
+      <conbody>
+
+        <simpletable frame="all" id="simpletable_x55_ghr_jdb">
+
+          <sthead>
+
+            <stentry>Release Changed</stentry>
+
+            <stentry>Setting</stentry>
+
+            <stentry>Default Value</stentry>
+
+          </sthead>
+
+          <strow>
+
+            <stentry><keyword keyref="impala212_full"/>
+
+            </stentry>
+
+            <stentry><codeph>&#8209;&#8209;compact_catalog_topic</codeph><codeph>impalad</codeph>
+              flag</stentry>
+
+            <stentry><codeph>true</codeph>
+
+            </stentry>
+
+          </strow>
+
+          <strow>
+
+            <stentry><keyword keyref="impala212_full"/>
+
+            </stentry>
+
+            <stentry><codeph>&#8209;&#8209;max_cached_file_handles</codeph><codeph>impalad</codeph>
+              flag</stentry>
+
+            <stentry><codeph>20000</codeph>
+
+            </stentry>
+
+          </strow>
+
+          <strow>
+
+            <stentry><keyword keyref="impala30_full"/>
+
+            </stentry>
+
+            <stentry><codeph>PARQUET_ARRAY_RESOLUTION</codeph> query
+              option</stentry>
+
+            <stentry><codeph>THREE_LEVEL</codeph>
+
+            </stentry>
+
+          </strow>
+
+          <strow>
+
+            <stentry><keyword keyref="impala30_full"/>
+
+            </stentry>
+
+            <stentry><codeph>DECIMAL_V2</codeph>
+
+            </stentry>
+
+            <stentry><codeph>TRUE</codeph>
+
+            </stentry>
+
+          </strow>
+
+        </simpletable>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+</concept>

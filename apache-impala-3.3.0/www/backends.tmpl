@@ -1,0 +1,67 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+{{> www/common-header.tmpl }}
+
+<h2>Known backend(s): {{%backends}}</h2>
+
+<table id="backends" class='table table-hover table-bordered'>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Krpc Address</th>
+      <th>Coordinator</th>
+      <th>Executor</th>
+      <th>Quiescing</th>
+      <th>Memory Limit for Admission</th>
+      <th>Memory Reserved</th>
+      <th>Memory Admitted by Queries Submitted to this Coordinator</th>
+      <th>Num. Queries Limit for Admission</th>
+      <th>Num. Queries Admitted by this Coordinator</th>
+      <th>Executor Groups</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#backends}}
+    <tr>
+      <td>{{address}}</td>
+      <td>{{krpc_address}}</td>
+      <td>{{is_coordinator}}</td>
+      <td>{{is_executor}}</td>
+      <td>{{is_quiescing}}</td>
+      <td>{{admit_mem_limit}}</td>
+      <td>{{mem_reserved}}</td>
+      <td>{{mem_admitted}}</td>
+      <td>{{admit_num_queries_limit}}</td>
+      <td>{{num_admitted}}</td>
+      <td>{{executor_groups}}</td>
+    </tr>
+    {{/backends}}
+  </tbody>
+</table>
+
+<script>
+    $(document).ready(function() {
+        $('#backends').DataTable({
+            "order": [[ 0, "desc" ]],
+            "pageLength": 100
+        });
+    });
+</script>
+
+{{> www/common-footer.tmpl}}

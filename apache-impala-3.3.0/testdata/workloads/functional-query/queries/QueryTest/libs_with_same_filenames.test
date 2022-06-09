@@ -1,0 +1,24 @@
+====
+---- QUERY
+create function no_args() returns string
+location '$FILESYSTEM_PREFIX/test-warehouse/libTestUdfs.so' symbol='NoArgs';
+
+create function no_args2() returns string
+location '$FILESYSTEM_PREFIX/test-warehouse/udf_test/libTestUdfs.so' symbol='NoArgs';
+---- RESULTS
+'Function has been created.'
+====
+---- QUERY
+select no_args();
+---- TYPES
+string
+---- RESULTS
+'string'
+====
+---- QUERY
+select no_args2();
+---- TYPES
+string
+---- RESULTS
+'string'
+====

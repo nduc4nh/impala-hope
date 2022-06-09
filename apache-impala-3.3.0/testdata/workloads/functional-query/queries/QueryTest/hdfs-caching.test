@@ -1,0 +1,387 @@
+====
+---- QUERY
+use cachedb
+====
+---- QUERY
+create table cached_tbl_nopart (i int) cached in 'testPool'
+====
+---- QUERY
+insert into cached_tbl_nopart select 1
+---- RESULTS
+: 1
+====
+---- QUERY
+select * from cached_tbl_nopart
+---- RESULTS
+1
+---- TYPES
+INT
+====
+---- QUERY
+# Create a table 'like' cached_tbl_nopart
+create table like_cached_tbl_nopart like cached_tbl_nopart
+====
+---- QUERY
+# like_cached_tbl_nopart shouldn't inhert the caching settings
+show table stats like_cached_tbl_nopart
+---- RESULTS
+-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+---- TYPES
+BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Unpartitioned table shows correct caching
+show table stats cached_tbl_nopart
+---- RESULTS
+-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+---- TYPES
+BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Unpartitioned table is no longer cached
+alter table cached_tbl_nopart set uncached
+====
+---- QUERY
+show table stats cached_tbl_nopart
+---- RESULTS
+-1,1,'2B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+---- TYPES
+BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+drop table if exists cached_tbl_part
+====
+---- QUERY
+create table cached_tbl_part (i int) partitioned by (j int) cached in 'testPool' with replication = 9
+====
+---- QUERY
+# new partition should inherit the cached property
+alter table cached_tbl_part add partition (j=0)
+====
+---- QUERY
+# should be able to override the inherited cached property
+alter table cached_tbl_part add partition (j=1) uncached
+====
+---- QUERY
+alter table cached_tbl_part add partition (j=2) cached in 'testPool'
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'9','TEXT','false',regex:.*
+'1',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'9','TEXT','false',regex:.*
+'Total',-1,0,'0B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+drop table if exists cached_tbl_part
+====
+---- QUERY
+create table cached_tbl_part (i int) partitioned by (j int) cached in 'testPool'
+====
+---- QUERY
+# new partition should inherit the cached property
+alter table cached_tbl_part add partition (j=0)
+====
+---- QUERY
+# should be able to override the inherited cached property
+alter table cached_tbl_part add partition (j=1) uncached
+====
+---- QUERY
+alter table cached_tbl_part add partition (j=2) cached in 'testPool'
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'Total',-1,0,'0B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# uncache one of the partitions
+alter table cached_tbl_part partition (j=2) set uncached
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'2',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'Total',-1,0,'0B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Can uncache the same partition twice without an error.
+alter table cached_tbl_part partition (j=2) set uncached
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'2',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'Total',-1,0,'0B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# mark an uncached partition as cached
+alter table cached_tbl_part partition (j=1) set cached in 'testPool'
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'2',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'Total',-1,0,'0B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# dynamic partition insert inherits table properties
+insert into cached_tbl_part partition(j) values(3, 3), (4, 4);
+---- RESULTS
+j=3/: 1
+j=4/: 1
+====
+---- QUERY
+# Modify partition cache replication
+alter table cached_tbl_part partition (j=3) set cached in 'testPool' with replication = 4
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'2',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'4','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Set uncached clears all cache requests
+alter table cached_tbl_part set uncached
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'1',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'2',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'3',-1,1,'2B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'4',-1,1,'2B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Can call set uncached multiple times on the same partitioned table
+alter table cached_tbl_part set uncached
+====
+---- QUERY
+# Set cached caches all partitions
+alter table cached_tbl_part set cached in 'testPool'
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Can call set cached multiple times on the same partitioned table.
+alter table cached_tbl_part set cached in 'testPool'
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Modify partition cache replication in preparation for table level alteration
+alter table cached_tbl_part partition (j=3) set cached in 'testPool' with replication = 4
+====
+---- QUERY
+# Uncache a partition in preparation for table level alteration
+alter table cached_tbl_part partition (j=1) set uncached
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'1',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'4','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'1','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Set replication factor for all partitions regardless of their current state
+alter table cached_tbl_part set cached in 'testPool' with replication = 8
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Add partition with different replication
+alter table cached_tbl_part add partition(j=5) cached in 'testPool' with replication = 3
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'5',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Change replication for a partition
+alter table cached_tbl_part partition(j=2) set cached in 'testPool' with replication = 3
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'5',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Add partition with inherited replication from table
+alter table cached_tbl_part add partition(j=6) cached in 'testPool'
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'5',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'6',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Add a partition with uncacheable location and it should fail
+alter table cached_tbl_part add partition(j=7)
+location 'file://$IMPALA_HOME/testdata/data/cached_tbl_part'
+---- CATCH
+Location 'file:$IMPALA_HOME/testdata/data/cached_tbl_part' cannot be cached. Please retry without caching: ALTER TABLE cachedb.cached_tbl_part ADD PARTITION ... UNCACHED
+====
+---- QUERY
+# Add a partition with uncacheable location and it should succeed with UNCACHED specified
+alter table cached_tbl_part add partition(j=7)
+location 'file://$IMPALA_HOME/testdata/data/cache_tbl_part' uncached
+====
+---- QUERY
+show partitions cached_tbl_part
+---- RESULTS
+'0',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'2',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'3',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'4',-1,1,'2B',regex:.+B,'8','TEXT','false',regex:.*
+'5',-1,0,'0B',regex:.+B,'3','TEXT','false',regex:.*
+'6',-1,0,'0B',regex:.+B,'8','TEXT','false',regex:.*
+'7',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'Total',-1,2,'4B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====
+---- QUERY
+# Create a table which resides on the local file system
+create table uncached_tbl_local(i int)
+location 'file://$IMPALA_HOME/testdata/data/uncached_tbl_local'
+====
+---- QUERY
+# Turning on caching should fail for this table
+alter table uncached_tbl_local set cached in 'testPool'
+---- CATCH
+Table cachedb.uncached_tbl_local cannot be cached. Please check if the table or partitions are on a filesystem which supports caching.
+====
+---- QUERY
+# Create a new table on HDFS
+create table cached_tbl_local(i int) partitioned by (j int)
+====
+---- QUERY
+# Add a partition which resides on the local filesystem
+alter table cached_tbl_local add partition(j=0)
+location 'file://$IMPALA_HOME/testdata/data/cached_local_part'
+====
+---- QUERY
+# Turning on caching for this new partition should fail
+alter table cached_tbl_local partition(j=0) set cached in 'testPool'
+---- CATCH
+Partition(s) (j=0) cannot be cached. Please check if the table or partitions are on a filesystem which supports caching.
+====
+---- QUERY
+# Turning on caching should also fail for this table
+alter table cached_tbl_local set cached in 'testPool'
+---- CATCH
+Table cachedb.cached_tbl_local cannot be cached. Please check if the table or partitions are on a filesystem which supports caching.
+====
+---- QUERY
+# Adding a cacheable partition should be allowed even if other partitions are not cacheable.
+alter table cached_tbl_local add partition(j=1) cached in 'testPool'
+====
+---- QUERY
+# Turning on caching should still fail for this table
+alter table cached_tbl_local set cached in 'testPool'
+---- CATCH
+Table cachedb.cached_tbl_local cannot be cached. Please check if the table or partitions are on a filesystem which supports caching.
+====
+---- QUERY
+show partitions cached_tbl_local;
+---- RESULTS
+'0',-1,0,'0B','NOT CACHED','NOT CACHED','TEXT','false',regex:.*
+'1',-1,0,'0B',regex:.+B,'1','TEXT','false',regex:.*
+'Total',-1,0,'0B',regex:.+B,'','','',''
+---- TYPES
+STRING, BIGINT, BIGINT, STRING, STRING, STRING, STRING, STRING, STRING
+====

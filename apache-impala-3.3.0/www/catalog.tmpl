@@ -1,0 +1,195 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+{{> www/common-header.tmpl }}
+
+<h2>Catalog</h2>
+
+{{?has_large_tables}}
+<div class="panel panel-info">
+  <div class="panel-heading">
+      <h2 class="panel-title">
+      Top-{{num_large_tables}} Tables with Highest Memory Requirements
+      </h2>
+  </div>
+  <div class="panel-body">
+    <table id="large-tables" class='table table-hover table-bordered'>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Estimated memory</th>
+          <th>Metrics</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#large_tables}}
+        <tr>
+          <td><a href="catalog_object?object_type=TABLE&object_name={{name}}">{{name}}</a>
+          </td>
+          <td>{{mem_estimate}}</td>
+          <td><a href="table_metrics?name={{name}}">{{name}}-metrics</a></td>
+        </tr>
+        {{/large_tables}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $('#large-tables').DataTable({
+            "columnDefs": [{"targets": 1, "render": renderSize}],
+            "order": [[ 1, "desc" ]],
+            "pageLength": 10
+        });
+    });
+</script>
+{{/has_large_tables}}
+
+{{?has_frequent_tables}}
+<div class="panel panel-info">
+  <div class="panel-heading">
+      <h2 class="panel-title">
+      Top-{{num_frequent_tables}} Tables with Highest Number of Metadata Operations
+      </h2>
+  </div>
+  <div class="panel-body">
+    <table id="frequent-tables" class='table table-hover table-bordered'>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Metadata Operations (since loaded)</th>
+          <th>Metrics</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#frequent_tables}}
+        <tr>
+          <td><a href="catalog_object?object_type=TABLE&object_name={{name}}">{{name}}</a>
+          </td>
+          <td>{{num_metadata_ops}}</td>
+          <td><a href="table_metrics?name={{name}}">{{name}}-metrics</a></td>
+        </tr>
+        {{/frequent_tables}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $('#frequent-tables').DataTable({
+            "order": [[ 0, "desc" ]],
+            "pageLength": 10
+        });
+    });
+</script>
+{{/has_frequent_tables}}
+
+{{?has_high_file_count_tables}}
+<div class="panel panel-info">
+  <div class="panel-heading">
+      <h2 class="panel-title">
+      Top-{{num_high_file_count_tables}} Tables with Most Number of Files
+      </h2>
+  </div>
+  <div class="panel-body">
+    <table id="high-file-count-tables" class='table table-hover table-bordered'>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Number of Files</th>
+          <th>Metrics</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#high_file_count_tables}}
+        <tr>
+          <td><a href="catalog_object?object_type=TABLE&object_name={{name}}">{{name}}</a>
+          </td>
+          <td>{{num_files}}</td>
+          <td><a href="table_metrics?name={{name}}">{{name}}-metrics</a></td>
+        </tr>
+        {{/high_file_count_tables}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $('#high-file-count-tables').DataTable({
+            "order": [[ 1, "desc" ]],
+            "pageLength": 10
+        });
+    });
+</script>
+{{/has_high_file_count_tables}}
+
+<h3>Databases</h3>
+<ol class="breadcrumb">
+{{#databases}}
+<li><a href='#{{name}}'>{{name}}</a></li>
+{{/databases}}
+</ol>
+
+{{#databases}}
+
+<div class="panel panel-info">
+  <div class="panel-heading">
+    <a href='catalog_object?object_type=DATABASE&object_name={{name}}' id='{{name}}'>
+      <h2 class="panel-title">{{name}}
+      <span class="pull-right">{{num_tables}} table(s)</span></h2>
+    </a>
+  </div>
+  <div class="panel-body">
+    <table id="{{name}}-tables" class='table table-hover table-bordered'>
+      <thead>
+        <tr>
+          <th>Name</th>
+          {{?has_metrics}}
+          <th>Metrics</th>
+          {{/has_metrics}}
+        </tr>
+      </thead>
+      <tbody>
+        {{#tables}}
+        <tr>
+          <td><a href="catalog_object?object_type=TABLE&object_name={{fqtn}}">{{name}}</a>
+          </td>
+          {{?has_metrics}}
+          <td><a href="table_metrics?name={{fqtn}}">{{name}}-metrics</a></td>
+          {{/has_metrics}}
+        </tr>
+        {{/tables}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $('#{{name}}-tables').DataTable({
+            "pageLength": 5
+        });
+    });
+</script>
+
+{{/databases}}
+
+{{> www/common-footer.tmpl }}

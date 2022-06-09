@@ -1,0 +1,286 @@
+====
+---- QUERY
+# Set an option explicitly; the test infrastructure should clear it before the next test.
+# The next test tests that buffer_pool_limit is unset ("").
+set buffer_pool_limit=7;
+====
+---- QUERY
+set all;
+---- RESULTS: VERIFY_IS_SUBSET
+'ABORT_ON_ERROR','1','REGULAR'
+'BATCH_SIZE','0','DEVELOPMENT'
+'BUFFER_POOL_LIMIT','','ADVANCED'
+'DEBUG_ACTION','','DEVELOPMENT'
+'DISABLE_CODEGEN','0','REGULAR'
+'DISABLE_OUTERMOST_TOPN','0','DEVELOPMENT'
+'EXPLAIN_LEVEL','STANDARD','REGULAR'
+'HBASE_CACHE_BLOCKS','0','ADVANCED'
+'HBASE_CACHING','0','ADVANCED'
+'MAX_ERRORS','100','ADVANCED'
+'MAX_SCAN_RANGE_LENGTH','0','DEVELOPMENT'
+'MEM_LIMIT','0','REGULAR'
+'NUM_NODES','0','DEVELOPMENT'
+'NUM_SCANNER_THREADS','0','REGULAR'
+'COMPRESSION_CODEC','','REGULAR'
+'PARQUET_FILE_SIZE','0','ADVANCED'
+'REQUEST_POOL','','REGULAR'
+'SYNC_DDL','0','REGULAR'
+'DEFAULT_FILE_FORMAT','TEXT','REGULAR'
+'DISABLE_HDFS_NUM_ROWS_ESTIMATE','0','REGULAR'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+set explain_level=3;
+set all;
+---- RESULTS: VERIFY_IS_SUBSET
+'ABORT_ON_ERROR','1','REGULAR'
+'BATCH_SIZE','0','DEVELOPMENT'
+'BUFFER_POOL_LIMIT','','ADVANCED'
+'DEBUG_ACTION','','DEVELOPMENT'
+'DISABLE_CODEGEN','0','REGULAR'
+'DISABLE_OUTERMOST_TOPN','0','DEVELOPMENT'
+'EXPLAIN_LEVEL','VERBOSE','REGULAR'
+'HBASE_CACHE_BLOCKS','0','ADVANCED'
+'HBASE_CACHING','0','ADVANCED'
+'MAX_ERRORS','100','ADVANCED'
+'MAX_SCAN_RANGE_LENGTH','0','DEVELOPMENT'
+'MEM_LIMIT','0','REGULAR'
+'NUM_NODES','0','DEVELOPMENT'
+'NUM_SCANNER_THREADS','0','REGULAR'
+'COMPRESSION_CODEC','','REGULAR'
+'PARQUET_FILE_SIZE','0','ADVANCED'
+'REQUEST_POOL','','REGULAR'
+'SYNC_DDL','0','REGULAR'
+'DEFAULT_FILE_FORMAT','TEXT','REGULAR'
+'DISABLE_HDFS_NUM_ROWS_ESTIMATE','0','REGULAR'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+set explain_level='0';
+set all;
+---- RESULTS: VERIFY_IS_SUBSET
+'ABORT_ON_ERROR','1','REGULAR'
+'BATCH_SIZE','0','DEVELOPMENT'
+'BUFFER_POOL_LIMIT','','ADVANCED'
+'DEBUG_ACTION','','DEVELOPMENT'
+'DISABLE_CODEGEN','0','REGULAR'
+'DISABLE_OUTERMOST_TOPN','0','DEVELOPMENT'
+'EXPLAIN_LEVEL','MINIMAL','REGULAR'
+'HBASE_CACHE_BLOCKS','0','ADVANCED'
+'HBASE_CACHING','0','ADVANCED'
+'MAX_ERRORS','100','ADVANCED'
+'MAX_SCAN_RANGE_LENGTH','0','DEVELOPMENT'
+'MEM_LIMIT','0','REGULAR'
+'NUM_NODES','0','DEVELOPMENT'
+'NUM_SCANNER_THREADS','0','REGULAR'
+'COMPRESSION_CODEC','','REGULAR'
+'PARQUET_FILE_SIZE','0','ADVANCED'
+'REQUEST_POOL','','REGULAR'
+'SYNC_DDL','0','REGULAR'
+'DEFAULT_FILE_FORMAT','TEXT','REGULAR'
+'DISABLE_HDFS_NUM_ROWS_ESTIMATE','0','REGULAR'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+set parquet_file_size='2g'
+---- CATCH
+The PARQUET_FILE_SIZE query option must be less than 2GB.
+====
+---- QUERY
+set foo=bar
+---- CATCH
+Invalid query option: foo
+====
+---- QUERY
+set parquet_compression_codec=bar
+---- CATCH
+Invalid compression codec: 'bar'. Valid values are NONE(0), DEFAULT(1), GZIP(2), DEFLATE(3), BZIP2(4), SNAPPY(5), SNAPPY_BLOCKED(6), LZO(7), LZ4(8), ZLIB(9), ZSTD(10), BROTLI(11), LZ4_BLOCKED(12).
+====
+---- QUERY
+set explain_level=bar
+---- CATCH
+Invalid explain level: 'bar'. Valid values are MINIMAL(0), STANDARD(1), EXTENDED(2), VERBOSE(3).
+====
+---- QUERY
+set runtime_filter_mode=bar
+---- CATCH
+Invalid runtime filter mode: 'bar'. Valid values are OFF(0), LOCAL(1), GLOBAL(2).
+====
+---- QUERY
+set replica_preference=bar
+---- CATCH
+Invalid replica memory distance preference: 'bar'. Valid values are CACHE_LOCAL(0), DISK_LOCAL(2), REMOTE(4).
+====
+---- QUERY
+set parquet_fallback_schema_resolution=bar
+---- CATCH
+Invalid parquet fallback schema resolution: 'bar'. Valid values are POSITION(0), NAME(1).
+====
+---- QUERY
+set parquet_array_resolution=bar
+---- CATCH
+Invalid parquet array resolution: 'bar'. Valid values are THREE_LEVEL(0), TWO_LEVEL(1), TWO_LEVEL_THEN_THREE_LEVEL(2).
+====
+---- QUERY
+set prefetch_mode=bar
+---- CATCH
+Invalid prefetch mode: 'bar'. Valid values are NONE(0), HT_BUCKET(1).
+====
+---- QUERY
+set default_join_distribution_mode=bar
+---- CATCH
+Invalid default join distribution mode: 'bar'. Valid values are BROADCAST(0), SHUFFLE(1).
+====
+---- QUERY
+set kudu_read_mode=bar
+---- CATCH
+Invalid Kudu read mode: 'bar'. Valid values are DEFAULT(0), READ_LATEST(1), READ_AT_SNAPSHOT(2).
+====
+---- QUERY
+set default_file_format=bar
+---- CATCH
+Invalid default file format: 'bar'. Valid values are TEXT(0), RC_FILE(1), SEQUENCE_FILE(2), AVRO(3), PARQUET(4), KUDU(5), ORC(6).
+====
+---- QUERY
+set default_transactional_type=bar
+---- CATCH
+Invalid default transactional type: 'bar'. Valid values are NONE(0), INSERT_ONLY(1).
+====
+---- QUERY
+# Test that SET actually does change the mem_limit.
+# First, show mem_limit is not hit.
+select 1
+---- RESULTS
+1
+====
+---- QUERY
+# Set mem_limit really small so that queries will fail.
+set mem_limit=1;
+select count(string_col) from functional.alltypestiny
+---- CATCH
+minimum memory reservation is greater than memory available to the query for buffer reservations
+====
+---- QUERY
+# Set mem_limit back to unlimited and query should succeed again.
+set mem_limit=0;
+select count(string_col) from functional.alltypestiny
+---- RESULTS
+8
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-3334: 'optimize_partition_key_scans' is a boolean query option
+set explain_level=0;
+set optimize_partition_key_scans=true;
+explain select min(month), max(year), ndv(day) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'01:AGGREGATE [FINALIZE]'
+'00:UNION'
+'   constant-operands=11'
+====
+---- QUERY
+set explain_level=0;
+set optimize_partition_key_scans=1;
+explain select min(month), max(year), ndv(day) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'01:AGGREGATE [FINALIZE]'
+'00:UNION'
+'   constant-operands=11'
+====
+---- QUERY
+set explain_level=0;
+set optimize_partition_key_scans=false;
+explain select min(month), max(year), ndv(day) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'03:AGGREGATE [FINALIZE]'
+'02:EXCHANGE [UNPARTITIONED]'
+'01:AGGREGATE'
+'00:SCAN $FILESYSTEM_NAME [functional.alltypesagg]'
+====
+---- QUERY
+set explain_level=0;
+set optimize_partition_key_scans=0;
+explain select min(month), max(year), ndv(day) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'03:AGGREGATE [FINALIZE]'
+'02:EXCHANGE [UNPARTITIONED]'
+'01:AGGREGATE'
+'00:SCAN $FILESYSTEM_NAME [functional.alltypesagg]'
+====
+---- QUERY
+set explain_level=0;
+set disable_streaming_preaggregations=false;
+explain select count(distinct double_col) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'06:AGGREGATE [FINALIZE]'
+'05:EXCHANGE [UNPARTITIONED]'
+'02:AGGREGATE'
+'04:AGGREGATE'
+'03:EXCHANGE [HASH(double_col)]'
+'01:AGGREGATE [STREAMING]'
+'00:SCAN $FILESYSTEM_NAME [functional.alltypesagg]'
+====
+---- QUERY
+set explain_level=0;
+set disable_streaming_preaggregations=0;
+explain select count(distinct double_col) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'06:AGGREGATE [FINALIZE]'
+'05:EXCHANGE [UNPARTITIONED]'
+'02:AGGREGATE'
+'04:AGGREGATE'
+'03:EXCHANGE [HASH(double_col)]'
+'01:AGGREGATE [STREAMING]'
+'00:SCAN $FILESYSTEM_NAME [functional.alltypesagg]'
+====
+---- QUERY
+set explain_level=0;
+set disable_streaming_preaggregations=true;
+explain select count(distinct double_col) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'06:AGGREGATE [FINALIZE]'
+'05:EXCHANGE [UNPARTITIONED]'
+'02:AGGREGATE'
+'04:AGGREGATE'
+'03:EXCHANGE [HASH(double_col)]'
+'01:AGGREGATE'
+'00:SCAN $FILESYSTEM_NAME [functional.alltypesagg]'
+====
+---- QUERY
+set explain_level=0;
+set disable_streaming_preaggregations=1;
+explain select count(distinct double_col) from functional.alltypesagg;
+---- RESULTS: VERIFY_IS_SUBSET
+'06:AGGREGATE [FINALIZE]'
+'05:EXCHANGE [UNPARTITIONED]'
+'02:AGGREGATE'
+'04:AGGREGATE'
+'03:EXCHANGE [HASH(double_col)]'
+'01:AGGREGATE'
+'00:SCAN $FILESYSTEM_NAME [functional.alltypesagg]'
+====
+---- QUERY
+set max_row_size=-1;
+---- CATCH
+Invalid max row size of -1. Valid sizes are in [1, 1099511627776]
+====
+---- QUERY
+set max_row_size=0;
+---- CATCH
+Invalid max row size of 0. Valid sizes are in [1, 1099511627776]
+====
+---- QUERY
+# Setting some removed query options should be a no-op.
+set DEFAULT_ORDER_BY_LIMIT="foo";
+set ABORT_ON_DEFAULT_LIMIT_EXCEEDED = "foo";
+set V_CPU_CORES = "foo";
+set RESERVATION_REQUEST_TIMEOUT = "foo";
+set RM_INITIAL_MEM = "foo";
+set SCAN_NODE_CODEGEN_THRESHOLD = "foo";
+set max_io_buffers="foo";
+---- RESULTS
+====

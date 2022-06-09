@@ -1,0 +1,41 @@
+====
+---- QUERY
+# Test for selecting from table with null and empty strings.
+select * from nulltable
+---- RESULTS
+'a','','NULL',NULL,NULL,'a\x00b','\x00'
+---- TYPES
+string, string, string, int, double, string, string
+====
+---- QUERY
+select count(*),count(a),count(b),count(c),count(d),count(e),count(f),count(g)
+from nulltable
+---- RESULTS
+1,1,1,0,0,0,1,1
+---- TYPES
+bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint
+====
+---- QUERY
+select length(f),length(g)
+from nulltable
+---- RESULTS
+3,1
+---- TYPES
+int, int
+====
+---- QUERY
+# Test for selecting from table with '\' escape character with null and empty strings.
+select * from nullescapedtable
+---- RESULTS
+'a','','NULL',NULL,NULL,'a\x00b','\x00'
+---- TYPES
+string, string, string, int, double, string, string
+====
+---- QUERY
+select count(*),count(a),count(b),count(c),count(d),count(e),count(f),count(g)
+from nullescapedtable
+---- RESULTS
+1,1,1,0,0,0,1,1
+---- TYPES
+bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint
+====

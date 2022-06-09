@@ -1,0 +1,944 @@
+====
+---- QUERY
+# insert overwrite unpartitioned table
+insert overwrite table alltypesnopart_insert
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from alltypessmall
+where year=2009 and month=04
+---- SETUP
+RESET alltypesnopart_insert
+---- RESULTS
+: 25
+====
+---- QUERY
+# search the overwritten table to verify the results
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col
+from alltypesnopart_insert
+---- RESULTS
+75,false,0,0,0,0,0,0,'04/01/09','0'
+76,true,1,1,1,10,1.100000023841858,10.1,'04/01/09','1'
+77,false,2,2,2,20,2.200000047683716,20.2,'04/01/09','2'
+78,true,3,3,3,30,3.299999952316284,30.3,'04/01/09','3'
+79,false,4,4,4,40,4.400000095367432,40.4,'04/01/09','4'
+80,true,5,5,5,50,5.5,50.5,'04/01/09','5'
+81,false,6,6,6,60,6.599999904632568,60.6,'04/01/09','6'
+82,true,7,7,7,70,7.699999809265137,70.7,'04/01/09','7'
+83,false,8,8,8,80,8.800000190734863,80.8,'04/01/09','8'
+84,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/01/09','9'
+85,false,0,0,0,0,0,0,'04/02/09','0'
+86,true,1,1,1,10,1.100000023841858,10.1,'04/02/09','1'
+87,false,2,2,2,20,2.200000047683716,20.2,'04/02/09','2'
+88,true,3,3,3,30,3.299999952316284,30.3,'04/02/09','3'
+89,false,4,4,4,40,4.400000095367432,40.4,'04/02/09','4'
+90,true,5,5,5,50,5.5,50.5,'04/02/09','5'
+91,false,6,6,6,60,6.599999904632568,60.6,'04/02/09','6'
+92,true,7,7,7,70,7.699999809265137,70.7,'04/02/09','7'
+93,false,8,8,8,80,8.800000190734863,80.8,'04/02/09','8'
+94,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/02/09','9'
+95,false,0,0,0,0,0,0,'04/03/09','0'
+96,true,1,1,1,10,1.100000023841858,10.1,'04/03/09','1'
+97,false,2,2,2,20,2.200000047683716,20.2,'04/03/09','2'
+98,true,3,3,3,30,3.299999952316284,30.3,'04/03/09','3'
+99,false,4,4,4,40,4.400000095367432,40.4,'04/03/09','4'
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string
+====
+---- QUERY
+# insert into unpartitioned table
+insert into table alltypesnopart_insert
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from alltypessmall
+where year=2009 and month=04
+---- SETUP
+RESET alltypesnopart_insert
+---- RESULTS
+: 25
+====
+---- QUERY
+# search the table to verify it contains 25 rows
+select count(*) from alltypesnopart_insert
+---- RESULTS
+25
+---- TYPES
+bigint
+====
+---- QUERY
+# static partition overwrite
+insert overwrite table alltypesinsert
+partition (year=2009, month=4)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from alltypessmall
+where year=2009 and month=4
+---- SETUP
+DROP PARTITIONS alltypesinsert
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the overwritten partition to verify the results
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col
+from alltypesinsert
+where year=2009 and month=4
+---- RESULTS
+75,false,0,0,0,0,0,0,'04/01/09','0'
+76,true,1,1,1,10,1.100000023841858,10.1,'04/01/09','1'
+77,false,2,2,2,20,2.200000047683716,20.2,'04/01/09','2'
+78,true,3,3,3,30,3.299999952316284,30.3,'04/01/09','3'
+79,false,4,4,4,40,4.400000095367432,40.4,'04/01/09','4'
+80,true,5,5,5,50,5.5,50.5,'04/01/09','5'
+81,false,6,6,6,60,6.599999904632568,60.6,'04/01/09','6'
+82,true,7,7,7,70,7.699999809265137,70.7,'04/01/09','7'
+83,false,8,8,8,80,8.800000190734863,80.8,'04/01/09','8'
+84,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/01/09','9'
+85,false,0,0,0,0,0,0,'04/02/09','0'
+86,true,1,1,1,10,1.100000023841858,10.1,'04/02/09','1'
+87,false,2,2,2,20,2.200000047683716,20.2,'04/02/09','2'
+88,true,3,3,3,30,3.299999952316284,30.3,'04/02/09','3'
+89,false,4,4,4,40,4.400000095367432,40.4,'04/02/09','4'
+90,true,5,5,5,50,5.5,50.5,'04/02/09','5'
+91,false,6,6,6,60,6.599999904632568,60.6,'04/02/09','6'
+92,true,7,7,7,70,7.699999809265137,70.7,'04/02/09','7'
+93,false,8,8,8,80,8.800000190734863,80.8,'04/02/09','8'
+94,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/02/09','9'
+95,false,0,0,0,0,0,0,'04/03/09','0'
+96,true,1,1,1,10,1.100000023841858,10.1,'04/03/09','1'
+97,false,2,2,2,20,2.200000047683716,20.2,'04/03/09','2'
+98,true,3,3,3,30,3.299999952316284,30.3,'04/03/09','3'
+99,false,4,4,4,40,4.400000095367432,40.4,'04/03/09','4'
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string
+====
+---- QUERY
+# static partition insert$TABLE, test creation of partitions
+insert into table alltypesinsert
+partition (year=2009, month=4)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from alltypessmall
+where year=2009 and month=4
+---- SETUP
+DROP PARTITIONS alltypesinsert
+---- RESULTS
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the partition to verify it contains all 25 rows
+select count(*) from alltypesinsert
+where year=2009 and month=4
+---- RESULTS
+25
+---- TYPES
+bigint
+====
+---- QUERY
+# partially dynamic partition overwrite
+insert overwrite table alltypesinsert
+partition (year=2009, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col, month
+from alltypessmall
+where year=2009 and month>1 and month<=4
+---- SETUP
+DROP PARTITIONS alltypesinsert
+---- RESULTS
+year=2009/month=2/: 25
+year=2009/month=3/: 25
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the overwritten partition to verify the results
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col
+from alltypesinsert
+where year=2009 and month>1 and month<=4
+---- RESULTS
+25,false,0,0,0,0,0,0,'02/01/09','0'
+26,true,1,1,1,10,1.100000023841858,10.1,'02/01/09','1'
+27,false,2,2,2,20,2.200000047683716,20.2,'02/01/09','2'
+28,true,3,3,3,30,3.299999952316284,30.3,'02/01/09','3'
+29,false,4,4,4,40,4.400000095367432,40.4,'02/01/09','4'
+30,true,5,5,5,50,5.5,50.5,'02/01/09','5'
+31,false,6,6,6,60,6.599999904632568,60.6,'02/01/09','6'
+32,true,7,7,7,70,7.699999809265137,70.7,'02/01/09','7'
+33,false,8,8,8,80,8.800000190734863,80.8,'02/01/09','8'
+34,true,9,9,9,90,9.899999618530273,90.90000000000001,'02/01/09','9'
+35,false,0,0,0,0,0,0,'02/02/09','0'
+36,true,1,1,1,10,1.100000023841858,10.1,'02/02/09','1'
+37,false,2,2,2,20,2.200000047683716,20.2,'02/02/09','2'
+38,true,3,3,3,30,3.299999952316284,30.3,'02/02/09','3'
+39,false,4,4,4,40,4.400000095367432,40.4,'02/02/09','4'
+40,true,5,5,5,50,5.5,50.5,'02/02/09','5'
+41,false,6,6,6,60,6.599999904632568,60.6,'02/02/09','6'
+42,true,7,7,7,70,7.699999809265137,70.7,'02/02/09','7'
+43,false,8,8,8,80,8.800000190734863,80.8,'02/02/09','8'
+44,true,9,9,9,90,9.899999618530273,90.90000000000001,'02/02/09','9'
+45,false,0,0,0,0,0,0,'02/03/09','0'
+46,true,1,1,1,10,1.100000023841858,10.1,'02/03/09','1'
+47,false,2,2,2,20,2.200000047683716,20.2,'02/03/09','2'
+48,true,3,3,3,30,3.299999952316284,30.3,'02/03/09','3'
+49,false,4,4,4,40,4.400000095367432,40.4,'02/03/09','4'
+50,true,0,0,0,0,0,0,'03/01/09','0'
+51,false,1,1,1,10,1.100000023841858,10.1,'03/01/09','1'
+52,true,2,2,2,20,2.200000047683716,20.2,'03/01/09','2'
+53,false,3,3,3,30,3.299999952316284,30.3,'03/01/09','3'
+54,true,4,4,4,40,4.400000095367432,40.4,'03/01/09','4'
+55,false,5,5,5,50,5.5,50.5,'03/01/09','5'
+56,true,6,6,6,60,6.599999904632568,60.6,'03/01/09','6'
+57,false,7,7,7,70,7.699999809265137,70.7,'03/01/09','7'
+58,true,8,8,8,80,8.800000190734863,80.8,'03/01/09','8'
+59,false,9,9,9,90,9.899999618530273,90.90000000000001,'03/01/09','9'
+60,true,0,0,0,0,0,0,'03/02/09','0'
+61,false,1,1,1,10,1.100000023841858,10.1,'03/02/09','1'
+62,true,2,2,2,20,2.200000047683716,20.2,'03/02/09','2'
+63,false,3,3,3,30,3.299999952316284,30.3,'03/02/09','3'
+64,true,4,4,4,40,4.400000095367432,40.4,'03/02/09','4'
+65,false,5,5,5,50,5.5,50.5,'03/02/09','5'
+66,true,6,6,6,60,6.599999904632568,60.6,'03/02/09','6'
+67,false,7,7,7,70,7.699999809265137,70.7,'03/02/09','7'
+68,true,8,8,8,80,8.800000190734863,80.8,'03/02/09','8'
+69,false,9,9,9,90,9.899999618530273,90.90000000000001,'03/02/09','9'
+70,true,0,0,0,0,0,0,'03/03/09','0'
+71,false,1,1,1,10,1.100000023841858,10.1,'03/03/09','1'
+72,true,2,2,2,20,2.200000047683716,20.2,'03/03/09','2'
+73,false,3,3,3,30,3.299999952316284,30.3,'03/03/09','3'
+74,true,4,4,4,40,4.400000095367432,40.4,'03/03/09','4'
+75,false,0,0,0,0,0,0,'04/01/09','0'
+76,true,1,1,1,10,1.100000023841858,10.1,'04/01/09','1'
+77,false,2,2,2,20,2.200000047683716,20.2,'04/01/09','2'
+78,true,3,3,3,30,3.299999952316284,30.3,'04/01/09','3'
+79,false,4,4,4,40,4.400000095367432,40.4,'04/01/09','4'
+80,true,5,5,5,50,5.5,50.5,'04/01/09','5'
+81,false,6,6,6,60,6.599999904632568,60.6,'04/01/09','6'
+82,true,7,7,7,70,7.699999809265137,70.7,'04/01/09','7'
+83,false,8,8,8,80,8.800000190734863,80.8,'04/01/09','8'
+84,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/01/09','9'
+85,false,0,0,0,0,0,0,'04/02/09','0'
+86,true,1,1,1,10,1.100000023841858,10.1,'04/02/09','1'
+87,false,2,2,2,20,2.200000047683716,20.2,'04/02/09','2'
+88,true,3,3,3,30,3.299999952316284,30.3,'04/02/09','3'
+89,false,4,4,4,40,4.400000095367432,40.4,'04/02/09','4'
+90,true,5,5,5,50,5.5,50.5,'04/02/09','5'
+91,false,6,6,6,60,6.599999904632568,60.6,'04/02/09','6'
+92,true,7,7,7,70,7.699999809265137,70.7,'04/02/09','7'
+93,false,8,8,8,80,8.800000190734863,80.8,'04/02/09','8'
+94,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/02/09','9'
+95,false,0,0,0,0,0,0,'04/03/09','0'
+96,true,1,1,1,10,1.100000023841858,10.1,'04/03/09','1'
+97,false,2,2,2,20,2.200000047683716,20.2,'04/03/09','2'
+98,true,3,3,3,30,3.299999952316284,30.3,'04/03/09','3'
+99,false,4,4,4,40,4.400000095367432,40.4,'04/03/09','4'
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string
+====
+---- QUERY
+# partially dynamic partition insert$TABLE, check partition creation
+insert into table alltypesinsert
+partition (year=2009, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col, month
+from alltypessmall
+where year=2009 and month>=1 and month<4
+---- SETUP
+DROP PARTITIONS alltypesinsert
+---- RESULTS
+year=2009/month=1/: 25
+year=2009/month=2/: 25
+year=2009/month=3/: 25
+====
+---- QUERY
+# search the partitions to verify they contain all 75 rows
+select count(id) from alltypesinsert
+where year=2009 and month>=1 and month<4
+---- RESULTS
+75
+---- TYPES
+bigint
+====
+---- QUERY
+# fully dynamic partition overwrite
+insert overwrite table alltypesinsert
+partition (year, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+from alltypessmall
+---- SETUP
+DROP PARTITIONS alltypesinsert
+---- RESULTS
+year=2009/month=1/: 25
+year=2009/month=2/: 25
+year=2009/month=3/: 25
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the overwritten partition to verify the results
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col
+from alltypesinsert
+where year=2009 and month>=1 and month<=4
+---- RESULTS
+0,true,0,0,0,0,0,0,'01/01/09','0'
+1,false,1,1,1,10,1.100000023841858,10.1,'01/01/09','1'
+10,true,0,0,0,0,0,0,'01/02/09','0'
+11,false,1,1,1,10,1.100000023841858,10.1,'01/02/09','1'
+12,true,2,2,2,20,2.200000047683716,20.2,'01/02/09','2'
+13,false,3,3,3,30,3.299999952316284,30.3,'01/02/09','3'
+14,true,4,4,4,40,4.400000095367432,40.4,'01/02/09','4'
+15,false,5,5,5,50,5.5,50.5,'01/02/09','5'
+16,true,6,6,6,60,6.599999904632568,60.6,'01/02/09','6'
+17,false,7,7,7,70,7.699999809265137,70.7,'01/02/09','7'
+18,true,8,8,8,80,8.800000190734863,80.8,'01/02/09','8'
+19,false,9,9,9,90,9.899999618530273,90.90000000000001,'01/02/09','9'
+2,true,2,2,2,20,2.200000047683716,20.2,'01/01/09','2'
+20,true,0,0,0,0,0,0,'01/03/09','0'
+21,false,1,1,1,10,1.100000023841858,10.1,'01/03/09','1'
+22,true,2,2,2,20,2.200000047683716,20.2,'01/03/09','2'
+23,false,3,3,3,30,3.299999952316284,30.3,'01/03/09','3'
+24,true,4,4,4,40,4.400000095367432,40.4,'01/03/09','4'
+25,false,0,0,0,0,0,0,'02/01/09','0'
+26,true,1,1,1,10,1.100000023841858,10.1,'02/01/09','1'
+27,false,2,2,2,20,2.200000047683716,20.2,'02/01/09','2'
+28,true,3,3,3,30,3.299999952316284,30.3,'02/01/09','3'
+29,false,4,4,4,40,4.400000095367432,40.4,'02/01/09','4'
+3,false,3,3,3,30,3.299999952316284,30.3,'01/01/09','3'
+30,true,5,5,5,50,5.5,50.5,'02/01/09','5'
+31,false,6,6,6,60,6.599999904632568,60.6,'02/01/09','6'
+32,true,7,7,7,70,7.699999809265137,70.7,'02/01/09','7'
+33,false,8,8,8,80,8.800000190734863,80.8,'02/01/09','8'
+34,true,9,9,9,90,9.899999618530273,90.90000000000001,'02/01/09','9'
+35,false,0,0,0,0,0,0,'02/02/09','0'
+36,true,1,1,1,10,1.100000023841858,10.1,'02/02/09','1'
+37,false,2,2,2,20,2.200000047683716,20.2,'02/02/09','2'
+38,true,3,3,3,30,3.299999952316284,30.3,'02/02/09','3'
+39,false,4,4,4,40,4.400000095367432,40.4,'02/02/09','4'
+4,true,4,4,4,40,4.400000095367432,40.4,'01/01/09','4'
+40,true,5,5,5,50,5.5,50.5,'02/02/09','5'
+41,false,6,6,6,60,6.599999904632568,60.6,'02/02/09','6'
+42,true,7,7,7,70,7.699999809265137,70.7,'02/02/09','7'
+43,false,8,8,8,80,8.800000190734863,80.8,'02/02/09','8'
+44,true,9,9,9,90,9.899999618530273,90.90000000000001,'02/02/09','9'
+45,false,0,0,0,0,0,0,'02/03/09','0'
+46,true,1,1,1,10,1.100000023841858,10.1,'02/03/09','1'
+47,false,2,2,2,20,2.200000047683716,20.2,'02/03/09','2'
+48,true,3,3,3,30,3.299999952316284,30.3,'02/03/09','3'
+49,false,4,4,4,40,4.400000095367432,40.4,'02/03/09','4'
+5,false,5,5,5,50,5.5,50.5,'01/01/09','5'
+50,true,0,0,0,0,0,0,'03/01/09','0'
+51,false,1,1,1,10,1.100000023841858,10.1,'03/01/09','1'
+52,true,2,2,2,20,2.200000047683716,20.2,'03/01/09','2'
+53,false,3,3,3,30,3.299999952316284,30.3,'03/01/09','3'
+54,true,4,4,4,40,4.400000095367432,40.4,'03/01/09','4'
+55,false,5,5,5,50,5.5,50.5,'03/01/09','5'
+56,true,6,6,6,60,6.599999904632568,60.6,'03/01/09','6'
+57,false,7,7,7,70,7.699999809265137,70.7,'03/01/09','7'
+58,true,8,8,8,80,8.800000190734863,80.8,'03/01/09','8'
+59,false,9,9,9,90,9.899999618530273,90.90000000000001,'03/01/09','9'
+6,true,6,6,6,60,6.599999904632568,60.6,'01/01/09','6'
+60,true,0,0,0,0,0,0,'03/02/09','0'
+61,false,1,1,1,10,1.100000023841858,10.1,'03/02/09','1'
+62,true,2,2,2,20,2.200000047683716,20.2,'03/02/09','2'
+63,false,3,3,3,30,3.299999952316284,30.3,'03/02/09','3'
+64,true,4,4,4,40,4.400000095367432,40.4,'03/02/09','4'
+65,false,5,5,5,50,5.5,50.5,'03/02/09','5'
+66,true,6,6,6,60,6.599999904632568,60.6,'03/02/09','6'
+67,false,7,7,7,70,7.699999809265137,70.7,'03/02/09','7'
+68,true,8,8,8,80,8.800000190734863,80.8,'03/02/09','8'
+69,false,9,9,9,90,9.899999618530273,90.90000000000001,'03/02/09','9'
+7,false,7,7,7,70,7.699999809265137,70.7,'01/01/09','7'
+70,true,0,0,0,0,0,0,'03/03/09','0'
+71,false,1,1,1,10,1.100000023841858,10.1,'03/03/09','1'
+72,true,2,2,2,20,2.200000047683716,20.2,'03/03/09','2'
+73,false,3,3,3,30,3.299999952316284,30.3,'03/03/09','3'
+74,true,4,4,4,40,4.400000095367432,40.4,'03/03/09','4'
+75,false,0,0,0,0,0,0,'04/01/09','0'
+76,true,1,1,1,10,1.100000023841858,10.1,'04/01/09','1'
+77,false,2,2,2,20,2.200000047683716,20.2,'04/01/09','2'
+78,true,3,3,3,30,3.299999952316284,30.3,'04/01/09','3'
+79,false,4,4,4,40,4.400000095367432,40.4,'04/01/09','4'
+8,true,8,8,8,80,8.800000190734863,80.8,'01/01/09','8'
+80,true,5,5,5,50,5.5,50.5,'04/01/09','5'
+81,false,6,6,6,60,6.599999904632568,60.6,'04/01/09','6'
+82,true,7,7,7,70,7.699999809265137,70.7,'04/01/09','7'
+83,false,8,8,8,80,8.800000190734863,80.8,'04/01/09','8'
+84,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/01/09','9'
+85,false,0,0,0,0,0,0,'04/02/09','0'
+86,true,1,1,1,10,1.100000023841858,10.1,'04/02/09','1'
+87,false,2,2,2,20,2.200000047683716,20.2,'04/02/09','2'
+88,true,3,3,3,30,3.299999952316284,30.3,'04/02/09','3'
+89,false,4,4,4,40,4.400000095367432,40.4,'04/02/09','4'
+9,false,9,9,9,90,9.899999618530273,90.90000000000001,'01/01/09','9'
+90,true,5,5,5,50,5.5,50.5,'04/02/09','5'
+91,false,6,6,6,60,6.599999904632568,60.6,'04/02/09','6'
+92,true,7,7,7,70,7.699999809265137,70.7,'04/02/09','7'
+93,false,8,8,8,80,8.800000190734863,80.8,'04/02/09','8'
+94,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/02/09','9'
+95,false,0,0,0,0,0,0,'04/03/09','0'
+96,true,1,1,1,10,1.100000023841858,10.1,'04/03/09','1'
+97,false,2,2,2,20,2.200000047683716,20.2,'04/03/09','2'
+98,true,3,3,3,30,3.299999952316284,30.3,'04/03/09','3'
+99,false,4,4,4,40,4.400000095367432,40.4,'04/03/09','4'
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string
+====
+---- QUERY
+# fully dynamic partition insert$TABLE, check partition creation
+insert into table alltypesinsert
+partition (year, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+from alltypessmall
+---- SETUP
+DROP PARTITIONS alltypesinsert
+---- RESULTS
+year=2009/month=1/: 25
+year=2009/month=2/: 25
+year=2009/month=3/: 25
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the partitions to verify they contain all 100 rows
+select count(timestamp_col) from alltypesinsert
+where year=2009 and month>=1 and month<=4
+---- RESULTS
+100
+---- TYPES
+bigint
+====
+---- QUERY
+# test insert into ... select *
+insert into alltypesinsert partition(year, month) select * from alltypessmall
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 25
+year=2009/month=2/: 25
+year=2009/month=3/: 25
+year=2009/month=4/: 25
+====
+---- QUERY
+# check size of alltypesinsert to ensure previous insert worked
+select count(*) from alltypesinsert
+---- RESULTS
+100
+---- TYPES
+bigint
+====
+---- QUERY
+# static partition insert into string-partitioned table with special characters in partition key
+INSERT INTO TABLE insert_string_partitioned PARTITION(s2="/\%.") SELECT "value" FROM alltypessmall LIMIT 1;
+---- SETUP
+RESET insert_string_partitioned
+DROP PARTITIONS insert_string_partitioned
+---- RESULTS
+s2=%2F%5C%25./: 1
+====
+---- QUERY
+# select with unencoded partition key
+SELECT * FROM insert_string_partitioned;
+---- RESULTS
+'value','/\\%.'
+---- TYPES
+string, string
+====
+---- QUERY
+# select with unencoded partition key as column predicate
+SELECT * FROM insert_string_partitioned WHERE s2 = "/\%.";
+---- RESULTS
+'value','/\\%.'
+---- TYPES
+string, string
+====
+---- QUERY
+# static partition insert into string-partitioned table with non-escaped special characters
+# (Hive chooses not to escape + and ' ')
+INSERT INTO TABLE insert_string_partitioned PARTITION(s2="_.~ +")
+SELECT "value" FROM alltypessmall LIMIT 1;
+---- SETUP
+DROP PARTITIONS insert_string_partitioned
+---- RESULTS
+s2=_.~ +/: 1
+====
+---- QUERY
+# select with unencoded partition key
+SELECT * FROM insert_string_partitioned;
+---- RESULTS
+'value','_.~ +'
+---- TYPES
+string, string
+====
+---- QUERY
+# static partition insert into string-partitioned table with empty partition key
+INSERT INTO TABLE insert_string_partitioned PARTITION(s2='')
+SELECT "value1" FROM alltypessmall LIMIT 1;
+---- SETUP
+DROP PARTITIONS insert_string_partitioned
+---- RESULTS
+s2=__HIVE_DEFAULT_PARTITION__/: 1
+====
+---- QUERY
+# dynamic partition insert into string-partitioned table with empty partition key
+INSERT INTO TABLE insert_string_partitioned PARTITION(s2)
+SELECT "value2","" FROM alltypessmall LIMIT 1;
+---- RESULTS
+s2=__HIVE_DEFAULT_PARTITION__/: 1
+====
+---- QUERY
+# static partition insert into string-partitioned table with NULL partition key
+INSERT INTO TABLE insert_string_partitioned PARTITION(s2=NULL)
+SELECT "value3" FROM alltypessmall LIMIT 1;
+---- RESULTS
+s2=__HIVE_DEFAULT_PARTITION__/: 1
+====
+---- QUERY
+# dynamic partition insert into string-partitioned table with NULL partition key
+INSERT INTO TABLE insert_string_partitioned PARTITION(s2)
+SELECT "value4",NULL FROM alltypessmall LIMIT 1;
+---- RESULTS
+s2=__HIVE_DEFAULT_PARTITION__/: 1
+====
+---- QUERY
+# select with empty partition key as predicate should return nothing, because "" is
+# mapped to NULL
+SELECT * FROM insert_string_partitioned WHERE s2 = "";
+---- RESULTS
+---- TYPES
+string, string
+====
+---- QUERY
+# select with NULL partition key as predicate should return rows
+SELECT s1, s2 FROM insert_string_partitioned where s2 is NULL
+order by s1 limit 10
+---- RESULTS
+'value1','NULL'
+'value2','NULL'
+'value3','NULL'
+'value4','NULL'
+---- TYPES
+string, string
+====
+---- QUERY
+# static partition insert with constant exprs as partition-key values
+insert into alltypesinsert partition(year=cast(100*20+10 as int), month=cast(2*2 as int))
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col, timestamp_col from alltypessmall where month = 4
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+year=2010/month=4/: 25
+====
+---- QUERY
+# static partition insert from a constant select
+insert into alltypesinsert
+partition(year=2010, month=4)
+select 100, false, 1, 1, 1, 10,
+10.0, 10.0, "02/01/09", "1", cast("2009-02-01 00:01:00" as timestamp)
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+year=2010/month=4/: 1
+====
+---- QUERY
+# dynamic partition insert from a constant select
+insert into table alltypesinsert
+partition (year, month)
+select 200, true, 2, 2, 2, 20,
+20.0, 20.0, "02/01/09", "1", cast("2009-02-01 00:02:00" as timestamp), 2010, 4
+---- RESULTS
+year=2010/month=4/: 1
+====
+---- QUERY
+# verify contents of alltypesinsert
+select * from alltypesinsert order by id limit 2
+---- RESULTS
+100,false,1,1,1,10,10,10,'02/01/09','1',2009-02-01 00:01:00,2010,4
+200,true,2,2,2,20,20,20,'02/01/09','1',2009-02-01 00:02:00,2010,4
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string, timestamp, int, int
+====
+---- QUERY
+# static partition insert from values statement
+insert into alltypesinsert
+partition(year=2010, month=4) values
+(1, false, 1, 1, 1, 10, NULL, 10.0, "02/01/09", "1", cast("2009-02-01 00:01:00" as timestamp)),
+(2, true, 2, NULL, 2, 20, 20.0, 20.0, "02/02/09", "2", NULL),
+(3, false, 3, 3, 3, 30, 30.0, 30.0, "02/03/09", NULL, cast("2009-02-03 00:01:00" as timestamp))
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+year=2010/month=4/: 3
+====
+---- QUERY
+# dynamic partition insert from values statement
+insert into table alltypesinsert
+partition (year, month) values
+(4, true, 4, 4, 4, 40, NULL, 40.0, "02/04/09", "4", cast("2009-02-04 00:01:00" as timestamp), 2010, 4),
+(5, false, 5, NULL, 5, 50, 50.0, 50.0, "02/05/09", "5", NULL, 2010, 8),
+(6, true, 6, 6, 6, 60, 60.0, 60.0, "02/06/09", NULL, cast("2009-02-06 00:01:00" as timestamp), 2010, 8)
+---- RESULTS
+year=2010/month=4/: 1
+year=2010/month=8/: 2
+====
+---- QUERY
+# verify contents of alltypesinsert
+select * from alltypesinsert order by id limit 10
+---- RESULTS
+1,false,1,1,1,10,NULL,10,'02/01/09','1',2009-02-01 00:01:00,2010,4
+2,true,2,NULL,2,20,20,20,'02/02/09','2',NULL,2010,4
+3,false,3,3,3,30,30,30,'02/03/09','NULL',2009-02-03 00:01:00,2010,4
+4,true,4,4,4,40,NULL,40,'02/04/09','4',2009-02-04 00:01:00,2010,4
+5,false,5,NULL,5,50,50,50,'02/05/09','5',NULL,2010,8
+6,true,6,6,6,60,60,60,'02/06/09','NULL',2009-02-06 00:01:00,2010,8
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+====
+---- QUERY
+# Test with clause in an insert statement.
+with t1 as (select * from alltypestiny)
+insert into alltypesinsert partition(year, month) select * from t1
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 2
+year=2009/month=2/: 2
+year=2009/month=3/: 2
+year=2009/month=4/: 2
+====
+---- QUERY
+# Test with clause in an insert statement and in its query statement.
+with t1 as (select * from alltypestiny)
+insert into alltypesinsert partition(year, month)
+with t2 as (select * from alltypestiny)
+select * from t1 union all select * from t2
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 4
+year=2009/month=2/: 4
+year=2009/month=3/: 4
+year=2009/month=4/: 4
+====
+---- QUERY
+# Test inserting NULLs for all types
+insert overwrite table alltypesnopart_insert
+select NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+from alltypessmall limit 10
+---- RESULTS
+: 10
+====
+---- QUERY
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from alltypesnopart_insert
+---- RESULTS
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NULL','NULL',NULL
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string, timestamp
+====
+---- QUERY
+insert overwrite alltypesnopart_insert(float_col, double_col)
+values(CAST(1/0 AS FLOAT), 1/0), (CAST(-1/0 AS FLOAT), -1/0),
+      (CAST(0/0 AS FLOAT), 0/0), (CAST(-sqrt(-1) AS FLOAT), -sqrt(-1))
+---- SETUP
+RESET alltypesinsert
+---- RESULTS
+: 4
+====
+---- QUERY
+# Results have to be cast to strings, because nan == f is always false for all f
+# (even nan), so the results check would otherwise always fail.
+select CAST(float_col AS string), CAST(double_col AS string) from alltypesnopart_insert
+order by float_col, double_col limit 10;
+---- RESULTS
+'nan','nan'
+'nan','nan'
+'-inf','-inf'
+'inf','inf'
+---- TYPES
+STRING, STRING
+====
+---- QUERY
+# Test that insert overwrite with a limit 0 clears the table.
+insert overwrite table alltypesinsert
+partition (year, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+from alltypessmall limit 0
+---- RESULTS
+====
+---- QUERY
+select count(*) from alltypesinsert
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Test that insert overwrite with a limit 0 clears the table.
+insert overwrite table alltypesnopart_insert
+select 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+from alltypessmall limit 0
+---- RESULTS
+: 0
+====
+---- QUERY
+select count(*) from alltypesnopart_insert
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-1737: Test dynamic partition insert from a select stmt that
+# has an analytic function with an order by clause.
+insert overwrite table alltypesinsert
+partition (year, month)
+select id, bool_col, tinyint_col, smallint_col, int_col,
+sum(bigint_col) over(order by string_col),
+float_col, double_col, date_string_col, string_col, timestamp_col,
+int_col, month
+from functional.alltypestiny
+---- RESULTS: VERIFY_IS_EQUAL_SORTED
+year=0/month=1/: 1
+year=0/month=2/: 1
+year=0/month=3/: 1
+year=0/month=4/: 1
+year=1/month=1/: 1
+year=1/month=2/: 1
+year=1/month=3/: 1
+year=1/month=4/: 1
+====
+---- QUERY
+# IMPALA-2203: Test insert from a select statement that has outer-joined inline views with
+# constant exprs in the select list. The non-matches of the outer join should be NULL.
+truncate table alltypesinsert;
+insert overwrite table alltypesinsert
+partition (year=2015, month=8)
+select a.id, a.bool_col, a.tinyint_col, a.smallint_col, a.int_col, a.bigint_col,
+  b.float_col, b.double_col, b.date_string_col, b.string_col, b.timestamp_col
+from
+(select id, false bool_col, 1 tinyint_col, 2 smallint_col, 3 int_col, 4 bigint_col
+ from functional.alltypestiny where id between 0 and 2) a
+full outer join
+(select id, 5 float_col, 6 double_col, "s1" date_string_col, "s2" string_col,
+   cast("2009-02-06 00:01:00" as timestamp) timestamp_col
+ from functional.alltypestiny where id between 1 and 3) b
+on (a.id = b.id)
+---- RESULTS: VERIFY_IS_EQUAL_SORTED
+year=2015/month=8/: 4
+====
+---- QUERY
+select * from alltypesinsert
+---- RESULTS: VERIFY_IS_EQUAL_SORTED
+NULL,NULL,NULL,NULL,NULL,NULL,5,6,'s1','s2',2009-02-06 00:01:00,2015,8
+0,false,1,2,3,4,NULL,NULL,'NULL','NULL',NULL,2015,8
+1,false,1,2,3,4,5,6,'s1','s2',2009-02-06 00:01:00,2015,8
+2,false,1,2,3,4,5,6,'s1','s2',2009-02-06 00:01:00,2015,8
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+====
+---- QUERY
+# IMPALA-1740: Test inserting into table with the skip.header.line.count tblproperty
+insert into table_with_header_insert values (1), (2), (3), (4);
+---- SETUP
+RESET table_with_header_insert
+---- RESULTS
+: 4
+====
+---- QUERY
+select * from table_with_header_insert;
+---- RESULTS
+1
+2
+3
+4
+---- TYPES
+INT
+====
+---- QUERY
+# The following 4 queries are to test IMPALA-3452 which test S3 INSERTs with staging.
+SET S3_SKIP_INSERT_STAGING=false;
+# static partition overwrite
+insert overwrite table alltypesinsert
+partition (year=2009, month=4)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from alltypessmall
+where year=2009 and month=4
+---- SETUP
+DROP PARTITIONS alltypesinsert
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the overwritten partition to verify the results
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col
+from alltypesinsert
+where year=2009 and month=4
+---- RESULTS
+75,false,0,0,0,0,0,0,'04/01/09','0'
+76,true,1,1,1,10,1.100000023841858,10.1,'04/01/09','1'
+77,false,2,2,2,20,2.200000047683716,20.2,'04/01/09','2'
+78,true,3,3,3,30,3.299999952316284,30.3,'04/01/09','3'
+79,false,4,4,4,40,4.400000095367432,40.4,'04/01/09','4'
+80,true,5,5,5,50,5.5,50.5,'04/01/09','5'
+81,false,6,6,6,60,6.599999904632568,60.6,'04/01/09','6'
+82,true,7,7,7,70,7.699999809265137,70.7,'04/01/09','7'
+83,false,8,8,8,80,8.800000190734863,80.8,'04/01/09','8'
+84,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/01/09','9'
+85,false,0,0,0,0,0,0,'04/02/09','0'
+86,true,1,1,1,10,1.100000023841858,10.1,'04/02/09','1'
+87,false,2,2,2,20,2.200000047683716,20.2,'04/02/09','2'
+88,true,3,3,3,30,3.299999952316284,30.3,'04/02/09','3'
+89,false,4,4,4,40,4.400000095367432,40.4,'04/02/09','4'
+90,true,5,5,5,50,5.5,50.5,'04/02/09','5'
+91,false,6,6,6,60,6.599999904632568,60.6,'04/02/09','6'
+92,true,7,7,7,70,7.699999809265137,70.7,'04/02/09','7'
+93,false,8,8,8,80,8.800000190734863,80.8,'04/02/09','8'
+94,true,9,9,9,90,9.899999618530273,90.90000000000001,'04/02/09','9'
+95,false,0,0,0,0,0,0,'04/03/09','0'
+96,true,1,1,1,10,1.100000023841858,10.1,'04/03/09','1'
+97,false,2,2,2,20,2.200000047683716,20.2,'04/03/09','2'
+98,true,3,3,3,30,3.299999952316284,30.3,'04/03/09','3'
+99,false,4,4,4,40,4.400000095367432,40.4,'04/03/09','4'
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string
+====
+---- QUERY
+SET S3_SKIP_INSERT_STAGING=false;
+# fully dynamic partition insert$TABLE, check partition creation
+insert into table alltypesinsert
+partition (year, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+from alltypessmall
+---- SETUP
+DROP PARTITIONS alltypesinsert
+---- RESULTS
+year=2009/month=1/: 25
+year=2009/month=2/: 25
+year=2009/month=3/: 25
+year=2009/month=4/: 25
+====
+---- QUERY
+# search the partitions to verify they contain all 100 rows
+select count(timestamp_col) from alltypesinsert
+where year=2009 and month>=1 and month<=4
+---- RESULTS
+100
+---- TYPES
+bigint
+====
+---- QUERY
+# IMPALA-5293: noclustered insert into table
+insert into table alltypesinsert
+partition (year, month) /*+ noclustered,shuffle */
+select * from alltypes;
+---- SETUP
+DROP PARTITIONS alltypesinsert
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 310
+year=2009/month=10/: 310
+year=2009/month=11/: 300
+year=2009/month=12/: 310
+year=2009/month=2/: 280
+year=2009/month=3/: 310
+year=2009/month=4/: 300
+year=2009/month=5/: 310
+year=2009/month=6/: 300
+year=2009/month=7/: 310
+year=2009/month=8/: 310
+year=2009/month=9/: 300
+year=2010/month=1/: 310
+year=2010/month=10/: 310
+year=2010/month=11/: 300
+year=2010/month=12/: 310
+year=2010/month=2/: 280
+year=2010/month=3/: 310
+year=2010/month=4/: 300
+year=2010/month=5/: 310
+year=2010/month=6/: 300
+year=2010/month=7/: 310
+year=2010/month=8/: 310
+year=2010/month=9/: 300
+====
+---- QUERY
+# IMPALA-5293: noclustered insert into table
+insert into table alltypesinsert
+partition (year, month) /*+ noclustered,shuffle */
+select * from alltypestiny;
+---- SETUP
+DROP PARTITIONS alltypesinsert
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 2
+year=2009/month=2/: 2
+year=2009/month=3/: 2
+year=2009/month=4/: 2
+====
+---- QUERY
+# IMPALA-5293: noclustered insert into table
+insert into table alltypesinsert
+partition (year, month) /*+ noclustered,noshuffle */
+select * from alltypestiny;
+---- SETUP
+DROP PARTITIONS alltypesinsert
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 2
+year=2009/month=2/: 2
+year=2009/month=3/: 2
+year=2009/month=4/: 2
+====
+---- QUERY
+# IMPALA-5293: noclustered insert into table
+insert into table alltypesinsert
+partition (year, month) /*+ noclustered,shuffle */
+select * from alltypestiny where int_col = 0;
+---- SETUP
+DROP PARTITIONS alltypesinsert
+RESET alltypesinsert
+---- RESULTS
+year=2009/month=1/: 1
+year=2009/month=2/: 1
+year=2009/month=3/: 1
+year=2009/month=4/: 1
+====
+---- QUERY
+# IMPALA-5293: noclustered, unpartitioned insert into table
+insert into table alltypesnopart_insert
+ /*+ noclustered,shuffle */
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, date_string_col, string_col, timestamp_col from alltypessmall;
+---- SETUP
+RESET alltypesnopart_insert
+---- RESULTS
+: 100
+====
+---- QUERY
+# IMPALA-6280: clustered (default) with outer join, inline view, and TupleisNullPredicate
+insert into table alltypesinsert (int_col)
+partition (year, month) /*+ shuffle */
+select v.id, t1.id, t1.month from
+(select coalesce(id, 10) id from functional.alltypessmall) v
+right outer join functional.alltypestiny t1 on t1.id = v.id
+where v.id = 0
+---- RESULTS
+year=0/month=1/: 1
+====

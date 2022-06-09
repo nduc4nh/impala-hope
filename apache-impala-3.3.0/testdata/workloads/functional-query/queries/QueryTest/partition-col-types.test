@@ -1,0 +1,285 @@
+====
+---- QUERY
+# Create a table with all partition types supported by INSERT statements.
+# INSERT into a BOOLEAN partition column is not currently supported due to
+# HIVE-6590.
+CREATE EXTERNAL TABLE all_insert_partition_col_types (id INT)
+PARTITIONED BY (
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  string_col STRING
+) LOCATION '/test-warehouse/$DATABASE.db/all_insert_partition_col_types'
+====
+---- QUERY
+DESCRIBE all_insert_partition_col_types
+---- RESULTS
+'id','int',''
+'tinyint_col','tinyint',''
+'smallint_col','smallint',''
+'int_col','int',''
+'bigint_col','bigint',''
+'float_col','float',''
+'double_col','double',''
+'string_col','string',''
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+INSERT OVERWRITE all_insert_partition_col_types
+PARTITION (tinyint_col, smallint_col, int_col, bigint_col, float_col,
+double_col, string_col)
+SELECT id, tinyint_col, smallint_col, int_col, bigint_col,
+0.0, 1.1, string_col
+FROM functional.alltypes
+WHERE id >= 0 and id < 10;
+---- RESULTS
+tinyint_col=8/smallint_col=8/int_col=8/bigint_col=80/float_col=0/double_col=1.1/string_col=8/: 1
+tinyint_col=9/smallint_col=9/int_col=9/bigint_col=90/float_col=0/double_col=1.1/string_col=9/: 1
+tinyint_col=2/smallint_col=2/int_col=2/bigint_col=20/float_col=0/double_col=1.1/string_col=2/: 1
+tinyint_col=3/smallint_col=3/int_col=3/bigint_col=30/float_col=0/double_col=1.1/string_col=3/: 1
+tinyint_col=5/smallint_col=5/int_col=5/bigint_col=50/float_col=0/double_col=1.1/string_col=5/: 1
+tinyint_col=6/smallint_col=6/int_col=6/bigint_col=60/float_col=0/double_col=1.1/string_col=6/: 1
+tinyint_col=4/smallint_col=4/int_col=4/bigint_col=40/float_col=0/double_col=1.1/string_col=4/: 1
+tinyint_col=7/smallint_col=7/int_col=7/bigint_col=70/float_col=0/double_col=1.1/string_col=7/: 1
+tinyint_col=0/smallint_col=0/int_col=0/bigint_col=0/float_col=0/double_col=1.1/string_col=0/: 1
+tinyint_col=1/smallint_col=1/int_col=1/bigint_col=10/float_col=0/double_col=1.1/string_col=1/: 1
+====
+---- QUERY
+# Add another partition that contains different float/double values.
+INSERT OVERWRITE all_insert_partition_col_types
+PARTITION (tinyint_col=11, smallint_col=11, int_col=11, bigint_col=110,
+float_col=2, double_col=3.1, string_col='11')
+SELECT 11;
+---- RESULTS
+tinyint_col=11/smallint_col=11/int_col=11/bigint_col=110/float_col=2/double_col=3.1/string_col=11/: 1
+====
+---- QUERY
+SELECT * FROM all_insert_partition_col_types
+---- RESULTS
+0,0,0,0,0,0,1.1,'0'
+3,3,3,3,30,0,1.1,'3'
+8,8,8,8,80,0,1.1,'8'
+9,9,9,9,90,0,1.1,'9'
+2,2,2,2,20,0,1.1,'2'
+1,1,1,1,10,0,1.1,'1'
+11,11,11,11,110,2,3.1,'11'
+7,7,7,7,70,0,1.1,'7'
+5,5,5,5,50,0,1.1,'5'
+6,6,6,6,60,0,1.1,'6'
+4,4,4,4,40,0,1.1,'4'
+---- TYPES
+INT, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING
+====
+---- QUERY
+# Verify partition pruning works for all column types
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE tinyint_col < 7 AND smallint_col < 6 AND int_col < 5 AND bigint_col < 40 AND
+string_col in ('1', '2', '3')
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=3/11 files=3 size=6B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE tinyint_col < 7
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=7/11 files=7 size=14B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE smallint_col < 6
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=6/11 files=6 size=12B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE int_col < 5
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=5/11 files=5 size=10B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE bigint_col < 40
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=4/11 files=4 size=8B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE string_col in ('1', '2', '3')
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=3/11 files=3 size=6B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE double_col = 1.1
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=10/11 files=10 size=20B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from all_insert_partition_col_types
+WHERE float_col = 2
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_insert_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=1/11 files=1 size=3B'
+====
+---- QUERY
+# Create a table with all supported partition key column types. TIMESTAMP is not
+# currently a supported partition key column type.
+# TODO: Should we really support double/float partition key columns?
+CREATE EXTERNAL TABLE all_partition_col_types (id INT)
+PARTITIONED BY (
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  string_col STRING
+)
+====
+---- QUERY
+DESCRIBE all_partition_col_types
+---- RESULTS
+'id','int',''
+'bool_col','boolean',''
+'tinyint_col','tinyint',''
+'smallint_col','smallint',''
+'int_col','int',''
+'bigint_col','bigint',''
+'float_col','float',''
+'double_col','double',''
+'string_col','string',''
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+# Since Impala currently does not support INSERT into a boolean partition column,
+# just point this partition at some existing data.
+ALTER TABLE all_partition_col_types
+ADD PARTITION (bool_col=FALSE, tinyint_col=1, smallint_col=1, int_col=1,
+bigint_col=10, float_col=0, double_col=1.1, string_col='1')
+LOCATION '/test-warehouse/$DATABASE.db/all_insert_partition_col_types/tinyint_col=1/smallint_col=1/int_col=1/bigint_col=10/float_col=0/double_col=1.1/string_col=1/'
+====
+---- QUERY
+ALTER TABLE all_partition_col_types
+ADD PARTITION (bool_col=TRUE, tinyint_col=2, smallint_col=2, int_col=2,
+bigint_col=20, float_col=0, double_col=1.1, string_col='2')
+LOCATION '/test-warehouse/$DATABASE.db/all_insert_partition_col_types/tinyint_col=2/smallint_col=2/int_col=2/bigint_col=20/float_col=0/double_col=1.1/string_col=2/'
+====
+---- QUERY
+EXPLAIN
+SELECT * FROM all_partition_col_types
+WHERE bool_col=false
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.all_partition_col_types]'
+'   $FILESYSTEM_NAME partitions=1/2 files=1 size=2B'
+====
+---- QUERY
+DROP TABLE all_partition_col_types;
+====
+---- QUERY
+DROP TABLE all_insert_partition_col_types;
+====
+---- QUERY
+# Regression test for IMPALA-1026
+drop table if exists test_dec_partition;
+create table test_dec_partition(id int, `dec` decimal(5,4))
+  partitioned by(decimal_col DECIMAL(5,4));
+alter table test_dec_partition drop if exists partition(decimal_col=4.34);
+insert into test_dec_partition partition(decimal_col=4.34) values (1, 3.14);
+select * from test_dec_partition;
+---- TYPES
+int, decimal, decimal
+---- RESULTS
+1,3.1400,4.3400
+====
+---- QUERY
+EXPLAIN
+SELECT * from test_dec_partition
+WHERE decimal_col = 4.34
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.test_dec_partition]'
+'   $FILESYSTEM_NAME partitions=1/1 files=1 size=9B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from test_dec_partition
+WHERE decimal_col = 04.340
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.test_dec_partition]'
+'   $FILESYSTEM_NAME partitions=1/1 files=1 size=9B'
+====
+---- QUERY
+EXPLAIN
+SELECT * from test_dec_partition
+WHERE decimal_col = 4.35
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.test_dec_partition]'
+'   partitions=0/1 files=0 size=0B'
+====
+---- QUERY
+# Dynamic partitions
+insert into test_dec_partition partition(decimal_col)
+values(2, 6.28, 8.68), (0, 1.23, 8.68), (3, 4.56, 1.0);
+SELECT * from test_dec_partition;
+---- TYPES
+int, decimal, decimal
+---- RESULTS
+1,3.1400,4.3400
+2,6.2800,8.6800
+0,1.2300,8.6800
+3,4.5600,1.0000
+====
+---- QUERY
+EXPLAIN
+SELECT * from test_dec_partition
+WHERE decimal_col = 8.68
+---- RESULTS: VERIFY_IS_SUBSET
+'01:EXCHANGE [UNPARTITIONED]'
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.test_dec_partition]'
+'   $FILESYSTEM_NAME partitions=1/3 files=1 size=18B'
+====

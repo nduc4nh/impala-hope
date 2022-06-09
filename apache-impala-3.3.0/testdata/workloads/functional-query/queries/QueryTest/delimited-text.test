@@ -1,0 +1,74 @@
+====
+---- QUERY
+# test querying text table with:
+# fields terminated by ','
+# escaped by '\\'
+# lines terminated by '\n'
+select * from functional.text_comma_backslash_newline
+---- RESULTS
+'one','two',3,4
+'one,one','two',3,4
+'one\\','two',3,4
+'one\\,one','two',3,4
+'one\\\\','two',3,4
+---- TYPES
+STRING,STRING,INT,INT
+====
+---- QUERY
+# test querying text table with:
+# fields terminated by '$'
+# escaped by '#'
+# lines terminated by '|'
+select * from functional.text_dollar_hash_pipe
+---- RESULTS
+'one','two',3,4
+'one$one','two',3,4
+'one#','two',3,4
+'one#$one','two',3,4
+'one##','two',3,4
+---- TYPES
+STRING,STRING,INT,INT
+====
+---- QUERY
+# create new tables like the ones above to test inserting
+create table cbn like functional.text_comma_backslash_newline;
+create table dhp like functional.text_dollar_hash_pipe;
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+# insert data into cbn table and check results
+insert into cbn values
+('abc , abc', 'xyz \\ xyz', 1, 2),
+('abc ,,, abc', 'xyz \\\\\\ xyz', 3, 4),
+('abc \\,\\, abc', 'xyz ,\\,\\ xyz', 5, 6)
+---- RESULTS
+: 3
+====
+---- QUERY
+select * from cbn
+---- RESULTS
+'abc , abc','xyz \\ xyz',1,2
+'abc ,,, abc','xyz \\\\\\ xyz',3,4
+'abc \\,\\, abc','xyz ,\\,\\ xyz',5,6
+---- TYPES
+STRING,STRING,INT,INT
+====
+---- QUERY
+# insert data into dhp table and check results
+insert into dhp values
+('abc $ abc', 'xyz # xyz', 1, 2),
+('abc $$$ abc', 'xyz ### xyz', 3, 4),
+('abc #$#$ abc', 'xyz $#$# xyz', 5, 6)
+---- RESULTS
+: 3
+====
+---- QUERY
+select * from dhp
+---- RESULTS
+'abc $ abc','xyz # xyz',1,2
+'abc $$$ abc','xyz ### xyz',3,4
+'abc #$#$ abc','xyz $#$# xyz',5,6
+---- TYPES
+STRING,STRING,INT,INT
+====

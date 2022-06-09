@@ -1,0 +1,241 @@
+====
+---- QUERY
+# This query will do a full table scan, doing a simple aggregation on all cols with
+# a simple predicate
+select count(*),
+  sum(id), count(bool_col), sum(tinyint_col), sum(smallint_col),
+  sum(int_col), sum(bigint_col), max(float_col), max(double_col),
+  max(date_string_col), max(string_col), max(timestamp_col)
+from alltypesagg
+where id % 2 = 0 and day is not null
+---- RESULTS
+5000,24995000,5000,20000,245000,2495000,24950000,1097.800048828125,10079.8,'01/10/10','998',2010-01-10 18:00:55.300000000
+---- TYPES
+BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP
+====
+---- QUERY
+# This query will do a join, projecting one string col from each table.
+# This is interesting because the join contains string cols which causes the scanners
+# to do different memory handling.
+select sum(t1.id), sum(t1.int_col),max(t1.date_string_col), max(t2.string_col)
+from alltypesagg t1
+inner join alltypesagg t2
+  on t1.id = t2.id and t1.day is not null and t2.day is not null
+---- RESULTS
+49995000,4995000,'01/10/10','999'
+---- TYPES
+BIGINT, BIGINT, STRING, STRING
+====
+---- QUERY
+# This query does a top-n on non-string cols.  This is different because without
+# string cols, scanners will handle io buffers differently.  They don't need to
+# be passed up the execution tree.
+select id, bool_col, int_col
+from alltypesagg where day is not null
+order by 1 desc, 2 desc, 3 desc
+limit 10
+---- RESULTS
+9999,false,999
+9998,true,998
+9997,false,997
+9996,true,996
+9995,false,995
+9994,true,994
+9993,false,993
+9992,true,992
+9991,false,991
+9990,true,990
+---- TYPES
+INT, BOOLEAN, INT
+====
+---- QUERY
+# The next sequence of queries is a regression test for IMPALA-4153
+# verifying the retrieval of empty and NULL string columns
+select count(*)
+from nulltable
+---- RESULTS
+1
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*)
+from nulltable where b = ''
+---- RESULTS
+1
+---- TYPES
+BIGINT
+====
+---- QUERY
+select a,b
+from nulltable where b = ''
+---- RESULTS
+'a',''
+---- TYPES
+STRING, STRING
+====
+---- QUERY
+# The following 3 tests are regression tests for IMPALA-6187. Make sure the conjuncts are
+# evaluated when there are no materialized slots or only partition columns are accessed.
+select count(*) from alltypes where rand() * 10 >= 0.0;
+---- RESULTS
+7300
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where rand() * 10 < 0.0;
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# 'year' and 'month' are partition columns.
+select count(*) from alltypes where rand() - year > month;
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-6258: Uninitialized tuple pointers in row batch for empty rows
+# The following query was non-deterministic because of this bug
+select count(v.x) from alltypestiny t3 left outer join (
+  select true as x from alltypestiny t1 left outer join
+  alltypestiny t2 on (true)) v
+on (v.x = t3.bool_col) where t3.bool_col = true
+---- RESULTS
+256
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Scan an empty unpartitioned table.
+select * from emptytable;
+---- RESULTS
+---- TYPES
+STRING,INT
+====
+---- QUERY
+# IMPALA-6587: regression test for reservation not being managed correctly. Should be
+# able to execute this query reliably with the minimum reservation, even with tiny
+# scan ranges. This reliably reproduced the issue when run against text/lzo.
+set max_scan_range_length=1;
+select count(*) from alltypessmall
+---- RESULTS
+100
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-5861: RowsRead counter should be accurate for table scan that materializes
+# zero slots from this files. This test is run with various batch_size values,
+# which helps reproduce the Parquet bug.
+select 1 from alltypessmall
+---- TYPES
+tinyint
+---- RESULTS
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+---- RUNTIME_PROFILE
+aggregation(SUM, RowsRead): 100
+====

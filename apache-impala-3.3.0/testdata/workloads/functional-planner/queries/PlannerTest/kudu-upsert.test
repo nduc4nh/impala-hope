@@ -1,0 +1,323 @@
+# simple upsert with select
+upsert into table functional_kudu.testtbl
+select bigint_col, string_col, int_col from functional.alltypes
+where year=2009 and month=05
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+00:SCAN HDFS [functional.alltypes]
+   partition predicates: `year` = 2009, `month` = 5
+   partitions=1/24 files=1 size=20.36KB
+   row-size=25B cardinality=310
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+02:PARTIAL SORT
+|  order by: KuduPartition(bigint_col) ASC NULLS LAST, bigint_col ASC NULLS LAST
+|  row-size=29B cardinality=310
+|
+01:EXCHANGE [KUDU(KuduPartition(bigint_col))]
+|
+00:SCAN HDFS [functional.alltypes]
+   partition predicates: `year` = 2009, `month` = 5
+   partitions=1/24 files=1 size=20.36KB
+   row-size=25B cardinality=310
+====
+# simple upsert with values clause
+upsert into table functional_kudu.testtbl
+values (1, 'a', 1), (2, 'b', 2)
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+00:UNION
+   constant-operands=2
+   row-size=14B cardinality=2
+====
+# upsert with 'with' clause and limit
+with x as (select string_col, count(*) from functional.alltypes group by string_col)
+upsert into table functional_kudu.testtbl
+select a.bigint_col, a.string_col, a.int_col from functional.alltypes a, x
+where x.string_col = a.string_col
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+03:HASH JOIN [INNER JOIN]
+|  hash predicates: a.string_col = string_col
+|  runtime filters: RF000 <- string_col
+|  row-size=38B cardinality=7.30K
+|
+|--02:AGGREGATE [FINALIZE]
+|  |  group by: string_col
+|  |  row-size=13B cardinality=10
+|  |
+|  01:SCAN HDFS [functional.alltypes]
+|     partitions=24/24 files=24 size=478.45KB
+|     row-size=13B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes a]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> a.string_col
+   row-size=25B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+08:PARTIAL SORT
+|  order by: KuduPartition(a.bigint_col) ASC NULLS LAST, bigint_col ASC NULLS LAST
+|  row-size=29B cardinality=7.30K
+|
+07:EXCHANGE [KUDU(KuduPartition(a.bigint_col))]
+|
+03:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: a.string_col = string_col
+|  runtime filters: RF000 <- string_col
+|  row-size=38B cardinality=7.30K
+|
+|--06:EXCHANGE [BROADCAST]
+|  |
+|  05:AGGREGATE [FINALIZE]
+|  |  group by: string_col
+|  |  row-size=13B cardinality=10
+|  |
+|  04:EXCHANGE [HASH(string_col)]
+|  |
+|  02:AGGREGATE [STREAMING]
+|  |  group by: string_col
+|  |  row-size=13B cardinality=10
+|  |
+|  01:SCAN HDFS [functional.alltypes]
+|     partitions=24/24 files=24 size=478.45KB
+|     row-size=13B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes a]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> a.string_col
+   row-size=25B cardinality=7.30K
+====
+# upsert with inline view
+upsert into functional_kudu.testtbl
+select v.id, v.string_col, v.cnt from (
+  select id, string_col, cast(count(*) as int) cnt from
+  functional.alltypes
+  group by 1, 2) v
+where cnt < 10
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  group by: id, string_col
+|  having: CAST(count(*) AS INT) < 10
+|  row-size=25B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=17B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+05:PARTIAL SORT
+|  order by: KuduPartition(id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=29B cardinality=7.30K
+|
+04:EXCHANGE [KUDU(KuduPartition(id))]
+|
+03:AGGREGATE [FINALIZE]
+|  output: count:merge(*)
+|  group by: id, string_col
+|  having: CAST(count(*) AS INT) < 10
+|  row-size=25B cardinality=7.30K
+|
+02:EXCHANGE [HASH(id,string_col)]
+|
+01:AGGREGATE [STREAMING]
+|  output: count(*)
+|  group by: id, string_col
+|  row-size=25B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=17B cardinality=7.30K
+====
+upsert into functional_kudu.testtbl
+select * from functional_kudu.testtbl
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+00:SCAN KUDU [functional_kudu.testtbl]
+   row-size=28B cardinality=0
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+02:PARTIAL SORT
+|  order by: KuduPartition(functional_kudu.testtbl.id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=28B cardinality=0
+|
+01:EXCHANGE [KUDU(KuduPartition(functional_kudu.testtbl.id))]
+|
+00:SCAN KUDU [functional_kudu.testtbl]
+   row-size=28B cardinality=0
+====
+# upsert with a union
+upsert into functional_kudu.testtbl select * from functional_kudu.testtbl where id % 3 = 0
+union all select * from functional_kudu.testtbl where id % 3 = 1
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+00:UNION
+|  row-size=24B cardinality=0
+|
+|--02:SCAN KUDU [functional_kudu.testtbl]
+|     predicates: id % 3 = 1
+|     row-size=28B cardinality=0
+|
+01:SCAN KUDU [functional_kudu.testtbl]
+   predicates: id % 3 = 0
+   row-size=28B cardinality=0
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.testtbl]
+|
+04:PARTIAL SORT
+|  order by: KuduPartition(id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=28B cardinality=0
+|
+03:EXCHANGE [KUDU(KuduPartition(id))]
+|
+00:UNION
+|  row-size=24B cardinality=0
+|
+|--02:SCAN KUDU [functional_kudu.testtbl]
+|     predicates: id % 3 = 1
+|     row-size=28B cardinality=0
+|
+01:SCAN KUDU [functional_kudu.testtbl]
+   predicates: id % 3 = 0
+   row-size=28B cardinality=0
+====
+# upsert with agg on col that is already partitioned in the input and target table
+# TODO: we shouldn't need to do any repartioning here (IMPALA-5254).
+upsert into functional_kudu.alltypes
+select id, true, 0, 0, 0, 0, 0, 0, '', '', '', 0, 0 from functional_kudu.alltypes group by id
+---- PLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:AGGREGATE [FINALIZE]
+|  group by: id
+|  row-size=4B cardinality=7.30K
+|
+00:SCAN KUDU [functional_kudu.alltypes]
+   row-size=4B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+05:PARTIAL SORT
+|  order by: KuduPartition(id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=8B cardinality=7.30K
+|
+04:EXCHANGE [KUDU(KuduPartition(id))]
+|
+03:AGGREGATE [FINALIZE]
+|  group by: id
+|  row-size=4B cardinality=7.30K
+|
+02:EXCHANGE [HASH(id)]
+|
+01:AGGREGATE [STREAMING]
+|  group by: id
+|  row-size=4B cardinality=7.30K
+|
+00:SCAN KUDU [functional_kudu.alltypes]
+   row-size=4B cardinality=7.30K
+====
+# Hint - noshuffle should remove the exchange node.
+upsert into functional_kudu.alltypes /* +noshuffle */ select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:PARTIAL SORT
+|  order by: KuduPartition(functional.alltypes.id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=93B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# same as above but the hint is at Oracle hint location.
+upsert /* +noshuffle */ into functional_kudu.alltypes select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:PARTIAL SORT
+|  order by: KuduPartition(functional.alltypes.id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=93B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# Hint - noclustered should remove the sort node.
+upsert into functional_kudu.alltypes /* +noclustered */ select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:EXCHANGE [KUDU(KuduPartition(functional.alltypes.id))]
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# same as above but the hint is at Oracle hint location.
+upsert /* +noclustered */ into functional_kudu.alltypes select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:EXCHANGE [KUDU(KuduPartition(functional.alltypes.id))]
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# Hint - noshuffle should remove the exchange node.
+upsert into functional_kudu.alltypes /* +noshuffle */ select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:PARTIAL SORT
+|  order by: KuduPartition(functional.alltypes.id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=93B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# same as above but the hint is at Oracle hint location.
+upsert /* +noshuffle */ into functional_kudu.alltypes select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+01:PARTIAL SORT
+|  order by: KuduPartition(functional.alltypes.id) ASC NULLS LAST, id ASC NULLS LAST
+|  row-size=93B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+upsert into functional_kudu.alltypes /* +noclustered,noshuffle */
+select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# same as above but the hint is at Oracle hint location.
+upsert into functional_kudu.alltypes /* +noclustered,noshuffle */
+select * from functional.alltypes;
+---- DISTRIBUTEDPLAN
+UPSERT INTO KUDU [functional_kudu.alltypes]
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====

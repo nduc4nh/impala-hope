@@ -1,0 +1,398 @@
+====
+---- CREATE_TABLE
+# Simple table
+CREATE TABLE test1 (
+  id INT
+)
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test1 (
+  id INT
+)
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# simple table with all types
+CREATE TABLE test2 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment',
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  date_string_col STRING,
+  string_col STRING,
+  timestamp_col TIMESTAMP
+)
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test2 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment',
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  date_string_col STRING,
+  string_col STRING,
+  timestamp_col TIMESTAMP
+)
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# all types and partitioned
+CREATE TABLE test3 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment',
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  date_string_col STRING,
+  string_col STRING,
+  timestamp_col TIMESTAMP
+)
+PARTITIONED BY (
+  x INT,
+  y INT,
+  a BOOLEAN
+)
+COMMENT 'This is a test'
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test3 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment',
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  date_string_col STRING,
+  string_col STRING,
+  timestamp_col TIMESTAMP
+)
+PARTITIONED BY (
+  x INT,
+  y INT,
+  a BOOLEAN
+)
+COMMENT 'This is a test'
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# With a table comment
+CREATE TABLE test4 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+COMMENT 'This is a test'
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test4 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+COMMENT 'This is a test'
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# With the row format specified
+CREATE TABLE test5 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ESCAPED BY '\\' LINES TERMINATED BY '\n'
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test5 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ESCAPED BY '\\' LINES TERMINATED BY '\n'
+WITH SERDEPROPERTIES ('line.delim'='\n', 'field.delim'=',',
+                      'serialization.format'=',', 'escape.delim'='\\')
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# testing with parquet specified
+CREATE TABLE test6 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+STORED AS PARQUET
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test6 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+STORED AS PARQUET
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# with extra table properties and sequencefile
+CREATE TABLE test7 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+STORED AS SEQUENCEFILE
+TBLPROPERTIES ('key3'='val3', 'key2'='val2', 'key1'='val1')
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test7 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+STORED AS SEQUENCEFILE
+LOCATION '$$location_uri$$'
+TBLPROPERTIES ('key3'='val3', 'key2'='val2', 'key1'='val1')
+====
+---- CREATE_TABLE
+# testing with rcfile specified
+CREATE TABLE test8 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+STORED AS RCFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test8 (
+  year INT,
+  month INT,
+  id INT COMMENT 'Add a comment'
+)
+STORED AS RCFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# Test create table as select
+CREATE TABLE test_as_select (
+  id INT,
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  date_string_col STRING,
+  string_col STRING,
+  timestamp_col TIMESTAMP,
+  year INT,
+  month INT
+)
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test_as_select (
+  id INT,
+  bool_col BOOLEAN,
+  tinyint_col TINYINT,
+  smallint_col SMALLINT,
+  int_col INT,
+  bigint_col BIGINT,
+  float_col FLOAT,
+  double_col DOUBLE,
+  date_string_col STRING,
+  string_col STRING,
+  timestamp_col TIMESTAMP,
+  year INT,
+  month INT
+)
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+create table i_1687_p partitioned by (int_col) as
+  select bigint_col, int_col from functional.alltypessmall;
+---- RESULTS
+CREATE TABLE show_create_table_test_db.i_1687_p (
+  bigint_col BIGINT
+)
+PARTITIONED BY (
+  int_col INT
+)
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- QUERY
+SHOW CREATE TABLE functional_text_lzo.tinytable
+---- RESULTS
+CREATE EXTERNAL TABLE functional_text_lzo.tinytable (
+  a STRING,
+  b STRING
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+STORED AS INPUTFORMAT 'com.hadoop.mapred.DeprecatedLzoTextInputFormat'
+          OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+LOCATION '$$location_uri$$'
+====
+---- QUERY
+SHOW CREATE TABLE functional.allcomplextypes
+---- RESULTS
+CREATE EXTERNAL TABLE functional.allcomplextypes (
+  id INT,
+  int_array_col ARRAY<INT>,
+  array_array_col ARRAY<ARRAY<INT>>,
+  map_array_col ARRAY<MAP<STRING,INT>>,
+  struct_array_col ARRAY<STRUCT<f1:BIGINT,f2:STRING>>,
+  int_map_col MAP<STRING,INT>,
+  array_map_col MAP<STRING,ARRAY<INT>>,
+  map_map_col MAP<STRING,MAP<STRING,INT>>,
+  struct_map_col MAP<STRING,STRUCT<f1:BIGINT,f2:STRING>>,
+  int_struct_col STRUCT<f1:INT,f2:INT>,
+  complex_struct_col STRUCT<f1:INT,f2:ARRAY<INT>,f3:MAP<STRING,INT>>,
+  nested_struct_col STRUCT<f1:INT,f2:STRUCT<f11:BIGINT,f12:STRUCT<f21:BIGINT>>>,
+  complex_nested_struct_col STRUCT<f1:INT,f2:ARRAY<STRUCT<f11:BIGINT,f12:MAP<STRING,STRUCT<f21:BIGINT>>>>>
+)
+PARTITIONED BY (
+  year INT,
+  month INT
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ESCAPED BY '\\'
+WITH SERDEPROPERTIES ('field.delim'=',', 'serialization.format'=',', 'escape.delim'='\\')
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+TBLPROPERTIES ('transient_lastDdlTime'='1405990341')
+====
+---- QUERY
+SHOW CREATE VIEW functional.alltypes_view
+---- RESULTS
+CREATE VIEW functional.alltypes_view AS
+SELECT * FROM functional.alltypes
+====
+---- QUERY
+# SHOW CREATE TABLE should also work for views.
+SHOW CREATE TABLE functional.alltypes_view
+---- RESULTS
+CREATE VIEW functional.alltypes_view AS
+SELECT * FROM functional.alltypes
+====
+---- CREATE_VIEW
+# View with column aliases
+CREATE VIEW column_aliases_view (foo, bar, baz) AS
+SELECT tinyint_col, id, bigint_col
+FROM functional.alltypes;
+---- RESULTS
+# A view with column aliases is expanded into a SELECT with an inline view.
+CREATE VIEW show_create_table_test_db.column_aliases_view AS
+SELECT column_aliases_view.tinyint_col foo, column_aliases_view.id bar, column_aliases_view.bigint_col baz FROM (SELECT tinyint_col, id, bigint_col FROM functional.alltypes) column_aliases_view
+====
+---- QUERY
+# Test views referencing views.
+SHOW CREATE VIEW functional.view_view;
+---- RESULTS
+CREATE VIEW functional.view_view AS
+SELECT * FROM functional.alltypes_view
+====
+---- QUERY
+# Test complex views with multiple tables and Hive-style column aliases.
+SHOW CREATE VIEW functional.complex_view
+---- RESULTS
+CREATE VIEW functional.complex_view AS
+SELECT complex_view.`_c0` abc, complex_view.string_col xyz FROM (SELECT count(a.bigint_col), b.string_col FROM functional.alltypesagg a INNER JOIN functional.alltypestiny b ON a.id = b.id WHERE a.bigint_col < 50 GROUP BY b.string_col HAVING count(a.bigint_col) > 1 ORDER BY b.string_col ASC LIMIT 100) complex_view
+====
+---- CREATE_VIEW
+# Test that identifiers are correctly quoted.
+CREATE VIEW _quote_view (_foo, bar) AS
+SELECT tinyint_col, id _id
+FROM functional.alltypes;
+---- RESULTS
+CREATE VIEW show_create_table_test_db.`_quote_view` AS
+SELECT `_quote_view`.tinyint_col `_foo`, `_quote_view`.`_id` bar FROM (SELECT tinyint_col, id `_id` FROM functional.alltypes) `_quote_view`
+====
+---- QUERY
+# SHOW CREATE VIEW should also work on tables.
+SHOW CREATE VIEW functional_parquet.tinytable;
+---- RESULTS
+CREATE EXTERNAL TABLE functional_parquet.tinytable (
+  a STRING,
+  b STRING
+)
+STORED AS PARQUET
+LOCATION '$$location_uri$$'
+TBLPROPERTIES ()
+====
+---- CREATE_VIEW
+# Create view that contains a subquery (IMPALA-4579)
+CREATE VIEW view_with_subquery AS SELECT * FROM functional.alltypestiny
+  WHERE id IN (SELECT id FROM functional.alltypesagg);
+---- RESULTS
+CREATE VIEW show_create_table_test_db.view_with_subquery
+AS SELECT * FROM functional.alltypestiny
+WHERE id IN (SELECT id FROM functional.alltypesagg)
+====
+---- CREATE_TABLE
+# Simple table with sort columns.
+CREATE TABLE test1 (id INT)
+SORT BY (id)
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test1 (id INT)
+SORT BY (id)
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- CREATE_TABLE
+# Simple partitioned table with sort columns.
+CREATE TABLE test1 (id INT)
+PARTITIONED BY (x INT, y INT)
+SORT BY (id)
+STORED AS TEXTFILE
+---- RESULTS
+CREATE TABLE show_create_table_test_db.test1 (id INT)
+PARTITIONED BY (x INT, y INT)
+SORT BY (id)
+STORED AS TEXTFILE
+LOCATION '$$location_uri$$'
+====
+---- QUERY
+SHOW CREATE TABLE functional_hbase.alltypes
+---- RESULTS
+CREATE EXTERNAL TABLE functional_hbase.alltypes (
+  id INT COMMENT 'Add a comment',
+  bigint_col BIGINT,
+  bool_col BOOLEAN,
+  date_string_col STRING,
+  double_col DOUBLE,
+  float_col FLOAT,
+  int_col INT,
+  month INT,
+  smallint_col SMALLINT,
+  string_col STRING,
+  timestamp_col TIMESTAMP,
+  tinyint_col TINYINT,
+  year INT
+)
+STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+WITH SERDEPROPERTIES ('hbase.columns.mapping'=':key,d:bool_col,d:tinyint_col,d:smallint_col,d:int_col,d:bigint_col,d:float_col,d:double_col,d:date_string_col,d:string_col,d:timestamp_col,d:year,d:month',
+                      'serialization.format'='1')
+TBLPROPERTIES ('hbase.table.name'='functional_hbase.alltypes',
+               'storage_handler'='org.apache.hadoop.hive.hbase.HBaseStorageHandler')
+====
