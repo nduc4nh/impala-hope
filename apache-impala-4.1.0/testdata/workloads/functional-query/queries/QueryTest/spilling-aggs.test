@@ -1,0 +1,198 @@
+====
+---- QUERY
+set buffer_pool_limit=30m;
+select l_orderkey, count(*)
+from lineitem
+group by 1
+order by 1 limit 10
+---- RESULTS
+1,6
+2,1
+3,6
+4,1
+5,3
+6,1
+7,7
+32,6
+33,4
+34,3
+---- TYPES
+BIGINT, BIGINT
+---- RUNTIME_PROFILE
+# Verify that spilling and passthrough were activated.
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+row_regex: .*RowsPassedThrough: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Test query with string grouping column and string agg columns
+set buffer_pool_limit=82m;
+set num_nodes=1;
+select l_returnflag, l_orderkey, avg(l_tax), min(l_shipmode)
+from lineitem
+group by 1,2
+order by 1,2 limit 3
+---- RESULTS
+'A',3,0.050000,'RAIL'
+'A',5,0.030000,'AIR'
+'A',6,0.030000,'TRUCK'
+---- TYPES
+STRING, BIGINT, DECIMAL, STRING
+---- RUNTIME_PROFILE
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Test query with string grouping column
+set buffer_pool_limit=34m;
+set num_nodes=1;
+select l_comment, count(*)
+from lineitem
+group by 1
+order by count(*) desc limit 5
+---- RESULTS
+' furiously',943
+' carefully',893
+' carefully ',875
+'carefully ',854
+' furiously ',845
+---- TYPES
+STRING, BIGINT
+---- RUNTIME_PROFILE
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Test query with string grouping column and string agg columns
+set buffer_pool_limit=82m;
+set num_nodes=1;
+select l_returnflag, l_orderkey, round(avg(l_tax),2), min(l_shipmode)
+from lineitem
+group by 1,2
+order by 1,2 limit 3;
+---- RESULTS
+'A',3,0.05,'RAIL'
+'A',5,0.03,'AIR'
+'A',6,0.03,'TRUCK'
+---- TYPES
+STRING, BIGINT, DECIMAL, STRING
+---- RUNTIME_PROFILE
+# Verify that spilling happened in the agg.
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Test with non-scalar intermediate state (avg() uses fixed intermediate value).
+set buffer_pool_limit=34m;
+select l_orderkey, avg(l_orderkey)
+from lineitem
+group by 1
+order by 1 limit 5
+---- RESULTS
+1,1
+2,2
+3,3
+4,4
+5,5
+---- TYPES
+BIGINT, DOUBLE
+---- RUNTIME_PROFILE
+# Verify that passthrough and spilling happened in the pre and merge agg.
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+row_regex: .*RowsPassedThrough: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Test aggregation spill with group_concat distinct
+set buffer_pool_limit=50m;
+select l_orderkey, count(*), group_concat(distinct l_linestatus, '|')
+from lineitem
+group by 1
+order by 1 limit 10
+---- RESULTS
+1,6,'O'
+2,1,'O'
+3,6,'F'
+4,1,'O'
+5,3,'F'
+6,1,'F'
+7,7,'O'
+32,6,'O'
+33,4,'F'
+34,3,'O'
+---- TYPES
+BIGINT, BIGINT, STRING
+---- RUNTIME_PROFILE
+# Verify that at least one of the aggs spilled.
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Test aggregation with minimum required reservation to exercise IMPALA-2708.
+# Merge aggregation requires 17 buffers and preaggregation requires 16 buffers
+# plus 1mb of hash tables. The buffer size is 256k for this test. The scan needs 24MB.
+set max_row_size=256k;
+set buffer_pool_limit="33.75M";
+select count(*)
+from (select distinct * from orders) t
+---- TYPES
+BIGINT
+---- RESULTS
+1500000
+---- RUNTIME_PROFILE
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Multiple distinct
+set buffer_pool_limit=30M;
+select count(distinct l_orderkey), count(distinct l_partkey) from lineitem
+---- TYPES
+BIGINT,BIGINT
+---- RESULTS
+1500000,200000
+---- RUNTIME_PROFILE
+row_regex: .*RowsPassedThrough: .* \([1-9][0-9]*\)
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Multiple distinct with string col and group by
+set buffer_pool_limit=50m;
+select l_linenumber, count(distinct l_orderkey), count(distinct l_comment) from lineitem
+group by 1 order by 1 limit 5
+---- TYPES
+INT,BIGINT,BIGINT
+---- RESULTS
+1,1500000,1273334
+2,1285828,1102714
+3,1071394,929553
+4,857015,753374
+5,643287,574337
+---- RUNTIME_PROFILE
+row_regex: .*RowsPassedThrough: .* \([1-9][0-9]*\)
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Multiple distinct and non-distinct, with an intermediate tuple (avg)
+set buffer_pool_limit=40m;
+select avg(distinct l_orderkey), count(distinct l_partkey), sum(l_tax), count(l_suppkey)
+from tpch_parquet.lineitem
+---- TYPES
+DOUBLE,BIGINT,DECIMAL,BIGINT
+---- RESULTS
+2999991.5,200000,240129.67,6001215
+---- RUNTIME_PROFILE
+row_regex: .*RowsPassedThrough: .* \([1-9][0-9]*\)
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Multiple distinct and non-distinct, with a group by
+set buffer_pool_limit=55m;
+select l_linenumber, avg(distinct l_orderkey), count(distinct l_partkey), sum(l_tax), count(l_suppkey)
+from tpch_parquet.lineitem
+group by 1 order by 1 limit 5
+---- TYPES
+INT,DOUBLE,BIGINT,DECIMAL,BIGINT
+---- RESULTS
+1,2999991.5,199893,60025.25,1500000
+2,3000615.766574534,199674,51457.37,1285828
+3,3000079.631604246,199036,42879.38,1071394
+4,3000330.547357981,197222,34279.36,857015
+5,2999188.900650876,191905,25745.25,643287
+---- RUNTIME_PROFILE
+row_regex: .*RowsPassedThrough: .* \([1-9][0-9]*\)
+row_regex: .*SpilledPartitions: .* \([1-9][0-9]*\)
+====

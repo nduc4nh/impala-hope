@@ -1,0 +1,8 @@
+====
+---- QUERY
+create function memtest(bigint) returns bigint
+location '$FILESYSTEM_PREFIX/test-warehouse/libTestUdfs.so' symbol='MemTest'
+prepare_fn='MemTestPrepare' close_fn='MemTestClose';
+
+select * from functional.alltypes where bigint_col > memtest(10 * 1024 * 1024)
+====

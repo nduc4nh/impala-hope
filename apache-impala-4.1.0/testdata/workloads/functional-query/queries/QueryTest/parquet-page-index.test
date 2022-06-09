@@ -1,0 +1,397 @@
+# These tests check that the page selection and value-skipping logic works well when using
+# the page index of the Parquet file. 'decimals_1_10' contains tiny, misaligned pages and
+# some NULL values. Column 'd_10' has one value per page, while column 'd_1' has five
+# values per page. Thus, with putting predicates on column 'd_10' we can craft different
+# test cases for value skipping in 'd_1'.
+====
+---- QUERY
+# 'd_10 = 1' selects the first row from each page. Therefore in the pages of 'd_1' we
+# read the first value, then skip all the rest.
+select * from decimals_1_10 where d_10 = 1
+---- RESULTS
+1,1
+NULL,1
+1,1
+1,1
+1,1
+1,1
+NULL,1
+1,1
+1,1
+NULL,1
+1,1
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 50
+====
+---- QUERY
+# Selecting the second rows of the pages of 'd_1', skipping values before and after.
+select * from decimals_1_10 where d_10 = 2
+---- RESULTS
+2,2
+2,2
+NULL,2
+2,2
+2,2
+2,2
+NULL,2
+NULL,2
+2,2
+2,2
+2,2
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 50
+====
+---- QUERY
+# Selecting the third rows of the pages of 'd_1', skipping values before and after.
+select * from decimals_1_10 where d_10 = 3
+---- RESULTS
+3,3
+3,3
+3,3
+NULL,3
+3,3
+3,3
+3,3
+3,3
+3,3
+NULL,3
+3,3
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 50
+====
+---- QUERY
+# Selecting the fourth rows of the pages of 'd_1', skipping values before and after.
+select * from decimals_1_10 where d_10 = 4
+---- RESULTS
+4,4
+4,4
+4,4
+4,4
+NULL,4
+4,4
+4,4
+NULL,4
+NULL,4
+NULL,4
+4,4
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 50
+====
+---- QUERY
+# 'd_10 = 5' selects the last row from each page. Therefore in the pages of 'd_1' we
+# skip the first four values, then read the last.
+select * from decimals_1_10 where d_10 = 5
+---- RESULTS
+5,5
+5,5
+5,5
+5,5
+5,5
+NULL,5
+5,5
+5,5
+NULL,5
+5,5
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 52
+====
+---- QUERY
+# Selecting the first couple of rows from the pages of 'd_1'. Skips last rows.
+select * from decimals_1_10 where d_10 < 3
+---- RESULTS
+1,1
+2,2
+NULL,1
+2,2
+1,1
+NULL,2
+1,1
+2,2
+1,1
+2,2
+1,1
+2,2
+NULL,1
+NULL,2
+1,1
+NULL,2
+1,1
+2,2
+NULL,1
+2,2
+1,1
+2,2
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 39
+====
+---- QUERY
+# Selecting the last couple of rows from the pages of 'd_1'. Skips first rows.
+select * from decimals_1_10 where d_10 > 2
+---- RESULTS
+3,3
+4,4
+5,5
+3,3
+4,4
+5,5
+3,3
+4,4
+5,5
+NULL,3
+4,4
+5,5
+3,3
+NULL,4
+5,5
+3,3
+4,4
+NULL,5
+3,3
+4,4
+5,5
+3,3
+NULL,4
+5,5
+3,3
+NULL,4
+NULL,5
+NULL,3
+NULL,4
+5,5
+7,7
+8,8
+9,9
+8,8
+7,7
+3,3
+4,4
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 23
+====
+---- QUERY
+# Skipping middle row in a page.
+select * from decimals_1_10 where d_10 > 5 and d_10 < 9
+---- RESULTS
+7,7
+8,8
+8,8
+7,7
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 67
+====
+---- QUERY
+# Only reading middle rows in a page.
+select * from decimals_1_10 where d_10 > 7
+---- RESULTS
+8,8
+9,9
+8,8
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 68
+====
+---- QUERY
+# Row group level minimum is 1, maximum is 9. But there is a gap between the pages,
+# therefore with page-level statistics we can filter out the whole row group.
+select * from decimals_1_10 where d_10 = 6
+---- RESULTS
+---- TYPES
+DECIMAL, DECIMAL
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredRowGroups): 1
+====
+---- QUERY
+# Query table with empty data pages
+select * from alltypes_empty_pages where id = 109
+---- RESULTS
+109,false,9,9,9,90,9.899999618530273,90.89999999999999,'01/11/09','9',2009-01-11 01:49:04.860000000,2009,1
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 186
+====
+---- QUERY
+# Query table with empty data pages
+select * from alltypes_empty_pages where id = 51
+---- RESULTS
+51,false,1,1,1,10,1.100000023841858,10.1,'01/06/09','1',2009-01-06 00:51:02.250000000,2009,1
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 186
+====
+---- QUERY
+# Query table with empty data pages
+select * from alltypes_empty_pages where id = 491
+---- RESULTS
+491,false,1,1,1,10,1.100000023841858,10.1,'02/19/09','1',2009-02-19 03:01:08.100000000,2009,2
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 203
+====
+---- QUERY
+select * from alltypes_empty_pages where int_col=0
+---- RESULTS
+0,true,0,0,0,0,0.0,0.0,'01/01/09','0',2009-01-01 00:00:00,2009,1
+10,true,0,0,0,0,0.0,0.0,'01/02/09','0',2009-01-02 00:10:00.450000000,2009,1
+20,true,0,0,0,0,0.0,0.0,'01/03/09','0',2009-01-03 00:20:00.900000000,2009,1
+30,true,0,0,0,0,0.0,0.0,'01/04/09','0',2009-01-04 00:30:01.350000000,2009,1
+40,true,0,0,0,0,0.0,0.0,'01/05/09','0',2009-01-05 00:40:01.800000000,2009,1
+50,true,0,0,0,0,0.0,0.0,'01/06/09','0',2009-01-06 00:50:02.250000000,2009,1
+60,true,0,0,0,0,0.0,0.0,'01/07/09','0',2009-01-07 01:00:02.700000000,2009,1
+70,true,0,0,0,0,0.0,0.0,'01/08/09','0',2009-01-08 01:10:03.150000000,2009,1
+80,true,0,0,0,0,0.0,0.0,'01/09/09','0',2009-01-09 01:20:03.600000000,2009,1
+90,true,0,0,0,0,0.0,0.0,'01/10/09','0',2009-01-10 01:30:04.500000000,2009,1
+100,true,0,0,0,0,0.0,0.0,'01/11/09','0',2009-01-11 01:40:04.500000000,2009,1
+110,true,0,0,0,0,0.0,0.0,'01/12/09','0',2009-01-12 01:50:04.950000000,2009,1
+120,true,0,0,0,0,0.0,0.0,'01/13/09','0',2009-01-13 02:00:05.400000000,2009,1
+130,true,0,0,0,0,0.0,0.0,'01/14/09','0',2009-01-14 02:10:05.850000000,2009,1
+140,true,0,0,0,0,0.0,0.0,'01/15/09','0',2009-01-15 02:20:06.300000000,2009,1
+150,true,0,0,0,0,0.0,0.0,'01/16/09','0',2009-01-16 02:30:06.750000000,2009,1
+160,true,0,0,0,0,0.0,0.0,'01/17/09','0',2009-01-17 02:40:07.200000000,2009,1
+170,true,0,0,0,0,0.0,0.0,'01/18/09','0',2009-01-18 02:50:07.650000000,2009,1
+180,true,0,0,0,0,0.0,0.0,'01/19/09','0',2009-01-19 03:00:08.100000000,2009,1
+190,true,0,0,0,0,0.0,0.0,'01/20/09','0',2009-01-20 03:10:08.550000000,2009,1
+200,true,0,0,0,0,0.0,0.0,'01/21/09','0',2009-01-21 03:20:09,2009,1
+210,true,0,0,0,0,0.0,0.0,'01/22/09','0',2009-01-22 03:30:09.450000000,2009,1
+220,true,0,0,0,0,0.0,0.0,'01/23/09','0',2009-01-23 03:40:09.900000000,2009,1
+230,true,0,0,0,0,0.0,0.0,'01/24/09','0',2009-01-24 03:50:10.350000000,2009,1
+240,true,0,0,0,0,0.0,0.0,'01/25/09','0',2009-01-25 04:00:10.800000000,2009,1
+250,true,0,0,0,0,0.0,0.0,'01/26/09','0',2009-01-26 04:10:11.250000000,2009,1
+260,true,0,0,0,0,0.0,0.0,'01/27/09','0',2009-01-27 04:20:11.700000000,2009,1
+270,true,0,0,0,0,0.0,0.0,'01/28/09','0',2009-01-28 04:30:12.150000000,2009,1
+280,true,0,0,0,0,0.0,0.0,'01/29/09','0',2009-01-29 04:40:12.600000000,2009,1
+290,true,0,0,0,0,0.0,0.0,'01/30/09','0',2009-01-30 04:50:13.500000000,2009,1
+300,true,0,0,0,0,0.0,0.0,'01/31/09','0',2009-01-31 05:00:13.500000000,2009,1
+310,true,0,0,0,0,0.0,0.0,'02/01/09','0',2009-02-01 00:00:00,2009,2
+320,true,0,0,0,0,0.0,0.0,'02/02/09','0',2009-02-02 00:10:00.450000000,2009,2
+330,true,0,0,0,0,0.0,0.0,'02/03/09','0',2009-02-03 00:20:00.900000000,2009,2
+340,true,0,0,0,0,0.0,0.0,'02/04/09','0',2009-02-04 00:30:01.350000000,2009,2
+350,true,0,0,0,0,0.0,0.0,'02/05/09','0',2009-02-05 00:40:01.800000000,2009,2
+360,true,0,0,0,0,0.0,0.0,'02/06/09','0',2009-02-06 00:50:02.250000000,2009,2
+370,true,0,0,0,0,0.0,0.0,'02/07/09','0',2009-02-07 01:00:02.700000000,2009,2
+380,true,0,0,0,0,0.0,0.0,'02/08/09','0',2009-02-08 01:10:03.150000000,2009,2
+390,true,0,0,0,0,0.0,0.0,'02/09/09','0',2009-02-09 01:20:03.600000000,2009,2
+400,true,0,0,0,0,0.0,0.0,'02/10/09','0',2009-02-10 01:30:04.500000000,2009,2
+410,true,0,0,0,0,0.0,0.0,'02/11/09','0',2009-02-11 01:40:04.500000000,2009,2
+420,true,0,0,0,0,0.0,0.0,'02/12/09','0',2009-02-12 01:50:04.950000000,2009,2
+430,true,0,0,0,0,0.0,0.0,'02/13/09','0',2009-02-13 02:00:05.400000000,2009,2
+440,true,0,0,0,0,0.0,0.0,'02/14/09','0',2009-02-14 02:10:05.850000000,2009,2
+450,true,0,0,0,0,0.0,0.0,'02/15/09','0',2009-02-15 02:20:06.300000000,2009,2
+460,true,0,0,0,0,0.0,0.0,'02/16/09','0',2009-02-16 02:30:06.750000000,2009,2
+470,true,0,0,0,0,0.0,0.0,'02/17/09','0',2009-02-17 02:40:07.200000000,2009,2
+480,true,0,0,0,0,0.0,0.0,'02/18/09','0',2009-02-18 02:50:07.650000000,2009,2
+490,true,0,0,0,0,0.0,0.0,'02/19/09','0',2009-02-19 03:00:08.100000000,2009,2
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 17
+====
+---- QUERY
+# Query table with invalid offset index.
+set abort_on_error=1;
+select * from alltypes_invalid_pages where id = 109
+---- CATCH
+Invalid offset index in Parquet file
+====
+---- QUERY
+# Only query columns with valid offset index.
+set abort_on_error=1;
+select id, bool_col, tinyint_col from alltypes_invalid_pages where id > 51 and id < 55
+---- RESULTS
+52,true,2
+53,false,3
+54,true,4
+---- TYPES
+INT, BOOLEAN, TINYINT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 60
+====
+---- QUERY
+# Query single column with invalid offset index.
+set abort_on_error=1;
+select sum(smallint_col) from alltypes_invalid_pages where smallint_col = 9;
+---- CATCH
+Invalid offset index in Parquet file
+====
+---- QUERY
+# Query table with invalid offset index.
+set abort_on_error=0;
+select * from alltypes_invalid_pages where id = 109
+---- ERRORS
+Invalid offset index in Parquet file __HDFS_FILENAME__ Page index filtering is disabled.
+---- RESULTS
+109,false,9,9,9,90,9.899999618530273,90.89999999999999,'01/11/09','9',2009-01-11 01:49:04.860000000,2009,1
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 0
+====
+---- QUERY
+# Query single column with invalid offset index.
+set abort_on_error=0;
+select sum(smallint_col) from alltypes_invalid_pages where smallint_col = 9;
+---- ERRORS
+Invalid offset index in Parquet file __HDFS_FILENAME__ Page index filtering is disabled.
+---- RESULTS
+450
+---- TYPES
+BIGINT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumStatsFilteredPages): 0
+====
+---- QUERY
+# Query table with multi blocks in a single file
+select c_birth_country,count(distinct c_customer_id) from customer_multiblock_page_index
+where c_current_cdemo_sk < 100 group by c_birth_country;
+---- RESULTS
+'SLOVAKIA',1
+'BRUNEI DARUSSALAM',1
+'BURKINA FASO',1
+'SIERRA LEONE',1
+'PORTUGAL',1
+---- TYPES
+STRING, BIGINT
+---- RUNTIME_PROFILE
+aggregation(SUM, NumPages): 30
+aggregation(SUM, NumStatsFilteredPages): 27
+====
+---- QUERY
+# IMPALA-10345: Impala hits DCHECK in parquet-column-stats.inline.h
+# Impala could hit a DCHECK when the row batch spanned over multiple pages and
+# they had the same min or max string values.
+set parquet_page_row_count_limit=5;
+create table lineitem_comment (s string) stored as parquet;
+insert into lineitem_comment select l_comment from tpch_parquet.lineitem
+                             order by l_comment
+                             limit 100;
+insert into lineitem_comment select * from lineitem_comment;
+select count(*) from lineitem_comment;
+---- RESULTS
+200
+---- TYPES
+BIGINT
+====
+---- QUERY
+drop table lineitem_comment;
+---- RESULTS
+'Table has been dropped.'
+====

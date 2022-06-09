@@ -1,0 +1,3537 @@
+# the hash partition for aggregation is adjusted if subsequent analytic computation
+# can take advantage of it
+select
+max(tinyint_col) over(partition by int_col)
+from functional.alltypes
+group by int_col, tinyint_col
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+06:EXCHANGE [UNPARTITIONED]
+|
+03:ANALYTIC
+|  functions: max(tinyint_col)
+|  partition by: int_col
+|  row-size=6B cardinality=100
+|
+02:SORT
+|  order by: int_col ASC NULLS LAST
+|  row-size=5B cardinality=100
+|
+05:AGGREGATE [FINALIZE]
+|  group by: int_col, tinyint_col
+|  row-size=5B cardinality=100
+|
+04:EXCHANGE [HASH(int_col)]
+|
+01:AGGREGATE [STREAMING]
+|  group by: int_col, tinyint_col
+|  row-size=5B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=5B cardinality=7.30K
+====
+# partition groups are coalesced if the intersection of their partition exprs
+# has a high enough cardinality to allow distribution across all nodes
+select
+max(int_col) over(partition by int_col, bool_col),
+max(int_col) over(partition by int_col, tinyint_col)
+from functional.alltypes
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+06:EXCHANGE [UNPARTITIONED]
+|
+04:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col, tinyint_col
+|  row-size=14B cardinality=7.30K
+|
+03:SORT
+|  order by: int_col ASC NULLS LAST, tinyint_col ASC NULLS LAST
+|  row-size=10B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col, bool_col
+|  row-size=10B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, bool_col ASC NULLS LAST
+|  row-size=6B cardinality=7.30K
+|
+05:EXCHANGE [HASH(int_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=6B cardinality=7.30K
+====
+# unpartitioned analytics are executed with distributed sorts
+# TODO: avoid resorting on the same exprs
+select
+max(int_col) over(partition by int_col),
+min(int_col) over(order by int_col)
+from functional.alltypes
+---- PLAN
+PLAN-ROOT SINK
+|
+04:ANALYTIC
+|  functions: min(int_col)
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=12B cardinality=7.30K
+|
+03:SORT
+|  order by: int_col ASC
+|  row-size=8B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col
+|  row-size=8B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST
+|  row-size=4B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=4B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:ANALYTIC
+|  functions: min(int_col)
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=12B cardinality=7.30K
+|
+06:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: int_col ASC
+|
+03:SORT
+|  order by: int_col ASC
+|  row-size=8B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col
+|  row-size=8B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST
+|  row-size=4B cardinality=7.30K
+|
+05:EXCHANGE [HASH(int_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=4B cardinality=7.30K
+====
+# coalesce sort groups
+select
+# sort group 1
+max(int_col) over(partition by bool_col order by bigint_col, tinyint_col),
+max(int_col) over(partition by bool_col order by bigint_col),
+max(int_col) over(partition by bool_col),
+
+# sort group 2
+max(int_col) over(partition by int_col order by bigint_col),
+
+# sort group 3
+max(int_col) over(partition by int_col order by bigint_col desc)
+from functional.alltypes
+---- PLAN
+PLAN-ROOT SINK
+|
+08:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  row-size=34B cardinality=7.30K
+|
+07:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=30B cardinality=7.30K
+|
+06:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  order by: bigint_col ASC, tinyint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=26B cardinality=7.30K
+|
+05:SORT
+|  order by: bool_col ASC NULLS LAST, bigint_col ASC, tinyint_col ASC
+|  row-size=22B cardinality=7.30K
+|
+04:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col
+|  order by: bigint_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=22B cardinality=7.30K
+|
+03:SORT
+|  order by: int_col ASC NULLS LAST, bigint_col DESC
+|  row-size=18B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=18B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, bigint_col ASC
+|  row-size=14B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=14B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+11:EXCHANGE [UNPARTITIONED]
+|
+08:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  row-size=34B cardinality=7.30K
+|
+07:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=30B cardinality=7.30K
+|
+06:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  order by: bigint_col ASC, tinyint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=26B cardinality=7.30K
+|
+05:SORT
+|  order by: bool_col ASC NULLS LAST, bigint_col ASC, tinyint_col ASC
+|  row-size=22B cardinality=7.30K
+|
+10:EXCHANGE [HASH(bool_col)]
+|
+04:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col
+|  order by: bigint_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=22B cardinality=7.30K
+|
+03:SORT
+|  order by: int_col ASC NULLS LAST, bigint_col DESC
+|  row-size=18B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=18B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, bigint_col ASC
+|  row-size=14B cardinality=7.30K
+|
+09:EXCHANGE [HASH(int_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=14B cardinality=7.30K
+====
+# check ordering of partition, sort and window groups
+select
+# non-partitioning group with 2 sort groups
+# 2nd sort group
+min(int_col) over(order by bigint_col),
+max(int_col) over(order by bigint_col),
+# 1st sort group
+min(int_col) over(),
+
+# 2nd partition group, with two sort groups
+# 2nd sort group
+max(int_col) over(partition by bool_col order by bigint_col),
+min(int_col) over(partition by bool_col order by bigint_col),
+count(int_col) over(partition by bool_col order by bigint_col),
+# 1st sort group
+max(int_col) over(partition by bool_col order by int_col),
+
+# 1st partition group, with two sort groups
+# 2nd sort group
+max(int_col) over(partition by int_col, smallint_col order by bigint_col),
+min(int_col) over(partition by int_col, smallint_col order by bigint_col),
+# 1st sort group
+max(int_col) over(partition by int_col, smallint_col order by int_col)
+from functional.alltypes
+---- PLAN
+PLAN-ROOT SINK
+|
+11:ANALYTIC
+|  functions: min(int_col), max(int_col)
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=59B cardinality=7.30K
+|
+10:ANALYTIC
+|  functions: min(int_col)
+|  row-size=51B cardinality=7.30K
+|
+09:SORT
+|  order by: bigint_col ASC
+|  row-size=47B cardinality=7.30K
+|
+08:ANALYTIC
+|  functions: max(int_col), min(int_col), count(int_col)
+|  partition by: bool_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=47B cardinality=7.30K
+|
+07:SORT
+|  order by: bool_col ASC NULLS LAST, bigint_col ASC
+|  row-size=31B cardinality=7.30K
+|
+06:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=31B cardinality=7.30K
+|
+05:SORT
+|  order by: bool_col ASC NULLS LAST, int_col ASC
+|  row-size=27B cardinality=7.30K
+|
+04:ANALYTIC
+|  functions: max(int_col), min(int_col)
+|  partition by: int_col, smallint_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=27B cardinality=7.30K
+|
+03:SORT
+|  order by: int_col ASC NULLS LAST, smallint_col ASC NULLS LAST, bigint_col ASC
+|  row-size=19B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col, smallint_col
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=19B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, smallint_col ASC NULLS LAST
+|  row-size=15B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=15B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+11:ANALYTIC
+|  functions: min(int_col), max(int_col)
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=59B cardinality=7.30K
+|
+10:ANALYTIC
+|  functions: min(int_col)
+|  row-size=51B cardinality=7.30K
+|
+14:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: bigint_col ASC
+|
+09:SORT
+|  order by: bigint_col ASC
+|  row-size=47B cardinality=7.30K
+|
+08:ANALYTIC
+|  functions: max(int_col), min(int_col), count(int_col)
+|  partition by: bool_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=47B cardinality=7.30K
+|
+07:SORT
+|  order by: bool_col ASC NULLS LAST, bigint_col ASC
+|  row-size=31B cardinality=7.30K
+|
+06:ANALYTIC
+|  functions: max(int_col)
+|  partition by: bool_col
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=31B cardinality=7.30K
+|
+05:SORT
+|  order by: bool_col ASC NULLS LAST, int_col ASC
+|  row-size=27B cardinality=7.30K
+|
+13:EXCHANGE [HASH(bool_col)]
+|
+04:ANALYTIC
+|  functions: max(int_col), min(int_col)
+|  partition by: int_col, smallint_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=27B cardinality=7.30K
+|
+03:SORT
+|  order by: int_col ASC NULLS LAST, smallint_col ASC NULLS LAST, bigint_col ASC
+|  row-size=19B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: max(int_col)
+|  partition by: int_col, smallint_col
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=19B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, smallint_col ASC NULLS LAST
+|  row-size=15B cardinality=7.30K
+|
+12:EXCHANGE [HASH(int_col,smallint_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=15B cardinality=7.30K
+====
+# basic analytic with default window and no partition/ordering
+select count(*) over() from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: count(*)
+|  row-size=8B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=0B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: count(*)
+|  row-size=8B cardinality=11.00K
+|
+02:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=0B cardinality=11.00K
+====
+# basic analytic with default window and partition
+select tinyint_col, sum(bigint_col) over(partition by tinyint_col) sum_of_bigints
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: sum(bigint_col)
+|  partition by: tinyint_col
+|  row-size=17B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST
+|  row-size=9B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=9B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: sum(bigint_col)
+|  partition by: tinyint_col
+|  row-size=17B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST
+|  row-size=9B cardinality=11.00K
+|
+03:EXCHANGE [HASH(tinyint_col)]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=9B cardinality=11.00K
+====
+# basic analytic with default window and ordering
+select int_col, rank() over(order by int_col) from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: rank()
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=12B cardinality=11.00K
+|
+01:SORT
+|  order by: int_col ASC
+|  row-size=4B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: rank()
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=12B cardinality=11.00K
+|
+03:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: int_col ASC
+|
+01:SORT
+|  order by: int_col ASC
+|  row-size=4B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+====
+# analytic rows window, partition and ordering using complex expressions, with limit
+select bigint_col, count(double_col)
+  over(partition by tinyint_col + 1, double_col / 2 order by 4 - int_col, 4 * smallint_col
+  rows between 1 preceding and 1 following)
+from functional.alltypesagg
+limit 10
+---- PLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: count(double_col)
+|  partition by: tinyint_col + 1, double_col / 2
+|  order by: 4 - int_col ASC, 4 * smallint_col ASC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  limit: 10
+|  row-size=31B cardinality=10
+|
+01:SORT
+|  order by: tinyint_col + 1 ASC NULLS LAST, double_col / 2 ASC NULLS LAST, 4 - int_col ASC, 4 * smallint_col ASC
+|  row-size=23B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=23B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|  limit: 10
+|
+02:ANALYTIC
+|  functions: count(double_col)
+|  partition by: tinyint_col + 1, double_col / 2
+|  order by: 4 - int_col ASC, 4 * smallint_col ASC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  limit: 10
+|  row-size=31B cardinality=10
+|
+01:SORT
+|  order by: tinyint_col + 1 ASC NULLS LAST, double_col / 2 ASC NULLS LAST, 4 - int_col ASC, 4 * smallint_col ASC
+|  row-size=23B cardinality=11.00K
+|
+03:EXCHANGE [HASH(tinyint_col + 1,double_col / 2)]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=23B cardinality=11.00K
+====
+# test de-duplication of analytic exprs
+select
+count(bigint_col)
+  over(partition by bool_col order by int_col desc rows between 1 preceding and 1 following),
+avg(double_col)
+  over(partition by bool_col order by int_col desc rows between 2 preceding and 2 following),
+sum(double_col)
+  over(partition by bool_col order by int_col desc rows between 1 preceding and 1 following),
+# duplicate analytic expr
+count(bigint_col)
+  over(partition by bool_col order by int_col desc rows between 1 preceding and 1 following),
+avg(double_col)
+  over(order by int_col desc rows between 1 preceding and 1 following),
+# duplicate analytic expr
+avg(double_col)
+  over(partition by bool_col order by int_col desc rows between 2 preceding and 2 following)
+from functional.alltypes
+limit 10
+---- PLAN
+PLAN-ROOT SINK
+|
+05:ANALYTIC
+|  functions: avg(double_col)
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  limit: 10
+|  row-size=53B cardinality=10
+|
+04:SORT
+|  order by: int_col DESC
+|  row-size=45B cardinality=7.30K
+|
+03:ANALYTIC
+|  functions: count(bigint_col), sum(double_col)
+|  partition by: bool_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=45B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: avg(double_col)
+|  partition by: bool_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+|  row-size=29B cardinality=7.30K
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST, int_col DESC
+|  row-size=21B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=21B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:ANALYTIC
+|  functions: avg(double_col)
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  limit: 10
+|  row-size=53B cardinality=10
+|
+07:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: int_col DESC
+|
+04:SORT
+|  order by: int_col DESC
+|  row-size=45B cardinality=7.30K
+|
+03:ANALYTIC
+|  functions: count(bigint_col), sum(double_col)
+|  partition by: bool_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=45B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: avg(double_col)
+|  partition by: bool_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+|  row-size=29B cardinality=7.30K
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST, int_col DESC
+|  row-size=21B cardinality=7.30K
+|
+06:EXCHANGE [HASH(bool_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=21B cardinality=7.30K
+====
+# analytic on the output of a join with a final order by
+select a.tinyint_col, a.int_col, count(a.double_col)
+  over(partition by a.tinyint_col order by a.int_col desc rows between 1 preceding and 1 following)
+from functional.alltypes a inner join functional.alltypessmall b on a.id = b.id
+order by a.tinyint_col, a.int_col
+---- PLAN
+PLAN-ROOT SINK
+|
+05:SORT
+|  order by: tinyint_col ASC, int_col ASC
+|  row-size=13B cardinality=99
+|
+04:ANALYTIC
+|  functions: count(double_col)
+|  partition by: a.tinyint_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=29B cardinality=99
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, int_col DESC
+|  row-size=21B cardinality=99
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = b.id
+|  runtime filters: RF000 <- b.id
+|  row-size=21B cardinality=99
+|
+|--01:SCAN HDFS [functional.alltypessmall b]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes a]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> a.id
+   row-size=17B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+08:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: tinyint_col ASC, int_col ASC
+|
+05:SORT
+|  order by: tinyint_col ASC, int_col ASC
+|  row-size=13B cardinality=99
+|
+04:ANALYTIC
+|  functions: count(double_col)
+|  partition by: a.tinyint_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=29B cardinality=99
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, int_col DESC
+|  row-size=21B cardinality=99
+|
+07:EXCHANGE [HASH(a.tinyint_col)]
+|
+02:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: a.id = b.id
+|  runtime filters: RF000 <- b.id
+|  row-size=21B cardinality=99
+|
+|--06:EXCHANGE [BROADCAST]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall b]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes a]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> a.id
+   row-size=17B cardinality=7.30K
+====
+# analytics on a grouped aggregation with a final order by
+select bool_col,
+sum(min(int_col))
+  over(partition by min(tinyint_col) order by max(int_col)
+  rows between unbounded preceding and 1 following),
+max(sum(bigint_col))
+  over(partition by min(tinyint_col) order by max(int_col)
+  rows between unbounded preceding and 1 following),
+min(sum(bigint_col))
+  over(partition by min(tinyint_col) order by sum(int_col)
+  rows between unbounded preceding and 4 following)
+from functional.alltypes
+group by 1
+order by 1, 2, 3
+---- PLAN
+PLAN-ROOT SINK
+|
+06:SORT
+|  order by: bool_col ASC, sum(min(int_col)) ASC, max(sum(bigint_col)) ASC
+|  row-size=25B cardinality=2
+|
+05:ANALYTIC
+|  functions: sum(min(int_col)), max(sum(bigint_col))
+|  partition by: min(tinyint_col)
+|  order by: max(int_col) ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=50B cardinality=2
+|
+04:SORT
+|  order by: min(tinyint_col) ASC NULLS LAST, max(int_col) ASC
+|  row-size=34B cardinality=2
+|
+03:ANALYTIC
+|  functions: min(sum(bigint_col))
+|  partition by: min(tinyint_col)
+|  order by: sum(int_col) ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 4 FOLLOWING
+|  row-size=34B cardinality=2
+|
+02:SORT
+|  order by: min(tinyint_col) ASC NULLS LAST, sum(int_col) ASC
+|  row-size=26B cardinality=2
+|
+01:AGGREGATE [FINALIZE]
+|  output: min(int_col), min(tinyint_col), max(int_col), sum(bigint_col), sum(int_col)
+|  group by: bool_col
+|  row-size=26B cardinality=2
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=14B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+10:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: bool_col ASC, sum(min(int_col)) ASC, max(sum(bigint_col)) ASC
+|
+06:SORT
+|  order by: bool_col ASC, sum(min(int_col)) ASC, max(sum(bigint_col)) ASC
+|  row-size=25B cardinality=2
+|
+05:ANALYTIC
+|  functions: sum(min(int_col)), max(sum(bigint_col))
+|  partition by: min(tinyint_col)
+|  order by: max(int_col) ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=50B cardinality=2
+|
+04:SORT
+|  order by: min(tinyint_col) ASC NULLS LAST, max(int_col) ASC
+|  row-size=34B cardinality=2
+|
+03:ANALYTIC
+|  functions: min(sum(bigint_col))
+|  partition by: min(tinyint_col)
+|  order by: sum(int_col) ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 4 FOLLOWING
+|  row-size=34B cardinality=2
+|
+02:SORT
+|  order by: min(tinyint_col) ASC NULLS LAST, sum(int_col) ASC
+|  row-size=26B cardinality=2
+|
+09:EXCHANGE [HASH(min(tinyint_col))]
+|
+08:AGGREGATE [FINALIZE]
+|  output: min:merge(int_col), min:merge(tinyint_col), max:merge(int_col), sum:merge(bigint_col), sum:merge(int_col)
+|  group by: bool_col
+|  row-size=26B cardinality=2
+|
+07:EXCHANGE [HASH(bool_col)]
+|
+01:AGGREGATE [STREAMING]
+|  output: min(int_col), min(tinyint_col), max(int_col), sum(bigint_col), sum(int_col)
+|  group by: bool_col
+|  row-size=26B cardinality=2
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=14B cardinality=7.30K
+====
+# grouping of multiple analytic exprs by compatible window/partition/order;
+# the distributed plan repartitions only once on tinyint_col
+select
+# sort group 1
+count(double_col)
+  over(partition by tinyint_col, double_col order by int_col desc
+  rows between 1 preceding and 1 following),
+last_value(double_col)
+  over(partition by double_col, tinyint_col order by int_col desc
+  rows between 1 preceding and 1 following),
+# compatible default RANGE window
+sum(tinyint_col)
+  over(partition by tinyint_col, double_col order by int_col desc),
+# compatible RANGE window
+# TODO: Revert window when RANGE offsets are supported
+sum(smallint_col)
+  over(partition by double_col, tinyint_col order by int_col desc
+  range between unbounded preceding and unbounded following),
+# range between 1 preceding and 1 following),
+# different window
+first_value(int_col)
+  over(partition by double_col, tinyint_col order by int_col desc
+  rows between 2 preceding and 2 following),
+# sort group 2
+last_value(int_col ignore nulls)
+  over(partition by double_col, tinyint_col order by int_col asc
+  rows between 2 preceding and 2 following),
+# different partition
+first_value(int_col)
+  over(partition by double_col, tinyint_col order by int_col asc
+  rows between 2 preceding and 2 following),
+# same partition group but different sort group
+min(int_col)
+  over(partition by tinyint_col order by int_col desc
+  rows between unbounded preceding and 2 following)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+10:ANALYTIC
+|  functions: count(double_col), last_value(double_col)
+|  partition by: tinyint_col, double_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=63B cardinality=11.00K
+|
+09:ANALYTIC
+|  functions: sum(smallint_col)
+|  partition by: double_col, tinyint_col
+|  order by: int_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+|  row-size=47B cardinality=11.00K
+|
+08:ANALYTIC
+|  functions: sum(tinyint_col)
+|  partition by: tinyint_col, double_col
+|  order by: int_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=39B cardinality=11.00K
+|
+07:ANALYTIC
+|  functions: first_value_rewrite(int_col, -1)
+|  partition by: double_col, tinyint_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+|  row-size=31B cardinality=11.00K
+|
+06:SORT
+|  order by: tinyint_col ASC NULLS LAST, double_col ASC NULLS LAST, int_col DESC
+|  row-size=27B cardinality=11.00K
+|
+05:ANALYTIC
+|  functions: first_value_rewrite(int_col, -1)
+|  partition by: double_col, tinyint_col
+|  order by: int_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+|  row-size=27B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: last_value_ignore_nulls(int_col)
+|  partition by: double_col, tinyint_col
+|  order by: int_col ASC
+|  window: ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+|  row-size=23B cardinality=11.00K
+|
+03:SORT
+|  order by: double_col ASC NULLS LAST, tinyint_col ASC NULLS LAST, int_col ASC
+|  row-size=19B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: min(int_col)
+|  partition by: tinyint_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING
+|  row-size=19B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, int_col DESC
+|  row-size=15B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=15B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+12:EXCHANGE [UNPARTITIONED]
+|
+10:ANALYTIC
+|  functions: count(double_col), last_value(double_col)
+|  partition by: tinyint_col, double_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=63B cardinality=11.00K
+|
+09:ANALYTIC
+|  functions: sum(smallint_col)
+|  partition by: double_col, tinyint_col
+|  order by: int_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+|  row-size=47B cardinality=11.00K
+|
+08:ANALYTIC
+|  functions: sum(tinyint_col)
+|  partition by: tinyint_col, double_col
+|  order by: int_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=39B cardinality=11.00K
+|
+07:ANALYTIC
+|  functions: first_value_rewrite(int_col, -1)
+|  partition by: double_col, tinyint_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+|  row-size=31B cardinality=11.00K
+|
+06:SORT
+|  order by: tinyint_col ASC NULLS LAST, double_col ASC NULLS LAST, int_col DESC
+|  row-size=27B cardinality=11.00K
+|
+05:ANALYTIC
+|  functions: first_value_rewrite(int_col, -1)
+|  partition by: double_col, tinyint_col
+|  order by: int_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+|  row-size=27B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: last_value_ignore_nulls(int_col)
+|  partition by: double_col, tinyint_col
+|  order by: int_col ASC
+|  window: ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+|  row-size=23B cardinality=11.00K
+|
+03:SORT
+|  order by: double_col ASC NULLS LAST, tinyint_col ASC NULLS LAST, int_col ASC
+|  row-size=19B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: min(int_col)
+|  partition by: tinyint_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING
+|  row-size=19B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, int_col DESC
+|  row-size=15B cardinality=11.00K
+|
+11:EXCHANGE [HASH(tinyint_col)]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=15B cardinality=11.00K
+====
+# grouping of multiple analytic exprs by compatible window/partition/order
+select
+count(double_col)
+  over(partition by tinyint_col, double_col order by int_col desc
+  rows between 1 preceding and 1 following),
+# unpartitioned default RANGE window
+sum(tinyint_col)
+  over(order by int_col desc),
+# partition compatible with first analytic expr but no order by
+sum(smallint_col)
+  over(partition by double_col, tinyint_col),
+# incompatible analytic expr
+sum(smallint_col)
+  over(partition by bigint_col order by tinyint_col
+  rows between 2 preceding and 2 following)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+07:ANALYTIC
+|  functions: sum(tinyint_col)
+|  order by: int_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=55B cardinality=11.00K
+|
+06:SORT
+|  order by: int_col DESC
+|  row-size=47B cardinality=11.00K
+|
+05:ANALYTIC
+|  functions: sum(smallint_col)
+|  partition by: double_col, tinyint_col
+|  row-size=47B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: count(double_col)
+|  partition by: tinyint_col, double_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=39B cardinality=11.00K
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, double_col ASC NULLS LAST, int_col DESC
+|  row-size=31B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: sum(smallint_col)
+|  partition by: bigint_col
+|  order by: tinyint_col ASC
+|  window: ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+|  row-size=31B cardinality=11.00K
+|
+01:SORT
+|  order by: bigint_col ASC NULLS LAST, tinyint_col ASC
+|  row-size=23B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=23B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+07:ANALYTIC
+|  functions: sum(tinyint_col)
+|  order by: int_col DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=55B cardinality=11.00K
+|
+10:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: int_col DESC
+|
+06:SORT
+|  order by: int_col DESC
+|  row-size=47B cardinality=11.00K
+|
+05:ANALYTIC
+|  functions: sum(smallint_col)
+|  partition by: double_col, tinyint_col
+|  row-size=47B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: count(double_col)
+|  partition by: tinyint_col, double_col
+|  order by: int_col DESC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=39B cardinality=11.00K
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, double_col ASC NULLS LAST, int_col DESC
+|  row-size=31B cardinality=11.00K
+|
+09:EXCHANGE [HASH(tinyint_col,double_col)]
+|
+02:ANALYTIC
+|  functions: sum(smallint_col)
+|  partition by: bigint_col
+|  order by: tinyint_col ASC
+|  window: ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+|  row-size=31B cardinality=11.00K
+|
+01:SORT
+|  order by: bigint_col ASC NULLS LAST, tinyint_col ASC
+|  row-size=23B cardinality=11.00K
+|
+08:EXCHANGE [HASH(bigint_col)]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=23B cardinality=11.00K
+====
+# basic test for analytics and inline views
+select double_col, a, b, a + b, double_col + a from
+  (select
+   double_col,
+   count(int_col) over() a,
+   sum(int_col + bigint_col) over(partition by bool_col) b
+   from
+     (select * from functional.alltypes) v1) v2
+order by 2, 3, 4
+---- PLAN
+PLAN-ROOT SINK
+|
+04:SORT
+|  order by: a ASC, b ASC, a + b ASC
+|  row-size=24B cardinality=7.30K
+|
+03:ANALYTIC
+|  functions: count(int_col)
+|  row-size=37B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: sum(int_col + bigint_col)
+|  partition by: bool_col
+|  row-size=29B cardinality=7.30K
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=21B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=21B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:SORT
+|  order by: a ASC, b ASC, a + b ASC
+|  row-size=24B cardinality=7.30K
+|
+03:ANALYTIC
+|  functions: count(int_col)
+|  row-size=37B cardinality=7.30K
+|
+06:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: sum(int_col + bigint_col)
+|  partition by: bool_col
+|  row-size=29B cardinality=7.30K
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=21B cardinality=7.30K
+|
+05:EXCHANGE [HASH(functional.alltypes.bool_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=21B cardinality=7.30K
+====
+# same as above but using a WITH-clause view
+with v2 as
+  (select
+   double_col,
+   count(int_col) over() a,
+   sum(int_col + bigint_col) over(partition by bool_col) b
+   from
+     (select * from functional.alltypes) v1)
+select double_col, a, b, a + b, double_col + a from v2
+order by 2, 3, 4
+---- PLAN
+PLAN-ROOT SINK
+|
+04:SORT
+|  order by: a ASC, b ASC, a + b ASC
+|  row-size=24B cardinality=7.30K
+|
+03:ANALYTIC
+|  functions: count(int_col)
+|  row-size=37B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: sum(int_col + bigint_col)
+|  partition by: bool_col
+|  row-size=29B cardinality=7.30K
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=21B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=21B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:SORT
+|  order by: a ASC, b ASC, a + b ASC
+|  row-size=24B cardinality=7.30K
+|
+03:ANALYTIC
+|  functions: count(int_col)
+|  row-size=37B cardinality=7.30K
+|
+06:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: sum(int_col + bigint_col)
+|  partition by: bool_col
+|  row-size=29B cardinality=7.30K
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=21B cardinality=7.30K
+|
+05:EXCHANGE [HASH(functional.alltypes.bool_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=21B cardinality=7.30K
+====
+# test ignoring of non-materialized analytic exprs
+select b from
+  (select
+   count(int_col) over(order by id) a,
+   sum(int_col) over(partition by bigint_col) b,
+   max(tinyint_col) over() c,
+   min(double_col) over(partition by bool_col order by string_col) d,
+   count(1) over(partition by bool_col order by string_col
+                 rows between unbounded preceding and 1 following) e
+   from functional.alltypes) v
+where e < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+05:SELECT
+|  predicates: count(1) < 10
+|  row-size=42B cardinality=730
+|
+04:ANALYTIC
+|  functions: count(1)
+|  partition by: bool_col
+|  order by: string_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=42B cardinality=7.30K
+|
+03:SORT
+|  order by: bool_col ASC NULLS LAST, string_col ASC
+|  row-size=34B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: bigint_col
+|  row-size=34B cardinality=7.30K
+|
+01:SORT
+|  order by: bigint_col ASC NULLS LAST
+|  row-size=26B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=26B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+08:EXCHANGE [UNPARTITIONED]
+|
+05:SELECT
+|  predicates: count(1) < 10
+|  row-size=42B cardinality=730
+|
+04:ANALYTIC
+|  functions: count(1)
+|  partition by: bool_col
+|  order by: string_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=42B cardinality=7.30K
+|
+03:SORT
+|  order by: bool_col ASC NULLS LAST, string_col ASC
+|  row-size=34B cardinality=7.30K
+|
+07:EXCHANGE [HASH(bool_col)]
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: bigint_col
+|  row-size=34B cardinality=7.30K
+|
+01:SORT
+|  order by: bigint_col ASC NULLS LAST
+|  row-size=26B cardinality=7.30K
+|
+06:EXCHANGE [HASH(bigint_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=26B cardinality=7.30K
+====
+# basic test for analytics and unions
+select min(id) over (partition by int_col)
+  from functional.alltypes
+union distinct
+select max(id) over (partition by bool_col)
+  from functional.alltypessmall
+union all
+(select sum(bigint_col) over (partition by int_col order by id)
+ from functional.alltypestiny)
+order by 1 desc nulls first
+---- PLAN
+PLAN-ROOT SINK
+|
+12:SORT
+|  order by: min(id) OVER(...) DESC NULLS FIRST
+|  row-size=8B cardinality=7.41K
+|
+08:UNION
+|  pass-through-operands: 07
+|  row-size=8B cardinality=7.41K
+|
+|--11:ANALYTIC
+|  |  functions: sum(bigint_col)
+|  |  partition by: int_col
+|  |  order by: id ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=24B cardinality=8
+|  |
+|  10:SORT
+|  |  order by: int_col ASC NULLS LAST, id ASC
+|  |  row-size=16B cardinality=8
+|  |
+|  09:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=16B cardinality=8
+|
+07:AGGREGATE [FINALIZE]
+|  group by: min(id) OVER(...)
+|  row-size=8B cardinality=7.40K
+|
+00:UNION
+|  row-size=8B cardinality=7.40K
+|
+|--06:ANALYTIC
+|  |  functions: max(id)
+|  |  partition by: bool_col
+|  |  row-size=9B cardinality=100
+|  |
+|  05:SORT
+|  |  order by: bool_col ASC NULLS LAST
+|  |  row-size=5B cardinality=100
+|  |
+|  04:SCAN HDFS [functional.alltypessmall]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=5B cardinality=100
+|
+03:ANALYTIC
+|  functions: min(id)
+|  partition by: int_col
+|  row-size=12B cardinality=7.30K
+|
+02:SORT
+|  order by: int_col ASC NULLS LAST
+|  row-size=8B cardinality=7.30K
+|
+01:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=8B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+18:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: min(id) OVER(...) DESC NULLS FIRST
+|
+12:SORT
+|  order by: min(id) OVER(...) DESC NULLS FIRST
+|  row-size=8B cardinality=7.41K
+|
+08:UNION
+|  pass-through-operands: 16
+|  row-size=8B cardinality=7.41K
+|
+|--11:ANALYTIC
+|  |  functions: sum(bigint_col)
+|  |  partition by: int_col
+|  |  order by: id ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=24B cardinality=8
+|  |
+|  10:SORT
+|  |  order by: int_col ASC NULLS LAST, id ASC
+|  |  row-size=16B cardinality=8
+|  |
+|  17:EXCHANGE [HASH(int_col)]
+|  |
+|  09:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=16B cardinality=8
+|
+16:AGGREGATE [FINALIZE]
+|  group by: min(id) OVER(...)
+|  row-size=8B cardinality=7.40K
+|
+15:EXCHANGE [HASH(min(id) OVER(...))]
+|
+07:AGGREGATE [STREAMING]
+|  group by: min(id) OVER(...)
+|  row-size=8B cardinality=7.40K
+|
+00:UNION
+|  row-size=8B cardinality=7.40K
+|
+|--06:ANALYTIC
+|  |  functions: max(id)
+|  |  partition by: bool_col
+|  |  row-size=9B cardinality=100
+|  |
+|  05:SORT
+|  |  order by: bool_col ASC NULLS LAST
+|  |  row-size=5B cardinality=100
+|  |
+|  14:EXCHANGE [HASH(bool_col)]
+|  |
+|  04:SCAN HDFS [functional.alltypessmall]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=5B cardinality=100
+|
+03:ANALYTIC
+|  functions: min(id)
+|  partition by: int_col
+|  row-size=12B cardinality=7.30K
+|
+02:SORT
+|  order by: int_col ASC NULLS LAST
+|  row-size=8B cardinality=7.30K
+|
+13:EXCHANGE [HASH(int_col)]
+|
+01:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=8B cardinality=7.30K
+====
+# analytics in an uncorrelated subquery
+select id, int_col, bool_col from functional.alltypessmall t1
+where int_col in
+  (select min(bigint_col) over(partition by bool_col)
+   from functional.alltypestiny t2 where t2.id < 10)
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT SEMI JOIN]
+|  hash predicates: int_col = min(bigint_col)
+|  runtime filters: RF000 <- min(bigint_col)
+|  row-size=9B cardinality=10
+|
+|--03:ANALYTIC
+|  |  functions: min(bigint_col)
+|  |  partition by: bool_col
+|  |  row-size=21B cardinality=1
+|  |
+|  02:SORT
+|  |  order by: bool_col ASC NULLS LAST
+|  |  row-size=13B cardinality=1
+|  |
+|  01:SCAN HDFS [functional.alltypestiny t2]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: t2.id < 10
+|     row-size=13B cardinality=1
+|
+00:SCAN HDFS [functional.alltypessmall t1]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> int_col
+   row-size=9B cardinality=100
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+07:EXCHANGE [UNPARTITIONED]
+|
+04:HASH JOIN [LEFT SEMI JOIN, BROADCAST]
+|  hash predicates: int_col = min(bigint_col)
+|  runtime filters: RF000 <- min(bigint_col)
+|  row-size=9B cardinality=10
+|
+|--06:EXCHANGE [BROADCAST]
+|  |
+|  03:ANALYTIC
+|  |  functions: min(bigint_col)
+|  |  partition by: bool_col
+|  |  row-size=21B cardinality=1
+|  |
+|  02:SORT
+|  |  order by: bool_col ASC NULLS LAST
+|  |  row-size=13B cardinality=1
+|  |
+|  05:EXCHANGE [HASH(bool_col)]
+|  |
+|  01:SCAN HDFS [functional.alltypestiny t2]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: t2.id < 10
+|     row-size=13B cardinality=1
+|
+00:SCAN HDFS [functional.alltypessmall t1]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> int_col
+   row-size=9B cardinality=100
+====
+# test conjunct assignment and slot materialization due to conjuncts
+# (see IMPALA-1243)
+select 1 from
+  (select bigint_col,
+   min(int_col) over() a,
+   max(int_col) over(partition by bool_col) b,
+   count(int_col) over(partition by bool_col) c,
+   sum(int_col) over(partition by bigint_col order by id
+                     rows between unbounded preceding and 1 following) d,
+   avg(int_col) over(partition by bigint_col order by id
+                     rows between unbounded preceding and 2 following) e
+   from functional.alltypes
+# assigned in scan
+   where int_col between 5 and 10) v
+where
+# assigned to separate Select node
+  v.bigint_col > 10 and
+  v.a < 1 and
+  v.a < v.bigint_col + 1 and
+  v.b < 2 and
+  v.b < v.bigint_col + 2 and
+  v.c < 3 and
+  v.c < v.bigint_col + 3 and
+  v.d < 4 and
+  v.d < v.bigint_col + 4 and
+  v.e < 5 and
+  v.e < v.bigint_col + 5 and
+  v.a != v.c and
+  v.a != v.e and
+  v.b != v.c
+---- PLAN
+PLAN-ROOT SINK
+|
+07:SELECT
+|  predicates: avg(int_col) < 5, count(int_col) < 3, max(int_col) < 2, min(int_col) < 1, sum(int_col) < 4, bigint_col > 10, max(int_col) != count(int_col), min(int_col) != avg(int_col), min(int_col) != count(int_col), count(int_col) < bigint_col + 3, sum(int_col) < bigint_col + 4, min(int_col) < bigint_col + 1, max(int_col) < bigint_col + 2, avg(int_col) < bigint_col + 5
+|  row-size=49B cardinality=73
+|
+06:ANALYTIC
+|  functions: min(int_col)
+|  row-size=49B cardinality=730
+|
+05:ANALYTIC
+|  functions: avg(int_col)
+|  partition by: bigint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING
+|  row-size=45B cardinality=730
+|
+04:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: bigint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=37B cardinality=730
+|
+03:SORT
+|  order by: bigint_col ASC NULLS LAST, id ASC
+|  row-size=29B cardinality=730
+|
+02:ANALYTIC
+|  functions: max(int_col), count(int_col)
+|  partition by: bool_col
+|  row-size=29B cardinality=730
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=17B cardinality=730
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   predicates: int_col <= 10, int_col >= 5
+   row-size=17B cardinality=730
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+07:SELECT
+|  predicates: avg(int_col) < 5, count(int_col) < 3, max(int_col) < 2, min(int_col) < 1, sum(int_col) < 4, bigint_col > 10, max(int_col) != count(int_col), min(int_col) != avg(int_col), min(int_col) != count(int_col), count(int_col) < bigint_col + 3, sum(int_col) < bigint_col + 4, min(int_col) < bigint_col + 1, max(int_col) < bigint_col + 2, avg(int_col) < bigint_col + 5
+|  row-size=49B cardinality=73
+|
+06:ANALYTIC
+|  functions: min(int_col)
+|  row-size=49B cardinality=730
+|
+10:EXCHANGE [UNPARTITIONED]
+|
+05:ANALYTIC
+|  functions: avg(int_col)
+|  partition by: bigint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING
+|  row-size=45B cardinality=730
+|
+04:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: bigint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=37B cardinality=730
+|
+03:SORT
+|  order by: bigint_col ASC NULLS LAST, id ASC
+|  row-size=29B cardinality=730
+|
+09:EXCHANGE [HASH(bigint_col)]
+|
+02:ANALYTIC
+|  functions: max(int_col), count(int_col)
+|  partition by: bool_col
+|  row-size=29B cardinality=730
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=17B cardinality=730
+|
+08:EXCHANGE [HASH(bool_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   predicates: int_col <= 10, int_col >= 5
+   row-size=17B cardinality=730
+====
+# test predicate propagation onto and through analytic nodes
+# TODO: allow AnalyticEvalNode to apply a < 20
+select 1 from
+  (select id, int_col, bigint_col,
+   sum(int_col) over(partition by bigint_col order by id
+                     rows between unbounded preceding and 1 following) a,
+   avg(int_col) over(partition by bigint_col order by id
+                     rows between unbounded preceding and 2 following) b
+   from functional.alltypes) t1
+inner join functional.alltypes t2
+on (t1.id = t2.id and t1.a = t2.int_col)
+where t2.id < 10 and t2.int_col < 20
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: id = t2.id, sum(int_col) = t2.int_col
+|  row-size=32B cardinality=730
+|
+|--03:SCAN HDFS [functional.alltypes t2]
+|     HDFS partitions=24/24 files=24 size=478.45KB
+|     predicates: t2.id < 10, t2.int_col < 20
+|     row-size=8B cardinality=730
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: bigint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=24B cardinality=7.30K
+|
+01:SORT
+|  order by: bigint_col ASC NULLS LAST, id ASC
+|  row-size=16B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=16B cardinality=7.30K
+====
+# test that predicates are correctly propagated in the presence of outer joins
+# (i.e., no predicates should be propagated in this query)
+select 1 from
+  (select id, int_col, bigint_col,
+   sum(int_col) over(partition by bigint_col order by id
+                     rows between unbounded preceding and 1 following) a,
+   avg(int_col) over(partition by bigint_col order by id
+                     rows between unbounded preceding and 2 following) b
+   from functional.alltypes) t1
+left outer join functional.alltypes t2
+on (t1.id = t2.id and t1.a = t2.int_col)
+where t2.id < 10 and t2.int_col < 20
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: id = t2.id, sum(int_col) = t2.int_col
+|  other predicates: t2.id < 10, t2.int_col < 20
+|  row-size=32B cardinality=7.30K
+|
+|--03:SCAN HDFS [functional.alltypes t2]
+|     HDFS partitions=24/24 files=24 size=478.45KB
+|     predicates: t2.id < 10, t2.int_col < 20
+|     row-size=8B cardinality=730
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: bigint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=24B cardinality=7.30K
+|
+01:SORT
+|  order by: bigint_col ASC NULLS LAST, id ASC
+|  row-size=16B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=16B cardinality=7.30K
+====
+# test canonical function/window/order: row_number() gets a ROWS window
+select
+row_number() over(partition by tinyint_col order by id)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: row_number()
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=13B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC
+|  row-size=5B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=5B cardinality=11.00K
+====
+# test canonical function/window/order: lead() and lag() have default
+# arguments explicitly set
+select
+lead(int_col) over(partition by tinyint_col order by id),
+lag(int_col) over(partition by tinyint_col order by id),
+lead(int_col, 4) over(partition by smallint_col order by id),
+lag(int_col, 4) over(partition by smallint_col order by id),
+lead(int_col, 8, 20) over(partition by int_col order by id),
+lag(int_col, 8, 20) over(partition by int_col order by id)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+09:ANALYTIC
+|  functions: lag(int_col, 8, 20)
+|  partition by: int_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 8 PRECEDING
+|  row-size=35B cardinality=11.00K
+|
+08:ANALYTIC
+|  functions: lead(int_col, 8, 20)
+|  partition by: int_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 8 FOLLOWING
+|  row-size=31B cardinality=11.00K
+|
+07:SORT
+|  order by: int_col ASC NULLS LAST, id ASC
+|  row-size=27B cardinality=11.00K
+|
+06:ANALYTIC
+|  functions: lag(int_col, 4, NULL)
+|  partition by: smallint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 4 PRECEDING
+|  row-size=27B cardinality=11.00K
+|
+05:ANALYTIC
+|  functions: lead(int_col, 4, NULL)
+|  partition by: smallint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 4 FOLLOWING
+|  row-size=23B cardinality=11.00K
+|
+04:SORT
+|  order by: smallint_col ASC NULLS LAST, id ASC
+|  row-size=19B cardinality=11.00K
+|
+03:ANALYTIC
+|  functions: lag(int_col, 1, NULL)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+|  row-size=19B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: lead(int_col, 1, NULL)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=15B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC
+|  row-size=11B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=11B cardinality=11.00K
+====
+# Test canonical function/window/order: Reverse windows ending in UNBOUNDED FOLLOWING
+# and not starting with UNBOUNDED PRECEDING.
+select
+# windows and sort order should be reversed
+sum(int_col) over(partition by tinyint_col order by id desc nulls first, bool_col asc nulls last
+                  rows between 2 preceding and unbounded following),
+# TODO: Revert window when RANGE offsets are supported
+sum(int_col) over(partition by tinyint_col order by id asc nulls last
+                  range between current row and unbounded following),
+#                  range between 4 preceding and unbounded following),
+# windows and sort order should remain unchanged
+count(bigint_col) over(partition by tinyint_col order by id),
+count(bigint_col) over(partition by tinyint_col order by id, int_col
+                       rows between 6 preceding and 8 following),
+# TODO: Revert window when RANGE offsets are supported
+count(bigint_col) over(partition by tinyint_col order by id
+                       range between unbounded preceding and unbounded following)
+#                       range between unbounded preceding and 10 following)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+08:ANALYTIC
+|  functions: count(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+|  row-size=58B cardinality=11.00K
+|
+07:ANALYTIC
+|  functions: count(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=50B cardinality=11.00K
+|
+06:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: tinyint_col
+|  order by: id ASC, bool_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 2 FOLLOWING
+|  row-size=42B cardinality=11.00K
+|
+05:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC NULLS LAST, bool_col DESC NULLS FIRST
+|  row-size=34B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: count(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC, int_col ASC
+|  window: ROWS BETWEEN 6 PRECEDING AND 8 FOLLOWING
+|  row-size=34B cardinality=11.00K
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC, int_col ASC
+|  row-size=26B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: tinyint_col
+|  order by: id DESC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=26B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, id DESC NULLS FIRST
+|  row-size=18B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=18B cardinality=11.00K
+====
+# Test canonical function/window/order: Reverse windows ending in UNBOUNDED FOLLOWING
+# and either not starting with UNBOUNDED PRECEDING or first_value(... IGNORE NULLS), and
+# change first_value() to last_value().
+# Set the end boundary to CURRENT_ROW for first_value() if the start boundary is
+# UNBOUNDED_PRECEDING and not IGNORE NULLS.
+select
+# windows, sort order and function should be reversed
+last_value(int_col) over(partition by tinyint_col order by id desc nulls first, bool_col asc nulls last
+                         rows between 2 preceding and unbounded following),
+# TODO: Revert window when RANGE offsets are supported
+last_value(int_col) over(partition by tinyint_col order by id asc nulls last
+                          range between current row and unbounded following),
+# windows, sort order and function should remain unchanged
+first_value(bigint_col ignore nulls) over(partition by tinyint_col order by id),
+first_value(bigint_col) over(partition by tinyint_col order by id, int_col
+                             rows between 6 preceding and 8 following),
+# TODO: Revert window when RANGE offsets are supported
+first_value(bigint_col) over(partition by tinyint_col order by id
+                             range between unbounded preceding and unbounded following),
+# window, order, and function should be reversed
+first_value(tinyint_col ignore nulls) over (order by id
+                                            rows between 1 following and 2 following)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+09:ANALYTIC
+|  functions: last_value_ignore_nulls(tinyint_col)
+|  order by: id DESC
+|  window: ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING
+|  row-size=51B cardinality=11.00K
+|
+08:SORT
+|  order by: id DESC NULLS FIRST
+|  row-size=50B cardinality=11.00K
+|
+07:ANALYTIC
+|  functions: first_value_ignore_nulls(bigint_col), first_value(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=50B cardinality=11.00K
+|
+06:ANALYTIC
+|  functions: first_value(int_col)
+|  partition by: tinyint_col
+|  order by: id ASC, bool_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=34B cardinality=11.00K
+|
+05:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC NULLS LAST, bool_col DESC NULLS FIRST
+|  row-size=30B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: first_value_rewrite(bigint_col, -1)
+|  partition by: tinyint_col
+|  order by: id ASC, int_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 6 PRECEDING
+|  row-size=30B cardinality=11.00K
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC, int_col ASC
+|  row-size=22B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: first_value(int_col)
+|  partition by: tinyint_col
+|  order by: id DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=22B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, id DESC NULLS FIRST
+|  row-size=18B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=18B cardinality=11.00K
+====
+# Test canonical function/window/order: Reverse windows ending in UNBOUNDED FOLLOWING
+# and not starting with UNBOUNDED PRECEDING, and change last_value() to first_value()
+select
+# windows, sort order and function should be reversed
+last_value(int_col) over(partition by tinyint_col order by id desc nulls first,
+                    bool_col asc nulls last
+                    rows between 2 preceding and unbounded following),
+# TODO: Revert window when RANGE offsets are supported
+last_value(int_col) over(partition by tinyint_col order by id asc nulls last
+                          range between current row and unbounded following),
+# windows, sort order and function should remain unchanged
+last_value(bigint_col) over(partition by tinyint_col order by id),
+last_value(bigint_col) over(partition by tinyint_col order by id, int_col
+                       rows between 6 preceding and 8 following),
+# TODO: Revert window when RANGE offsets are supported
+last_value(bigint_col) over(partition by tinyint_col order by id
+                            range between unbounded preceding and unbounded following)
+from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+08:ANALYTIC
+|  functions: last_value(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+|  row-size=50B cardinality=11.00K
+|
+07:ANALYTIC
+|  functions: last_value(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=42B cardinality=11.00K
+|
+06:ANALYTIC
+|  functions: first_value(int_col)
+|  partition by: tinyint_col
+|  order by: id ASC, bool_col DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=34B cardinality=11.00K
+|
+05:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC NULLS LAST, bool_col DESC NULLS FIRST
+|  row-size=30B cardinality=11.00K
+|
+04:ANALYTIC
+|  functions: last_value(bigint_col)
+|  partition by: tinyint_col
+|  order by: id ASC, int_col ASC
+|  window: ROWS BETWEEN 6 PRECEDING AND 8 FOLLOWING
+|  row-size=30B cardinality=11.00K
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC, int_col ASC
+|  row-size=22B cardinality=11.00K
+|
+02:ANALYTIC
+|  functions: first_value(int_col)
+|  partition by: tinyint_col
+|  order by: id DESC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=22B cardinality=11.00K
+|
+01:SORT
+|  order by: tinyint_col ASC NULLS LAST, id DESC NULLS FIRST
+|  row-size=18B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=18B cardinality=11.00K
+====
+# IMPALA-1229
+select DENSE_RANK() OVER (ORDER BY t1.day ASC)
+FROM functional.alltypesagg t1
+WHERE EXISTS (SELECT t1.year AS int_col_1 FROM functional.alltypesagg t1)
+---- PLAN
+PLAN-ROOT SINK
+|
+04:ANALYTIC
+|  functions: dense_rank()
+|  order by: day ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=12B cardinality=11.00K
+|
+03:SORT
+|  order by: day ASC
+|  row-size=4B cardinality=11.00K
+|
+02:NESTED LOOP JOIN [LEFT SEMI JOIN]
+|  row-size=4B cardinality=11.00K
+|
+|--01:SCAN HDFS [functional.alltypesagg t1]
+|     HDFS partitions=11/11 files=11 size=814.73KB
+|     limit: 1
+|     row-size=0B cardinality=1
+|
+00:SCAN HDFS [functional.alltypesagg t1]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+====
+# IMPALA-1243: the Where clause predicate needs to be evaluated in a Select node
+# not as a scan predicate of alltypes
+select COUNT(*)
+FROM (
+  SELECT id, tinyint_col
+  FROM functional.alltypestiny t1
+  UNION ALL
+  SELECT DENSE_RANK() OVER (ORDER BY t1.id), tinyint_col
+  FROM functional.alltypes t1 ) t1
+WHERE id IS NULL and tinyint_col != 5
+---- PLAN
+PLAN-ROOT SINK
+|
+06:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+05:SELECT
+|  predicates: id IS NULL, tinyint_col != 5
+|  row-size=9B cardinality=699
+|
+00:UNION
+|  row-size=9B cardinality=7.30K
+|
+|--04:ANALYTIC
+|  |  functions: dense_rank()
+|  |  order by: id ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=13B cardinality=7.30K
+|  |
+|  03:SORT
+|  |  order by: id ASC
+|  |  row-size=5B cardinality=7.30K
+|  |
+|  02:SCAN HDFS [functional.alltypes t1]
+|     HDFS partitions=24/24 files=24 size=478.45KB
+|     row-size=5B cardinality=7.30K
+|
+01:SCAN HDFS [functional.alltypestiny t1]
+   HDFS partitions=4/4 files=4 size=460B
+   predicates: t1.id IS NULL, t1.tinyint_col != 5
+   row-size=5B cardinality=1
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+10:AGGREGATE [FINALIZE]
+|  output: count:merge(*)
+|  row-size=8B cardinality=1
+|
+09:EXCHANGE [UNPARTITIONED]
+|
+06:AGGREGATE
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+05:SELECT
+|  predicates: id IS NULL, tinyint_col != 5
+|  row-size=9B cardinality=699
+|
+00:UNION
+|  row-size=9B cardinality=7.30K
+|
+|--08:EXCHANGE [RANDOM]
+|  |
+|  04:ANALYTIC
+|  |  functions: dense_rank()
+|  |  order by: id ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=13B cardinality=7.30K
+|  |
+|  07:MERGING-EXCHANGE [UNPARTITIONED]
+|  |  order by: id ASC
+|  |
+|  03:SORT
+|  |  order by: id ASC
+|  |  row-size=5B cardinality=7.30K
+|  |
+|  02:SCAN HDFS [functional.alltypes t1]
+|     HDFS partitions=24/24 files=24 size=478.45KB
+|     row-size=5B cardinality=7.30K
+|
+01:SCAN HDFS [functional.alltypestiny t1]
+   HDFS partitions=4/4 files=4 size=460B
+   predicates: t1.id IS NULL, t1.tinyint_col != 5
+   row-size=5B cardinality=1
+====
+# Propagate a predicate on a partition key through an inline view that has an analytic
+# function. Predicates that are not compatible with analytic function's partition by
+# clause are not propagated (IMPALA-1900).
+select * from
+  (select id, int_col, year,
+   sum(int_col) over(partition by year order by id) as s
+   from functional.alltypes) v
+where year = 2009 and id = 1 and int_col < 10 and s = 4
+---- PLAN
+PLAN-ROOT SINK
+|
+03:SELECT
+|  predicates: id = 1, int_col < 10, sum(int_col) = 4
+|  row-size=20B cardinality=1
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: `year`
+|  order by: id ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=20B cardinality=3.65K
+|
+01:SORT
+|  order by: year ASC NULLS LAST, id ASC
+|  row-size=12B cardinality=3.65K
+|
+00:SCAN HDFS [functional.alltypes]
+   partition predicates: functional.alltypes.year = 2009
+   HDFS partitions=12/24 files=12 size=238.68KB
+   row-size=12B cardinality=3.65K
+====
+# Propagate predicates through an inline view that computes multiple analytic functions
+# (IMPALA-1900)
+select * from
+  (select year, tinyint_col,
+   last_value(int_col) over(partition by int_col, year order by id
+   rows between 1 preceding and 1 following),
+   last_value(tinyint_col) over(partition by id, year order by int_col
+   range between unbounded preceding and unbounded following),
+   sum(int_col) over(partition by year, tinyint_col),
+   avg(int_col) over(partition by tinyint_col, id, year order by bigint_col)
+   from functional.alltypes) v
+where year = 2009 and tinyint_col + 1 = 1
+---- PLAN
+PLAN-ROOT SINK
+|
+09:SELECT
+|  predicates: tinyint_col + 1 = 1
+|  row-size=42B cardinality=365
+|
+08:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: `year`, tinyint_col
+|  row-size=42B cardinality=3.65K
+|
+07:SORT
+|  order by: year ASC NULLS LAST, tinyint_col ASC NULLS LAST
+|  row-size=34B cardinality=3.65K
+|
+06:ANALYTIC
+|  functions: last_value(int_col)
+|  partition by: int_col, `year`
+|  order by: id ASC
+|  window: ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+|  row-size=34B cardinality=3.65K
+|
+05:SORT
+|  order by: int_col ASC NULLS LAST, year ASC NULLS LAST, id ASC
+|  row-size=30B cardinality=3.65K
+|
+04:ANALYTIC
+|  functions: avg(int_col)
+|  partition by: tinyint_col, id, `year`
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=30B cardinality=3.65K
+|
+03:SORT
+|  order by: tinyint_col ASC NULLS LAST, id ASC NULLS LAST, year ASC NULLS LAST, bigint_col ASC
+|  row-size=22B cardinality=3.65K
+|
+02:ANALYTIC
+|  functions: last_value(tinyint_col)
+|  partition by: id, `year`
+|  order by: int_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+|  row-size=22B cardinality=3.65K
+|
+01:SORT
+|  order by: id ASC NULLS LAST, year ASC NULLS LAST, int_col ASC
+|  row-size=21B cardinality=3.65K
+|
+00:SCAN HDFS [functional.alltypes]
+   partition predicates: functional.alltypes.year = 2009
+   HDFS partitions=12/24 files=12 size=238.68KB
+   row-size=21B cardinality=3.65K
+====
+# Don't propagate predicates through an inline view with multiple analytic functions
+# if the predicates are not compatible with every analytic function's partition by
+# clause (IMPALA-1900)
+select * from
+  (select year, tinyint_col,
+   sum(int_col) over(partition by year, tinyint_col order by bigint_col),
+   avg(int_col) over(partition by year order by bigint_col),
+   lead(int_col) over(order by tinyint_col)
+   from functional.alltypes) v
+where year = 2009 and tinyint_col = 1
+---- PLAN
+PLAN-ROOT SINK
+|
+07:SELECT
+|  predicates: tinyint_col = 1, year = 2009
+|  row-size=37B cardinality=516
+|
+06:ANALYTIC
+|  functions: lead(int_col, 1, NULL)
+|  order by: tinyint_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING
+|  row-size=37B cardinality=7.30K
+|
+05:SORT
+|  order by: tinyint_col ASC
+|  row-size=33B cardinality=7.30K
+|
+04:ANALYTIC
+|  functions: avg(int_col)
+|  partition by: `year`
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=33B cardinality=7.30K
+|
+03:SORT
+|  order by: year ASC NULLS LAST, bigint_col ASC
+|  row-size=25B cardinality=7.30K
+|
+02:ANALYTIC
+|  functions: sum(int_col)
+|  partition by: `year`, tinyint_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=25B cardinality=7.30K
+|
+01:SORT
+|  order by: year ASC NULLS LAST, tinyint_col ASC NULLS LAST, bigint_col ASC
+|  row-size=17B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=17B cardinality=7.30K
+====
+# Propagate a predicate generated from equivalence classes
+# through an inline with an analytic function (IMPALA-1900)
+select * from
+  (select month, int_col, tinyint_col,
+   sum(id) over(partition by month, tinyint_col order by bigint_col)
+   from functional.alltypestiny where id = tinyint_col) v
+where month = int_col and int_col = 1 and tinyint_col = 1
+---- PLAN
+PLAN-ROOT SINK
+|
+03:SELECT
+|  predicates: month = int_col
+|  row-size=29B cardinality=1
+|
+02:ANALYTIC
+|  functions: sum(id)
+|  partition by: `month`, tinyint_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=29B cardinality=1
+|
+01:SORT
+|  order by: month ASC NULLS LAST, tinyint_col ASC NULLS LAST, bigint_col ASC
+|  row-size=21B cardinality=1
+|
+00:SCAN HDFS [functional.alltypestiny]
+   partition predicates: functional.alltypestiny.month = 1
+   HDFS partitions=1/4 files=1 size=115B
+   predicates: functional.alltypestiny.id = 1, functional.alltypestiny.tinyint_col = 1
+   row-size=21B cardinality=1
+====
+# Don't propagate predicates through an inline view with an analytic
+# function that has a complex (non SlotRef) partition by clause for consistency with
+# the group by behavior (IMPALA-1900).
+# TODO: Enable predicate propagation through inline views with complex partition by
+# exprs.
+select * from
+  (select t1.tinyint_col as x, t2.int_col as y,
+   sum(t1.id) over(partition by t1.tinyint_col + 1, t2.int_col - 1 order by t1.bigint_col)
+   from functional.alltypes t1 inner join functional.alltypesagg t2
+   on t1.id = t2.id) v
+where v.x + v.y < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+05:SELECT
+|  predicates: tinyint_col + int_col < 10
+|  row-size=29B cardinality=781
+|
+04:ANALYTIC
+|  functions: sum(id)
+|  partition by: t1.tinyint_col + 1, t2.int_col - 1
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=29B cardinality=7.81K
+|
+03:SORT
+|  order by: tinyint_col + 1 ASC NULLS LAST, int_col - 1 ASC NULLS LAST, bigint_col ASC
+|  row-size=21B cardinality=7.81K
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: t1.id = t2.id
+|  runtime filters: RF000 <- t2.id
+|  row-size=21B cardinality=7.81K
+|
+|--01:SCAN HDFS [functional.alltypesagg t2]
+|     HDFS partitions=11/11 files=11 size=814.73KB
+|     row-size=8B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypes t1]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> t1.id
+   row-size=13B cardinality=7.30K
+====
+# Don't propagate a predicate through an inline view with an analytic function
+# when the select list items contain a complex (non SlotRef) expr on a partition by
+# expr (IMPALA-1900)
+# TODO: Enable migration of predicates into inline views with analytics if the predicate
+# is compatible with the analytics' partition by clause.
+select * from
+  (select int_col + 1 as x,
+   sum(id) over(partition by int_col order by bigint_col)
+   from functional.alltypestiny) v
+where x = 1
+---- PLAN
+PLAN-ROOT SINK
+|
+03:SELECT
+|  predicates: int_col + 1 = 1
+|  row-size=24B cardinality=4
+|
+02:ANALYTIC
+|  functions: sum(id)
+|  partition by: int_col
+|  order by: bigint_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=24B cardinality=8
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, bigint_col ASC
+|  row-size=16B cardinality=8
+|
+00:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=16B cardinality=8
+====
+# IMPALA-1519: Check that the first analytic sort of a select block
+# materializes TupleIsNullPredicates to be substituted in ancestor nodes.
+select
+  sum(t1.id) over (partition by t1.bool_col),
+  count(1) over (order by t1.int_col),
+  avg(g) over (order by f),
+  t2.a,
+  t2.d
+from functional.alltypestiny t1
+left outer join
+  (select
+     id as a,
+     coalesce(id, 10) as b,
+     int_col as c,
+     coalesce(int_col, 20) as d,
+     bigint_col e,
+     coalesce(bigint_col, 30) as f,
+     coalesce(id + bigint_col, 40) as g
+   from functional.alltypestiny) t2
+on (t1.id = t2.a + 100)
+---- PLAN
+PLAN-ROOT SINK
+|
+08:ANALYTIC
+|  functions: avg(if(TupleIsNull(1), NULL, coalesce(id + bigint_col, 40)))
+|  order by: if(TupleIsNull(1), NULL, coalesce(bigint_col, 30)) ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=58B cardinality=8
+|
+07:SORT
+|  order by: if(TupleIsNull(1), NULL, coalesce(bigint_col, 30)) ASC
+|  row-size=50B cardinality=8
+|
+06:ANALYTIC
+|  functions: count(1)
+|  order by: int_col ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=42B cardinality=8
+|
+05:SORT
+|  order by: int_col ASC
+|  row-size=34B cardinality=8
+|
+04:ANALYTIC
+|  functions: sum(id)
+|  partition by: t1.bool_col
+|  row-size=34B cardinality=8
+|
+03:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=26B cardinality=8
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id + 100 = t1.id
+|  runtime filters: RF000 <- t1.id
+|  row-size=25B cardinality=8
+|
+|--00:SCAN HDFS [functional.alltypestiny t1]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=9B cardinality=8
+|
+01:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   runtime filters: RF000 -> id + 100
+   row-size=16B cardinality=8
+====
+# IMPALA-1519: Check that the first analytic sort of a select block
+# materializes TupleIsNullPredicates to be substituted in ancestor nodes.
+# Same test as the one above, but with an aggregation on top.
+select avg(af1), sum(af3), count(a)
+from
+  (select
+    sum(t1.id) over (partition by t1.bool_col) af1,
+    count(1) over (order by t1.int_col) af2,
+    avg(g) over (order by f) af3,
+    t2.a,
+    t2.d
+  from functional.alltypestiny t1
+  left outer join
+    (select
+       id as a,
+       coalesce(id, 10) as b,
+       int_col as c,
+       coalesce(int_col, 20) as d,
+       bigint_col e,
+       coalesce(bigint_col, 30) as f,
+       coalesce(id + bigint_col, 40) as g
+     from functional.alltypestiny) t2
+  on (t1.id = t2.a + 100)) t3
+group by d
+---- PLAN
+PLAN-ROOT SINK
+|
+07:AGGREGATE [FINALIZE]
+|  output: avg(sum(t1.id)), sum(avg(g)), count(id)
+|  group by: if(TupleIsNull(1), NULL, coalesce(int_col, 20))
+|  row-size=28B cardinality=3
+|
+06:ANALYTIC
+|  functions: avg(if(TupleIsNull(1), NULL, coalesce(id + bigint_col, 40)))
+|  order by: if(TupleIsNull(1), NULL, coalesce(bigint_col, 30)) ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=46B cardinality=8
+|
+05:SORT
+|  order by: if(TupleIsNull(1), NULL, coalesce(bigint_col, 30)) ASC
+|  row-size=38B cardinality=8
+|
+04:ANALYTIC
+|  functions: sum(id)
+|  partition by: t1.bool_col
+|  row-size=30B cardinality=8
+|
+03:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=22B cardinality=8
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id + 100 = t1.id
+|  runtime filters: RF000 <- t1.id
+|  row-size=21B cardinality=8
+|
+|--00:SCAN HDFS [functional.alltypestiny t1]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=5B cardinality=8
+|
+01:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   runtime filters: RF000 -> id + 100
+   row-size=16B cardinality=8
+====
+# IMPALA-1519: Check that expr wrapping with a TupleIsNullPredicate
+# is performed correctly with analytics and multiple nesting levels.
+# The test covers these cases:
+# - analytic output that needs to be wrapped
+# - analytic input that needs to be wrapped
+# - both cases above with and without order by in the over() clause
+# - exprs that need to be wrapped multiple times due to multiple outer joins
+select * from
+  (select
+   a.id,
+   sum(x) over (partition by a.id) as x,
+   ifnull(y, 10) as y,
+   ifnull(z, "b") as z
+   from functional.alltypestiny a
+   left outer join
+     (select id,
+      ifnull(int_col, 1) x,
+      count(bigint_col) over(partition by id) y,
+      ifnull(string_col, "a") z
+      from functional.alltypestiny b) v1
+   on (a.id = v1.id)) v2
+full outer join
+  (select
+   c.id,
+   sum(x) over (order by c.id) as x,
+   ifnull(y, 10) as y,
+   ifnull(z, "b") as z
+   from functional.alltypestiny c
+   left outer join
+     (select id,
+      ifnull(int_col, 1) x,
+      count(bigint_col) over(order by id) y,
+      ifnull(string_col, "a") z
+      from functional.alltypestiny d) v3
+   on (c.id = v3.id)) v4
+on (v2.id = v4.id)
+---- PLAN
+PLAN-ROOT SINK
+|
+14:HASH JOIN [FULL OUTER JOIN]
+|  hash predicates: id = id
+|  row-size=100B cardinality=16
+|
+|--13:ANALYTIC
+|  |  functions: sum(if(TupleIsNull(18,19), NULL, ifnull(int_col, 1)))
+|  |  order by: id ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=50B cardinality=8
+|  |
+|  12:SORT
+|  |  order by: id ASC
+|  |  row-size=42B cardinality=8
+|  |
+|  11:HASH JOIN [RIGHT OUTER JOIN]
+|  |  hash predicates: id = c.id
+|  |  row-size=41B cardinality=8
+|  |
+|  |--07:SCAN HDFS [functional.alltypestiny c]
+|  |     HDFS partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  10:ANALYTIC
+|  |  functions: count(bigint_col)
+|  |  order by: id ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=37B cardinality=8
+|  |
+|  09:SORT
+|  |  order by: id ASC
+|  |  row-size=29B cardinality=8
+|  |
+|  08:SCAN HDFS [functional.alltypestiny d]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=29B cardinality=8
+|
+06:ANALYTIC
+|  functions: sum(if(TupleIsNull(12,13), NULL, ifnull(int_col, 1)))
+|  partition by: a.id
+|  row-size=50B cardinality=8
+|
+05:SORT
+|  order by: id ASC NULLS LAST
+|  row-size=42B cardinality=8
+|
+04:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = a.id
+|  row-size=41B cardinality=8
+|
+|--00:SCAN HDFS [functional.alltypestiny a]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=4B cardinality=8
+|
+03:ANALYTIC
+|  functions: count(bigint_col)
+|  partition by: id
+|  row-size=37B cardinality=8
+|
+02:SORT
+|  order by: id ASC NULLS LAST
+|  row-size=29B cardinality=8
+|
+01:SCAN HDFS [functional.alltypestiny b]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=29B cardinality=8
+====
+# IMPALA-1946: Check that On-clause predicates of an outer join assigned in a scan
+# are not wrapped in TupleIsNullPredicates.
+select /* +straight_join */ a.id, b.id
+from functional.alltypestiny a
+left outer join
+  (select t1.id, ifnull(t1.int_col, 10) as int_col
+   from functional.alltypestiny t1
+   inner join functional.alltypestiny t2
+   on (t1.id = t2.id)) b
+on (a.id = b.id and b.int_col < 10)
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = t1.id
+|  row-size=16B cardinality=8
+|
+|--03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: t2.id = t1.id
+|  |  runtime filters: RF000 <- t1.id
+|  |  row-size=12B cardinality=1
+|  |
+|  |--01:SCAN HDFS [functional.alltypestiny t1]
+|  |     HDFS partitions=4/4 files=4 size=460B
+|  |     predicates: ifnull(t1.int_col, 10) < 10
+|  |     row-size=8B cardinality=1
+|  |
+|  02:SCAN HDFS [functional.alltypestiny t2]
+|     HDFS partitions=4/4 files=4 size=460B
+|     runtime filters: RF000 -> t2.id
+|     row-size=4B cardinality=8
+|
+00:SCAN HDFS [functional.alltypestiny a]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# IMPALA-2832: Test proper cloning of analytic function call exprs in a CTAS.
+create table impala_2832 as select
+first_value(int_col) over (order by int_col rows between current row and current row),
+first_value(bigint_col) over (order by int_col rows between current row and current row)
+from functional.alltypes
+---- PLAN
+WRITE TO HDFS [default.impala_2832, OVERWRITE=false]
+|  partitions=1
+|
+02:ANALYTIC
+|  functions: last_value(int_col), last_value(bigint_col)
+|  order by: int_col ASC
+|  window: ROWS BETWEEN CURRENT ROW AND CURRENT ROW
+|  row-size=24B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC
+|  row-size=12B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=12B cardinality=7.30K
+====
+# For first/last_value(), ranges windows get rewritten as rows windows,
+# so these should be grouped.
+select last_value(int_col) over (order by bigint_col
+                                 range between unbounded preceding and current row),
+first_value(int_col) over (order by bigint_col
+                           rows between unbounded preceding and current row)
+from functional.alltypes
+---- PLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: last_value(int_col), first_value(int_col)
+|  order by: bigint_col ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=20B cardinality=7.30K
+|
+01:SORT
+|  order by: bigint_col ASC
+|  row-size=12B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=12B cardinality=7.30K
+====
+# IMPALA-4263: Analytic function needs a hash exchange because the partition exprs
+# reference a tuple that is made nullable in the join fragment.
+select /* +straight_join */ count(*) over (partition by t1.id)
+from functional.alltypes t1
+right outer join /* +shuffle */ functional.alltypessmall t2
+  on t1.id = t2.id
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+08:EXCHANGE [UNPARTITIONED]
+|
+04:ANALYTIC
+|  functions: count(*)
+|  partition by: t1.id
+|  row-size=16B cardinality=100
+|
+03:SORT
+|  order by: id ASC NULLS LAST
+|  row-size=8B cardinality=100
+|
+07:EXCHANGE [HASH(t1.id)]
+|
+02:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]
+|  hash predicates: t1.id = t2.id
+|  runtime filters: RF000 <- t2.id
+|  row-size=8B cardinality=100
+|
+|--06:EXCHANGE [HASH(t2.id)]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall t2]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+05:EXCHANGE [HASH(t1.id)]
+|
+00:SCAN HDFS [functional.alltypes t1]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> t1.id
+   row-size=4B cardinality=7.30K
+====
+# IMPALA-1882: Confirm that first_value function used without a partition by and order
+# by clause does not need a sort node
+select first_value(tinyint_col ignore nulls) over () from functional.alltypesagg
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: first_value_ignore_nulls(tinyint_col)
+|  row-size=2B cardinality=11.00K
+|
+02:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+====
+# IMPALA-1882: Confirm that last_value function used without a partition by and order
+# by clause does not need a sort node
+select last_value(tinyint_col ignore nulls) over () from functional.alltypesagg
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: last_value_ignore_nulls(tinyint_col)
+|  row-size=2B cardinality=11.00K
+|
+02:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+====
+# IMPALA-1882: Confirm that first_value function using only a partition by clause
+# sorts over partition column
+select *, first_value(id) over (partition by bool_col) first_val from
+functional.alltypessmall;
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: first_value(id)
+|  partition by: bool_col
+|  row-size=93B cardinality=100
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=89B cardinality=100
+|
+03:EXCHANGE [HASH(bool_col)]
+|
+00:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# IMPALA-1882: Confirm that last_value function using only a partition by clause
+# sorts over partition column
+select *, last_value(id) over (partition by bool_col) first_val from
+functional.alltypessmall;
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: last_value(id)
+|  partition by: bool_col
+|  row-size=93B cardinality=100
+|
+01:SORT
+|  order by: bool_col ASC NULLS LAST
+|  row-size=89B cardinality=100
+|
+03:EXCHANGE [HASH(bool_col)]
+|
+00:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# IMPALA-6473: analytic fn where the same expr is in the 'partition by' and the 'order by'
+select last_value(int_col)
+   over (partition by abs(int_col), string_col order by id, abs(int_col))
+from functional.alltypestiny
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: last_value(int_col)
+|  partition by: abs(int_col), string_col
+|  order by: id ASC, abs(int_col) ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=33B cardinality=8
+|
+01:SORT
+|  order by: abs(int_col) ASC NULLS LAST, string_col ASC NULLS LAST, id ASC
+|  row-size=29B cardinality=8
+|
+03:EXCHANGE [HASH(abs(int_col),string_col)]
+|
+00:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=21B cardinality=8
+====
+# IMPALA-6323 Partition by a constant is equivalent to no partitioning.
+select x, count() over(partition by 1) from (VALUES((1 x), (2), (3))) T;
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: count()
+|  partition by: 1
+|  row-size=9B cardinality=3
+|
+00:UNION
+   constant-operands=3
+   row-size=1B cardinality=3
+====
+# Regression test for IMPALA-8069
+SELECT FIRST_VALUE(0) OVER (ORDER BY 0 ASC)
+FROM functional.alltypestiny
+---- PLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: first_value(0)
+|  order by: 0 ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=1B cardinality=8
+|
+00:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=0B cardinality=8
+====
+# Regression test for IMPALA-8069
+# Same case as in end-to-end test analytic-fns.test
+SELECT FIRST_VALUE(0) OVER (ORDER BY 0 ASC), row_number() over (order by 0 ASC)
+FROM functional.alltypestiny
+---- PLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: first_value(0), row_number()
+|  order by: 0 ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=9B cardinality=8
+|
+00:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=0B cardinality=8
+====
+# Regression test for IMPALA-8790
+# Query block contains analytic functions and aggregations together. The GroupBy clause
+# references to inline view columns.
+select string_col, int_col,
+  rank() over(partition by int_col order by count(bigint_col))
+from (select string_col, int_col, bigint_col from functional.alltypes) w
+group by string_col, int_col
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+06:EXCHANGE [UNPARTITIONED]
+|
+03:ANALYTIC
+|  functions: rank()
+|  partition by: int_col
+|  order by: count(bigint_col) ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=33B cardinality=100
+|
+02:SORT
+|  order by: int_col ASC NULLS LAST, count(bigint_col) ASC
+|  row-size=25B cardinality=100
+|
+05:AGGREGATE [FINALIZE]
+|  output: count:merge(bigint_col)
+|  group by: string_col, int_col
+|  row-size=25B cardinality=100
+|
+04:EXCHANGE [HASH(int_col)]
+|
+01:AGGREGATE [STREAMING]
+|  output: count(bigint_col)
+|  group by: string_col, int_col
+|  row-size=25B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=25B cardinality=7.30K
+====
+# Regression test for IMPALA-8790
+# Query block contains analytic functions and aggregations together. The GroupBy clause
+# references to inline view columns. Coverage for distinct aggregation.
+select string_col, int_col,
+  rank() over(partition by int_col order by count(distinct bigint_col))
+from (select string_col, int_col, bigint_col from functional.alltypes) w
+group by string_col, int_col
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+10:EXCHANGE [UNPARTITIONED]
+|
+04:ANALYTIC
+|  functions: rank()
+|  partition by: int_col
+|  order by: count(bigint_col) ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=33B cardinality=100
+|
+03:SORT
+|  order by: int_col ASC NULLS LAST, count(bigint_col) ASC
+|  row-size=25B cardinality=100
+|
+09:EXCHANGE [HASH(int_col)]
+|
+08:AGGREGATE [FINALIZE]
+|  output: count:merge(bigint_col)
+|  group by: string_col, int_col
+|  row-size=25B cardinality=100
+|
+07:EXCHANGE [HASH(string_col,int_col)]
+|
+02:AGGREGATE [STREAMING]
+|  output: count(bigint_col)
+|  group by: string_col, int_col
+|  row-size=25B cardinality=100
+|
+06:AGGREGATE
+|  group by: string_col, int_col, bigint_col
+|  row-size=25B cardinality=1.00K
+|
+05:EXCHANGE [HASH(int_col)]
+|
+01:AGGREGATE [STREAMING]
+|  group by: string_col, int_col, bigint_col
+|  row-size=25B cardinality=1.00K
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=25B cardinality=7.30K
+====
+# IMPALA-8718: Collection slots are removed by the projection in creating sort tuple of
+# analytic node. So row size of sort shrinks to 8B. Output row size of analytic shrinks
+# to 16B.
+select t.c_custkey, rank() over(order by t.c_custkey) as rnk
+from tpch_nested_parquet.customer t left outer join t.c_orders
+---- PLAN
+PLAN-ROOT SINK
+|
+06:ANALYTIC
+|  functions: rank()
+|  order by: c_custkey ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=16B cardinality=150.00K
+|
+05:SORT
+|  order by: c_custkey ASC
+|  row-size=8B cardinality=150.00K
+|
+01:SUBPLAN
+|  row-size=20B cardinality=150.00K
+|
+|--04:NESTED LOOP JOIN [RIGHT OUTER JOIN]
+|  |  row-size=20B cardinality=1
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     row-size=20B cardinality=1
+|  |
+|  03:UNNEST [t.c_orders]
+|     row-size=0B cardinality=10
+|
+00:SCAN HDFS [tpch_nested_parquet.customer t]
+   HDFS partitions=1/1 files=4 size=289.02MB
+   row-size=20B cardinality=150.00K
+====
+# IMPALA-8718: No more collection slots in the output of the inline view of analytics.
+select leftSide.c_custkey, c_name, rnk
+from tpch_nested_parquet.customer leftSide
+left outer join (
+    select t.c_custkey, rank() over(order by t.c_custkey) as rnk
+    from tpch_nested_parquet.customer t left outer join t.c_orders
+) rightSide
+on leftSide.c_custkey = rightSide.c_custkey
+---- PLAN
+PLAN-ROOT SINK
+|
+08:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: leftSide.c_custkey = c_custkey
+|  row-size=54B cardinality=150.00K
+|
+|--07:ANALYTIC
+|  |  functions: rank()
+|  |  order by: c_custkey ASC
+|  |  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  |  row-size=16B cardinality=150.00K
+|  |
+|  06:SORT
+|  |  order by: c_custkey ASC
+|  |  row-size=8B cardinality=150.00K
+|  |
+|  02:SUBPLAN
+|  |  row-size=20B cardinality=150.00K
+|  |
+|  |--05:NESTED LOOP JOIN [RIGHT OUTER JOIN]
+|  |  |  row-size=20B cardinality=1
+|  |  |
+|  |  |--03:SINGULAR ROW SRC
+|  |  |     row-size=20B cardinality=1
+|  |  |
+|  |  04:UNNEST [t.c_orders]
+|  |     row-size=0B cardinality=10
+|  |
+|  01:SCAN HDFS [tpch_nested_parquet.customer t]
+|     HDFS partitions=1/1 files=4 size=289.02MB
+|     row-size=20B cardinality=150.00K
+|
+00:SCAN HDFS [tpch_nested_parquet.customer leftside]
+   HDFS partitions=1/1 files=4 size=289.02MB
+   row-size=38B cardinality=150.00K
+====
+# IMPALA-10406: Query with analytic functions doesn't need to materialize the predicates bounded to kudu
+SELECT MIN(n_nationkey) OVER (PARTITION BY n_regionkey)
+FROM tpch_kudu.nation t1
+WHERE t1.n_name IN ('ALGERIA', 'ARGENTINA')
+---- PLAN
+PLAN-ROOT SINK
+|
+02:ANALYTIC
+|  functions: min(n_nationkey)
+|  partition by: n_regionkey
+|  row-size=6B cardinality=2
+|
+01:SORT
+|  order by: n_regionkey ASC NULLS LAST
+|  row-size=4B cardinality=2
+|
+00:SCAN KUDU [tpch_kudu.nation t1]
+   kudu predicates: t1.n_name IN ('ALGERIA', 'ARGENTINA')
+   row-size=4B cardinality=2
+====
+# IMPALA-10406: Query with analytic functions doesn't need to materialize the predicates bounded to kudu
+SELECT MIN(n_nationkey) OVER (PARTITION BY n_regionkey)
+FROM (
+    SELECT *
+    FROM tpch_kudu.nation
+    UNION ALL
+    SELECT *
+    FROM tpch_parquet.nation
+) t1
+WHERE t1.n_name IN ('ALGERIA', 'ARGENTINA')
+---- PLAN
+PLAN-ROOT SINK
+|
+04:ANALYTIC
+|  functions: min(n_nationkey)
+|  partition by: n_regionkey
+|  row-size=6B cardinality=4
+|
+03:SORT
+|  order by: n_regionkey ASC NULLS LAST
+|  row-size=4B cardinality=4
+|
+00:UNION
+|  row-size=4B cardinality=4
+|
+|--02:SCAN HDFS [tpch_parquet.nation]
+|     HDFS partitions=1/1 files=1 size=3.04KB
+|     predicates: tpch_parquet.nation.n_name IN ('ALGERIA', 'ARGENTINA')
+|     row-size=23B cardinality=2
+|
+01:SCAN KUDU [tpch_kudu.nation]
+   kudu predicates: tpch_kudu.nation.n_name IN ('ALGERIA', 'ARGENTINA')
+   row-size=4B cardinality=2
+====
+# IMPALA-10406: Query with analytic functions doesn't need to materialize the predicates bounded to kudu
+SELECT MIN(n_nationkey) OVER (PARTITION BY n_regionkey)
+FROM functional.alltypes t1
+    JOIN tpch_kudu.nation t2 ON t1.id = t2.n_nationkey
+WHERE t2.n_name IN ('ALGERIA', 'ARGENTINA');
+---- PLAN
+PLAN-ROOT SINK
+|
+04:ANALYTIC
+|  functions: min(n_nationkey)
+|  partition by: n_regionkey
+|  row-size=10B cardinality=2
+|
+03:SORT
+|  order by: n_regionkey ASC NULLS LAST
+|  row-size=8B cardinality=2
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: t1.id = t2.n_nationkey
+|  runtime filters: RF000 <- t2.n_nationkey
+|  row-size=8B cardinality=2
+|
+|--01:SCAN KUDU [tpch_kudu.nation t2]
+|     kudu predicates: t2.n_name IN ('ALGERIA', 'ARGENTINA')
+|     row-size=4B cardinality=2
+|
+00:SCAN HDFS [functional.alltypes t1]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> t1.id
+   row-size=4B cardinality=7.30K
+====
+# IMPALA-10406: Query with analytic functions doesn't need to materialize the predicates bounded to kudu
+# This materializes the 't2.n_name', because the hash join predicates
+SELECT MIN(n_nationkey) OVER (PARTITION BY n_regionkey)
+FROM functional.alltypes t1
+    LEFT JOIN tpch_kudu.nation t2 ON t1.id = t2.n_nationkey
+WHERE t2.n_name IN ('ALGERIA', 'ARGENTINA')
+---- PLAN
+PLAN-ROOT SINK
+|
+04:ANALYTIC
+|  functions: min(n_nationkey)
+|  partition by: n_regionkey
+|  row-size=29B cardinality=7.30K
+|
+03:SORT
+|  order by: n_regionkey ASC NULLS LAST
+|  row-size=27B cardinality=7.30K
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t1.id = t2.n_nationkey
+|  other predicates: t2.n_name IN ('ALGERIA', 'ARGENTINA')
+|  row-size=31B cardinality=7.30K
+|
+|--01:SCAN KUDU [tpch_kudu.nation t2]
+|     kudu predicates: t2.n_name IN ('ALGERIA', 'ARGENTINA')
+|     row-size=27B cardinality=2
+|
+00:SCAN HDFS [functional.alltypes t1]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=4B cardinality=7.30K
+====
+# IMPALA-10473: AnalyticEvalNodes with constant Partition-by and Order-by exprs should be
+# computed in single unpartitioned fragments. In this case, it's placed in the coordinator
+# fragment which contains PlanRootSink.
+select row_number() over (order by 'a') from functional.alltypes
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: row_number()
+|  order by: 'a' ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=8B cardinality=7.30K
+|
+02:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=0B cardinality=7.30K
+====
+# IMPALA-10473: AnalyticEvalNodes with constant Partition-by and Order-by exprs should be
+# computed in single unpartitioned fragments. In this case, it's placed in the coordinator
+# fragment which contains PlanRootSink.
+select row_number() over (partition by cast('5' as int) order by 1+3)
+from functional.alltypes
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:ANALYTIC
+|  functions: row_number()
+|  partition by: 5
+|  order by: 4 ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=8B cardinality=7.30K
+|
+02:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=0B cardinality=7.30K
+====
+# IMPALA-10473: AnalyticEvalNodes with constant Partition-by and Order-by exprs should be
+# computed in single unpartitioned fragments. In this case, row_number() is placed in the
+# coordinator fragment which contains PlanRootSink. count() has non-constant Partition-by
+# expr so is placed in a fragment that can be partitioned.
+select row_number() over (order by concat('ab', '')),
+  count() over (partition by int_col order by concat('a', 'b'))
+from functional.alltypes
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+03:ANALYTIC
+|  functions: row_number()
+|  order by: 'ab' ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=20B cardinality=7.30K
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:ANALYTIC
+|  functions: count()
+|  partition by: int_col
+|  order by: 'ab' ASC
+|  window: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=12B cardinality=7.30K
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, 'ab' ASC
+|  row-size=4B cardinality=7.30K
+|
+04:EXCHANGE [HASH(int_col)]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=4B cardinality=7.30K
+====
+# IMPALA-10473: AnalyticEvalNodes with constant Partition-by and Order-by exprs should be
+# computed in single unpartitioned fragments. In this case, it's placed in the coordinator
+# fragment which contains PlanRootSink.
+with v as (
+  select row_number() over (order by 'a') as rn from functional.alltypes
+)
+select count(distinct rn) from v
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(rn)
+|  row-size=8B cardinality=1
+|
+02:AGGREGATE
+|  group by: row_number()
+|  row-size=8B cardinality=1
+|
+01:ANALYTIC
+|  functions: row_number()
+|  order by: 'a' ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=8B cardinality=7.30K
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=0B cardinality=7.30K
+====
+# IMPALA-10473: AnalyticEvalNodes with constant Partition-by and Order-by exprs should be
+# computed in single unpartitioned fragments. In this case, it's placed in the coordinator
+# fragment which contains PlanRootSink.
+with v as (
+  select row_number() over (partition by cast('1' as int) order by concat('a', 'b')) as rn
+  from functional.alltypes
+)
+select count(distinct rn) from v
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(rn)
+|  row-size=8B cardinality=1
+|
+02:AGGREGATE
+|  group by: row_number()
+|  row-size=8B cardinality=1
+|
+01:ANALYTIC
+|  functions: row_number()
+|  partition by: 1
+|  order by: 'ab' ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=8B cardinality=7.30K
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypes]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=0B cardinality=7.30K
+====
+# IMPALA-4805: Avoid hash exchange below analytic operator since join
+# output is already hash partitioned
+select [straight_join] count(*) over (partition by t2.id)
+from functional.alltypes t1
+inner join [shuffle] functional.alltypes t2
+  on t1.id = t2.id
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+07:EXCHANGE [UNPARTITIONED]
+|
+04:ANALYTIC
+|  functions: count(*)
+|  partition by: t2.id
+|  row-size=16B cardinality=7.30K
+|
+03:SORT
+|  order by: id ASC NULLS LAST
+|  row-size=8B cardinality=7.30K
+|
+02:HASH JOIN [INNER JOIN, PARTITIONED]
+|  hash predicates: t1.id = t2.id
+|  runtime filters: RF000 <- t2.id
+|  row-size=8B cardinality=7.30K
+|
+|--06:EXCHANGE [HASH(t2.id)]
+|  |
+|  01:SCAN HDFS [functional.alltypes t2]
+|     HDFS partitions=24/24 files=24 size=478.45KB
+|     row-size=4B cardinality=7.30K
+|
+05:EXCHANGE [HASH(t1.id)]
+|
+00:SCAN HDFS [functional.alltypes t1]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> t1.id
+   row-size=4B cardinality=7.30K
+====
+# IMPALA-10755: Predicate on analytic function should
+# be evaluated in a SELECT node
+select *
+  FROM (
+    SELECT
+      l_quantity, l_linenumber,
+      nr_pvp,
+      max(nr_pvp) over (partition BY l_quantity) max_nr_pvp
+    FROM (
+      SELECT
+        l_quantity, l_linenumber,
+        count(1) AS nr_pvp
+      FROM
+        tpch.lineitem, tpch.partsupp
+        where l_partkey	= ps_partkey
+        and ps_suppkey = 10 and  l_quantity in (1, 2)
+        GROUP BY l_quantity, l_linenumber
+    ) a
+  ) b
+  WHERE nr_pvp = max_nr_pvp
+---- PLAN
+PLAN-ROOT SINK
+|
+06:SELECT
+|  predicates: count(*) = max(nr_pvp)
+|  row-size=28B cardinality=36
+|
+05:ANALYTIC
+|  functions: max(count(*))
+|  partition by: l_quantity
+|  row-size=28B cardinality=357
+|
+04:SORT
+|  order by: l_quantity ASC NULLS LAST
+|  row-size=20B cardinality=357
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  group by: l_quantity, l_linenumber
+|  row-size=20B cardinality=357
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: l_partkey = ps_partkey
+|  runtime filters: RF000 <- ps_partkey
+|  row-size=36B cardinality=2.45K
+|
+|--01:SCAN HDFS [tpch.partsupp]
+|     HDFS partitions=1/1 files=1 size=112.71MB
+|     predicates: ps_suppkey = 10
+|     row-size=16B cardinality=82
+|
+00:SCAN HDFS [tpch.lineitem]
+   HDFS partitions=1/1 files=1 size=718.94MB
+   predicates: l_quantity IN (1, 2)
+   runtime filters: RF000 -> l_partkey
+   row-size=20B cardinality=235.34K
+====
+# IMPALA-10755: Equality predicate where both
+# sides refer to analytic function.
+select *
+  FROM (
+    SELECT
+      l_quantity, l_linenumber,
+      nr_pvp,
+      min(nr_pvp) over (partition BY l_quantity) min_nr_pvp,
+      max(nr_pvp) over (partition BY l_quantity) max_nr_pvp
+    FROM (
+      SELECT
+        l_quantity, l_linenumber,
+        count(1) AS nr_pvp
+      FROM
+        tpch.lineitem, tpch.partsupp
+        where l_partkey	= ps_partkey
+        and ps_suppkey = 10 and  l_quantity in (1, 2)
+        GROUP BY l_quantity, l_linenumber
+    ) a
+  ) b
+  WHERE min_nr_pvp = max_nr_pvp
+---- PLAN
+PLAN-ROOT SINK
+|
+06:SELECT
+|  predicates: min(nr_pvp) = max(nr_pvp)
+|  row-size=36B cardinality=36
+|
+05:ANALYTIC
+|  functions: min(count(*)), max(count(*))
+|  partition by: l_quantity
+|  row-size=36B cardinality=357
+|
+04:SORT
+|  order by: l_quantity ASC NULLS LAST
+|  row-size=20B cardinality=357
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  group by: l_quantity, l_linenumber
+|  row-size=20B cardinality=357
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: l_partkey = ps_partkey
+|  runtime filters: RF000 <- ps_partkey
+|  row-size=36B cardinality=2.45K
+|
+|--01:SCAN HDFS [tpch.partsupp]
+|     HDFS partitions=1/1 files=1 size=112.71MB
+|     predicates: ps_suppkey = 10
+|     row-size=16B cardinality=82
+|
+00:SCAN HDFS [tpch.lineitem]
+   HDFS partitions=1/1 files=1 size=718.94MB
+   predicates: l_quantity IN (1, 2)
+   runtime filters: RF000 -> l_partkey
+   row-size=20B cardinality=235.34K
+====
+# IMPALA-11030: 2 Analytic functions within inline view,
+# only one of which has partitioning expr. Predicate in
+# outer query on partitioning expr
+select * from
+ (select id, string_col, row_number() over (order by id) num_rank,
+  row_number() over (partition by string_col order by id) prime_rank
+ from functional.alltypessmall) v where string_col = '0';
+---- PLAN
+PLAN-ROOT SINK
+|
+05:SELECT
+|  predicates: string_col = '0'
+|  row-size=33B cardinality=10
+|
+04:ANALYTIC
+|  functions: row_number()
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=33B cardinality=100
+|
+03:SORT
+|  order by: id ASC
+|  row-size=25B cardinality=100
+|
+02:ANALYTIC
+|  functions: row_number()
+|  partition by: string_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  row-size=25B cardinality=100
+|
+01:SORT
+|  order by: string_col ASC NULLS LAST, id ASC
+|  row-size=17B cardinality=100
+|
+00:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=17B cardinality=100
+====

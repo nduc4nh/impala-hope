@@ -1,0 +1,15 @@
+====
+---- QUERY
+set allow_erasure_coded_files=false;
+select count(*) from functional.alltypes;
+---- CATCH
+ImpalaRuntimeException: Scanning of HDFS erasure-coded file
+====
+---- QUERY
+set allow_erasure_coded_files=true;
+select count(*) from functional.alltypes;
+---- RESULTS
+7300
+---- TYPES
+BIGINT
+====

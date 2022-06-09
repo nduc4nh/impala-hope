@@ -1,0 +1,908 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept rev="ver" id="known_issues">
+
+  <title><ph audience="standalone">Known Issues and Workarounds in Impala</ph><ph audience="integrated">Apache Impala Known Issues</ph></title>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Release Notes"/>
+      <data name="Category" value="Known Issues"/>
+      <data name="Category" value="Troubleshooting"/>
+      <data name="Category" value="Upgrading"/>
+      <data name="Category" value="Administrators"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Data Analysts"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      The following sections describe known issues and workarounds in Impala, as of the current
+      production release. This page summarizes the most serious or frequently encountered issues
+      in the current release, to help you make planning decisions about installing and
+      upgrading. Any workarounds are listed here. The bug links take you to the Impala issues
+      site, where you can see the diagnosis and whether a fix is in the pipeline.
+    </p>
+
+    <note>
+      The online issue tracking system for Impala contains comprehensive information and is
+      updated in real time. To verify whether an issue you are experiencing has already been
+      reported, or which release an issue is fixed in, search on the
+      <xref href="https://issues.apache.org/jira/" scope="external" format="html">issues.apache.org
+      JIRA tracker</xref>.
+    </note>
+
+    <p outputclass="toc inpage"/>
+
+    <p>
+      For issues fixed in various Impala releases, see
+      <xref href="impala_fixed_issues.xml#fixed_issues"/>.
+    </p>
+
+<!-- Use as a template for new issues.
+    <concept id="">
+      <title></title>
+      <conbody>
+        <p>
+        </p>
+        <p><b>Apache Issue:</b> <xref keyref=""></xref></p>
+        <p><b>Severity:</b> High</p>
+        <p><b>Resolution:</b> </p>
+        <p><b>Workaround:</b> </p>
+      </conbody>
+    </concept>
+
+-->
+
+  </conbody>
+
+  <concept id="known_issues_startup">
+
+    <title>Impala Known Issues: Startup</title>
+
+    <conbody>
+
+      <p>
+        These issues can prevent one or more Impala-related daemons from starting properly.
+      </p>
+
+    </conbody>
+
+    <concept id="IMPALA-4978">
+
+      <title>Impala requires FQDN from hostname command on Kerberized clusters</title>
+
+      <conbody>
+
+        <p>
+          The method Impala uses to retrieve the host name while constructing the Kerberos
+          principal is the <codeph>gethostname()</codeph> system call. This function might not
+          always return the fully qualified domain name, depending on the network configuration.
+          If the daemons cannot determine the FQDN, Impala does not start on a Kerberized
+          cluster.
+        </p>
+
+        <p>
+          <b>Workaround:</b> Test if a host is affected by checking whether the output of the
+          <cmdname>hostname</cmdname> command includes the FQDN. On hosts where
+          <cmdname>hostname</cmdname>, only returns the short name, pass the command-line flag
+          <codeph>&#8209;&#8209;hostname=<varname>fully_qualified_domain_name</varname></codeph>
+          in the startup options of all Impala-related daemons.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-4978">IMPALA-4978</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_performance">
+
+    <title id="ki_performance">Impala Known Issues: Performance</title>
+
+    <conbody>
+
+      <p>
+        These issues involve the performance of operations such as queries or DDL statements.
+      </p>
+
+    </conbody>
+
+    <concept id="impala-6671">
+
+      <title>Metadata operations block read-only operations on unrelated tables</title>
+
+      <conbody>
+
+        <p>
+          Metadata operations that change the state of a table, like <codeph>COMPUTE
+          STATS</codeph> or <codeph>ALTER RECOVER PARTITIONS</codeph>, may delay metadata
+          propagation of unrelated unloaded tables triggered by statements like
+          <codeph>DESCRIBE</codeph> or <codeph>SELECT</codeph> queries.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-6671">IMPALA-6671</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+<!--<concept id="known_issues_usability"><title id="ki_usability">Impala Known Issues: Usability</title><conbody><p> These issues affect the convenience of interacting directly with Impala, typically through the Impala shell or Hue. </p></conbody></concept>-->
+
+  <concept id="known_issues_drivers">
+
+    <title id="ki_drivers">Impala Known Issues: JDBC and ODBC Drivers</title>
+
+    <conbody>
+
+      <p>
+        These issues affect applications that use the JDBC or ODBC APIs, such as business
+        intelligence tools or custom-written applications in languages such as Java or C++.
+      </p>
+
+    </conbody>
+
+    <concept id="IMPALA-1792" rev="IMPALA-1792">
+
+      <title>ImpalaODBC: Can not get the value in the SQLGetData(m-x th column) after the SQLBindCol(m th column)</title>
+
+      <conbody>
+
+        <p>
+          If the ODBC <codeph>SQLGetData</codeph> is called on a series of columns, the function
+          calls must follow the same order as the columns. For example, if data is fetched from
+          column 2 then column 1, the <codeph>SQLGetData</codeph> call for column 1 returns
+          <codeph>NULL</codeph>.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-1792">IMPALA-1792</xref>
+        </p>
+
+        <p>
+          <b>Workaround:</b> Fetch columns in the same order they are defined in the table.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_security">
+
+    <title id="ki_security">Impala Known Issues: Security</title>
+
+    <conbody>
+
+      <p>
+        These issues are related to security features, such as Kerberos authentication, Sentry
+        authorization, encryption, auditing, and redaction.
+      </p>
+
+    </conbody>
+
+    <concept id="impala-7072">
+
+      <title>Impala does not support Heimdal Kerberos</title>
+
+      <conbody>
+
+        <p>
+          Heimdal Kerberos is not supported in Impala.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-7072">IMPALA-7072</xref>
+        </p>
+
+        <p>
+          <b>Affected Versions:</b> All versions of Impala
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="id_p1n_tbx_22b">
+
+      <title>Impala does not allow the use of insecure clusters with public IPs</title>
+
+      <conbody>
+
+        <p>
+          Starting in <keyword keyref="impala212_full"/>, Impala, by default, will only allow
+          unencrypted or unauthenticated connections from trusted subnets:
+          <codeph>127.0.0.0/8</codeph>, <codeph>10.0.0.0/8</codeph>,
+          <codeph>172.16.0.0/12</codeph>, <codeph>192.168.0.0/16</codeph>,
+          <codeph>169.254.0.0/16</codeph>. Unencrypted or unauthenticated connections from
+          publicly routable IPs will be rejected.
+        </p>
+
+        <p>
+          The trusted subnets can be configured using the <codeph>--trusted_subnets</codeph>
+          flag. Set it to '<codeph>0.0.0.0/0</codeph>' to allow unauthenticated connections from
+          all remote IP addresses. However, if network access is not otherwise restricted by a
+          firewall, malicious users may be able to gain unauthorized access.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_resources">
+
+    <title id="ki_resources">Impala Known Issues: Resources</title>
+
+    <conbody>
+
+      <p>
+        These issues involve memory or disk usage, including out-of-memory conditions, the
+        spill-to-disk feature, and resource management features.
+      </p>
+
+    </conbody>
+
+    <concept id="IMPALA-5605">
+
+      <title>Configuration to prevent crashes caused by thread resource limits</title>
+
+      <conbody>
+
+        <p>
+          Impala could encounter a serious error due to resource usage under very high
+          concurrency. The error message is similar to:
+        </p>
+
+<codeblock><![CDATA[
+F0629 08:20:02.956413 29088 llvm-codegen.cc:111] LLVM hit fatal error: Unable to allocate section memory!
+terminate called after throwing an instance of 'boost::exception_detail::clone_impl<boost::exception_detail::error_info_injector<boost::thread_resource_error> >'
+]]>
+</codeblock>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-5605">IMPALA-5605</xref>
+        </p>
+
+        <p>
+          <b>Severity:</b> High
+        </p>
+
+        <p>
+          <b>Workaround:</b> To prevent such errors, configure each host running an
+          <cmdname>impalad</cmdname> daemon with the following settings:
+        </p>
+
+<codeblock>
+echo 2000000 > /proc/sys/kernel/threads-max
+echo 2000000 > /proc/sys/kernel/pid_max
+echo 8000000 > /proc/sys/vm/max_map_count
+</codeblock>
+
+        <p>
+          Add the following lines in <filepath>/etc/security/limits.conf</filepath>:
+        </p>
+
+<codeblock>
+impala soft nproc 262144
+impala hard nproc 262144
+</codeblock>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="drop_table_purge_s3a">
+
+      <title><b>Breakpad minidumps can be very large when the thread count is high</b></title>
+
+      <conbody>
+
+        <p>
+          The size of the breakpad minidump files grows linearly with the number of threads. By
+          default, each thread adds 8 KB to the minidump size. Minidump files could consume
+          significant disk space when the daemons have a high number of threads.
+        </p>
+
+        <p>
+          <b>Workaround:</b> Add
+          <systemoutput>--minidump_size_limit_hint_kb=size</systemoutput>
+          to set a soft upper limit on the size of each minidump file. If the minidump file
+          would exceed that limit, Impala reduces the amount of information for each thread from
+          8 KB to 2 KB. (Full thread information is captured for the first 20 threads, then 2 KB
+          per thread after that.) The minidump file can still grow larger than the "hinted"
+          size. For example, if you have 10,000 threads, the minidump file can be more than 20
+          MB.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b>
+          <xref href="https://issues.cloudera.org/browse/IMPALA-3509"
+            format="html" scope="external">IMPALA-3509</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-691">
+
+      <title><b>Process mem limit does not account for the JVM's memory usage</b></title>
+
+      <conbody>
+
+        <p>
+          Some memory allocated by the JVM used internally by Impala is not counted against the
+          memory limit for the impalad daemon.
+        </p>
+
+        <p>
+          <b>Workaround:</b> To monitor overall memory usage, use the top command, or add the
+          memory figures in the Impala web UI <b>/memz</b> tab to JVM memory usage shown on the
+          <b>/metrics</b> tab.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b>
+          <xref href="https://issues.cloudera.org/browse/IMPALA-691"
+            format="html" scope="external">IMPALA-691</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_correctness">
+
+    <title id="ki_correctness">Impala Known Issues: Correctness</title>
+
+    <conbody>
+
+      <p>
+        These issues can cause incorrect or unexpected results from queries. They typically only
+        arise in very specific circumstances.
+      </p>
+
+    </conbody>
+
+    <concept id="IMPALA-3094" rev="IMPALA-3094">
+
+      <title>Incorrect result due to constant evaluation in query with outer join</title>
+
+      <conbody>
+
+        <p>
+          An <codeph>OUTER JOIN</codeph> query could omit some expected result rows due to a
+          constant such as <codeph>FALSE</codeph> in another join clause. For example:
+        </p>
+
+<codeblock><![CDATA[
+explain SELECT 1 FROM alltypestiny a1
+  INNER JOIN alltypesagg a2 ON a1.smallint_col = a2.year AND false
+  RIGHT JOIN alltypes a3 ON a1.year = a1.bigint_col;
++---------------------------------------------------------+
+| Explain String                                          |
++---------------------------------------------------------+
+| Estimated Per-Host Requirements: Memory=1.00KB VCores=1 |
+|                                                         |
+| 00:EMPTYSET                                             |
++---------------------------------------------------------+
+]]>
+</codeblock>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-3094">IMPALA-3094</xref>
+        </p>
+
+        <p>
+          <b>Severity:</b> High
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-2422" rev="IMPALA-2422">
+
+      <title>% escaping does not work correctly when occurs at the end in a LIKE clause</title>
+
+      <conbody>
+
+        <p>
+          If the final character in the RHS argument of a <codeph>LIKE</codeph> operator is an
+          escaped <codeph>\%</codeph> character, it does not match a <codeph>%</codeph> final
+          character of the LHS argument.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-2422">IMPALA-2422</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-2603" rev="IMPALA-2603">
+
+      <title>Crash: impala::Coordinator::ValidateCollectionSlots</title>
+
+      <conbody>
+
+        <p>
+          A query could encounter a serious error if includes multiple nested levels of
+          <codeph>INNER JOIN</codeph> clauses involving subqueries.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-2603">IMPALA-2603</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+<!--<concept id="known_issues_metadata"><title id="ki_metadata">Impala Known Issues: Metadata</title><conbody><p> These issues affect how Impala interacts with metadata. They cover areas such as the metastore database, the <codeph>COMPUTE STATS</codeph> statement, and the Impala <cmdname>catalogd</cmdname> daemon. </p></conbody></concept>-->
+
+  <concept id="known_issues_interop">
+
+    <title id="ki_interop">Impala Known Issues: Interoperability</title>
+
+    <conbody>
+
+      <p>
+        These issues affect the ability to interchange data between Impala and other database
+        systems. They cover areas such as data types and file formats.
+      </p>
+
+    </conbody>
+
+    <concept id="hadoop-15720">
+
+      <title>Queries Stuck on Failed HDFS Calls and not Timing out</title>
+
+      <conbody>
+        <p> In Impala 3.2 and higher, if the following error appears multiple
+          times in a short duration while running a query, it would mean that
+          the connection between the <codeph>impalad</codeph> and the HDFS
+          NameNode is in a bad state and hence the <codeph>impalad</codeph>
+          would have to be restarted: </p>
+
+<codeblock>"hdfsOpenFile() for &lt;filename> at backend &lt;hostname:port> failed to finish before the &lt;hdfs_operation_timeout_sec> second timeout " </codeblock>
+        <p>In Impala 3.1 and lower, the same issue would cause Impala to wait for
+          a long time or hang without showing the above error message.</p>
+
+        <p>
+          <b>Apache Issue:</b>
+          <xref href="https://issues.apache.org/jira/browse/HADOOP-15720"
+            format="html" scope="external">HADOOP-15720</xref>
+        </p>
+
+        <p>
+          <b>Affected Versions:</b> All versions of Impala
+        </p>
+
+        <p>
+          <b>Workaround:</b> Restart the <codeph>impalad</codeph> in the bad state.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="describe_formatted_avro">
+
+      <title>DESCRIBE FORMATTED gives error on Avro table</title>
+
+      <conbody>
+
+        <p>
+          This issue can occur either on old Avro tables (created prior to Hive 1.1) or when
+          changing the Avro schema file by adding or removing columns. Columns added to the
+          schema file will not show up in the output of the <codeph>DESCRIBE FORMATTED</codeph>
+          command. Removing columns from the schema file will trigger a
+          <codeph>NullPointerException</codeph>.
+        </p>
+
+        <p>
+          As a workaround, you can use the output of <codeph>SHOW CREATE TABLE</codeph> to drop
+          and recreate the table. This will populate the Hive metastore database with the
+          correct column definitions.
+        </p>
+
+        <note type="warning">
+          <p>
+            Only use this for external tables, or Impala will remove the data files. In case of
+            an internal table, set it to external first:
+<codeblock>
+ALTER TABLE table_name SET TBLPROPERTIES('EXTERNAL'='TRUE');
+</codeblock>
+            (The part in parentheses is case sensitive.) Make sure to pick the right choice
+            between internal and external when recreating the table. See
+            <xref href="impala_tables.xml#tables"/> for the differences between internal and
+            external tables.
+          </p>
+        </note>
+
+        <p>
+          <b>Severity:</b> High
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="flume_writeformat_text">
+
+      <title>Configuration needed for Flume to be compatible with Impala</title>
+
+      <conbody>
+
+        <p>
+          For compatibility with Impala, the value for the Flume HDFS Sink
+          <codeph>hdfs.writeFormat</codeph> must be set to <codeph>Text</codeph>, rather than
+          its default value of <codeph>Writable</codeph>. The <codeph>hdfs.writeFormat</codeph>
+          setting must be changed to <codeph>Text</codeph> before creating data files with
+          Flume; otherwise, those files cannot be read by either Impala or Hive.
+        </p>
+
+        <p>
+          <b>Resolution:</b> This information has been requested to be added to the upstream
+          Flume documentation.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-635" rev="IMPALA-635">
+
+      <title>Avro Scanner fails to parse some schemas</title>
+
+      <conbody>
+
+        <p>
+          The default value in Avro schema must match type of first union type, e.g. if the
+          default value is <codeph>null</codeph>, then the first type in the
+          <codeph>UNION</codeph> must be <codeph>"null"</codeph>.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-635">IMPALA-635</xref>
+        </p>
+
+        <p>
+          <b>Workaround:</b>Swap the order of the fields in the schema specification. For
+          example, use <codeph>["null", "string"]</codeph> instead of <codeph>["string",
+          "null"]</codeph>. Note that the files written with the problematic schema must be
+          rewritten with the new schema because Avro files have embedded schemas.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-1024" rev="IMPALA-1024">
+
+      <title>Impala BE cannot parse Avro schema that contains a trailing semi-colon</title>
+
+      <conbody>
+
+        <p>
+          If an Avro table has a schema definition with a trailing semicolon, Impala encounters
+          an error when the table is queried.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-1024">IMPALA-1024</xref>
+        </p>
+
+        <p>
+          <b>Severity:</b> Remove trailing semicolon from the Avro schema.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-1652" rev="IMPALA-1652">
+
+      <title>Incorrect results with basic predicate on CHAR typed column</title>
+
+      <conbody>
+
+        <p>
+          When comparing a <codeph>CHAR</codeph> column value to a string literal, the literal
+          value is not blank-padded and so the comparison might fail when it should match.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-1652">IMPALA-1652</xref>
+        </p>
+
+        <p>
+          <b>Workaround:</b> Use the <codeph>RPAD()</codeph> function to blank-pad literals
+          compared with <codeph>CHAR</codeph> columns to the expected length.
+        </p>
+
+      </conbody>
+
+    </concept>
+    <concept id="IMPALA-8953">
+      <title>Tables and databases sharing same name can cause query
+        failures</title>
+      <conbody>
+        <p>A table and a database that share the same name can cause a query
+          failure if the table is not readable by Impala, for example, the table
+          was created in Hive in the Open CSV Serde format. The following
+          exception will return:</p>
+        <codeblock>CAUSED BY: TableLoadingException: Unrecognized table type for table</codeblock>
+        <p>
+          <b>Apache Issue:</b>
+          <xref keyref="IMPALA-8953">IMPALA-8953</xref>
+        </p>
+        <p>
+          <b>Workaround:</b> Do not create databases and tables with the same
+          names.</p>
+      </conbody>
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_limitations">
+
+    <title>Impala Known Issues: Limitations</title>
+
+    <conbody>
+
+      <p>
+        These issues are current limitations of Impala that require evaluation as you plan how
+        to integrate Impala into your data management workflow.
+      </p>
+
+    </conbody>
+
+    <concept id="IMPALA-4551">
+
+      <title>Set limits on size of expression trees</title>
+
+      <conbody>
+
+        <p>
+          Very deeply nested expressions within queries can exceed internal Impala limits,
+          leading to excessive memory usage.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-4551">IMPALA-4551</xref>
+        </p>
+
+        <p>
+          <b>Severity:</b> High
+        </p>
+
+        <p>
+          <b>Workaround:</b> Avoid queries with extremely large expression trees. Setting the
+          query option <codeph>disable_codegen=true</codeph> may reduce the impact, at a cost of
+          longer query runtime.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-77" rev="IMPALA-77">
+
+      <title>Impala does not support running on clusters with federated namespaces</title>
+
+      <conbody>
+
+        <p>
+          Impala does not support running on clusters with federated namespaces. The
+          <codeph>impalad</codeph> process will not start on a node running such a filesystem
+          based on the <codeph>org.apache.hadoop.fs.viewfs.ViewFs</codeph> class.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-77">IMPALA-77</xref>
+        </p>
+
+        <p>
+          <b>Anticipated Resolution:</b> Limitation
+        </p>
+
+        <p>
+          <b>Workaround:</b> Use standard HDFS on all Impala nodes.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_misc">
+
+    <title>Impala Known Issues: Miscellaneous</title>
+
+    <conbody>
+
+      <p>
+        These issues do not fall into one of the above categories or have not been categorized
+        yet.
+      </p>
+
+    </conbody>
+
+    <concept id="IMPALA-2005" rev="IMPALA-2005">
+
+      <title>A failed CTAS does not drop the table if the insert fails</title>
+
+      <conbody>
+
+        <p>
+          If a <codeph>CREATE TABLE AS SELECT</codeph> operation successfully creates the target
+          table but an error occurs while querying the source table or copying the data, the new
+          table is left behind rather than being dropped.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-2005">IMPALA-2005</xref>
+        </p>
+
+        <p>
+          <b>Workaround:</b> Drop the new table manually after a failed <codeph>CREATE TABLE AS
+          SELECT</codeph>.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-1821" rev="IMPALA-1821">
+
+      <title>Casting scenarios with invalid/inconsistent results</title>
+
+      <conbody>
+
+        <p>
+          Using a <codeph>CAST()</codeph> function to convert large literal values to smaller
+          types, or to convert special values such as <codeph>NaN</codeph> or
+          <codeph>Inf</codeph>, produces values not consistent with other database systems. This
+          could lead to unexpected results from queries.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-1821">IMPALA-1821</xref>
+        </p>
+
+<!-- <p><b>Workaround:</b> Doublecheck that <codeph>CAST()</codeph> operations work as expect. The issue applies to expressions involving literals, not values read from table columns.</p> -->
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMPALA-532" rev="IMPALA-532">
+
+      <title>Impala should tolerate bad locale settings</title>
+
+      <conbody>
+
+        <p>
+          If the <codeph>LC_*</codeph> environment variables specify an unsupported locale,
+          Impala does not start.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-532">IMPALA-532</xref>
+        </p>
+
+        <p>
+          <b>Workaround:</b> Add <codeph>LC_ALL="C"</codeph> to the environment settings for
+          both the Impala daemon and the Statestore daemon. See
+          <xref href="impala_config_options.xml#config_options"/> for details about modifying
+          these environment settings.
+        </p>
+
+        <p>
+          <b>Resolution:</b> Fixing this issue would require an upgrade to Boost 1.47 in the
+          Impala distribution.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+    <concept id="IMP-1203">
+
+      <title>Log Level 3 Not Recommended for Impala</title>
+
+      <conbody>
+
+        <p>
+          The extensive logging produced by log level 3 can cause serious performance overhead
+          and capacity issues.
+        </p>
+
+        <p>
+          <b>Workaround:</b> Reduce the log level to its default value of 1, that is,
+          <codeph>GLOG_v=1</codeph>. See <xref href="impala_logging.xml#log_levels"/> for
+          details about the effects of setting different logging levels.
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+  <concept id="known_issues_crash">
+
+    <title>Impala Known Issues: Crashes and Hangs</title>
+
+    <conbody>
+
+      <p>
+        These issues can cause Impala to quit or become unresponsive.
+      </p>
+
+    </conbody>
+
+    <concept id="impala-6841">
+
+      <title>Unable to view large catalog objects in catalogd Web UI</title>
+
+      <conbody>
+
+        <p>
+          In <codeph>catalogd</codeph> Web UI, you can list metadata objects and view their
+          details. These details are accessed via a link and printed to a string formatted using
+          thrift's <codeph>DebugProtocol</codeph>. Printing large objects (> 1 GB) in Web UI can
+          crash <codeph>catalogd</codeph>.
+        </p>
+
+        <p>
+          <b>Apache Issue:</b> <xref keyref="IMPALA-6841">IMPALA-6841</xref>
+        </p>
+
+      </conbody>
+
+    </concept>
+
+  </concept>
+
+</concept>

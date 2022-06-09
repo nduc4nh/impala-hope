@@ -1,0 +1,707 @@
+# Constant conjunct in WHERE clause turns query block into an empty-set node.
+select t1.id, t2.id
+from functional.alltypestiny t1
+left outer join functional.alltypes t2
+on t1.id = t2.id
+where false
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# HBase scan turns into empty-set node due to a constant conjunct.
+select * from functional_hbase.alltypessmall where false
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Data source scan turns into empty-set node due to a constant conjunct.
+select *
+from functional.alltypes_datasource a
+inner join functional.alltypestiny b
+on a.id = b.id
+where length("a") > 7
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Constant conjunct in ON clause turns query block into an empty-set node.
+select *
+from functional.alltypestiny t1
+inner join functional.alltypes t2
+on (t1.id = t2.id and (false or false))
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Constant conjunct in WHERE clause turns query block into an aggregation
+# fed by an empty-set node.
+select count(int_col), avg(double_col), count(*)
+from functional.alltypes
+where null
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(int_col), avg(double_col), count(*)
+|  row-size=24B cardinality=1
+|
+00:EMPTYSET
+====
+# Constant conjunct in ON clause turns query block into an aggregation
+# fed by an empty-sed node.
+select count(*)
+from functional.alltypestiny t1
+inner join functional.alltypes t2
+on (t1.id = t2.id and (false or false))
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+00:EMPTYSET
+====
+# Constant conjunct in HAVING clause turns query block into an empty-set node,
+# regardless of aggregation.
+select t1.int_col, count(*)
+from functional.alltypestiny t1
+left outer join functional.alltypes t2
+on t1.id = t2.id
+group by t1.int_col
+having ifnull(null, false)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Constant conjunct causes empty-set inline view.
+select e.id, f.id
+from functional.alltypessmall f
+inner join
+  (select t1.id
+   from functional.alltypestiny t1
+   left outer join functional.alltypes t2
+   on t1.id = t2.id
+   where 1 + 3 > 10) e
+on e.id = f.id
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: f.id = t1.id
+|  runtime filters: RF000 <- t1.id
+|  row-size=8B cardinality=0
+|
+|--01:EMPTYSET
+|
+00:SCAN HDFS [functional.alltypessmall f]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> f.id
+   row-size=4B cardinality=100
+====
+# Constant conjunct causes union operand to be dropped.
+select * from functional.alltypessmall
+union all
+select * from functional.alltypes where "abc" = "cde"
+union all
+select * from functional.alltypestiny
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  pass-through-operands: all
+|  row-size=89B cardinality=108
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=89B cardinality=8
+|
+01:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# Constant conjunct turns union into an empty-set node.
+select *
+from functional.alltypes a
+full outer join
+  (select * from
+    (select * from functional.alltypestiny
+     union all
+     select * from functional.alltypessmall) t1
+   where null) t2
+on a.id = t2.id
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [FULL OUTER JOIN]
+|  hash predicates: a.id = id
+|  row-size=178B cardinality=7.30K
+|
+|--01:EMPTYSET
+|
+00:SCAN HDFS [functional.alltypes a]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=89B cardinality=7.30K
+====
+# Constant conjunct in the ON-clause of an outer join is
+# assigned to the join.
+select *
+from functional.alltypessmall a
+left outer join functional.alltypestiny b
+on (a.id = b.id and 1 + 1 > 10)
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = b.id
+|  other join predicates: FALSE
+|  row-size=178B cardinality=100
+|
+|--01:SCAN HDFS [functional.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=89B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# Constant conjunct in the ON-clause of an outer join is
+# assigned to the join.
+select *
+from functional.alltypessmall a
+right outer join functional.alltypestiny b
+on (a.id = b.id and !true)
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: a.id = b.id
+|  other join predicates: FALSE
+|  runtime filters: RF000 <- b.id
+|  row-size=178B cardinality=9
+|
+|--01:SCAN HDFS [functional.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=89B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> a.id
+   row-size=89B cardinality=100
+====
+# Constant conjunct in the ON-clause of an outer join is
+# assigned to the join.
+select *
+from functional.alltypessmall a
+full outer join functional.alltypestiny b
+on (a.id = b.id and null = "abc")
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [FULL OUTER JOIN]
+|  hash predicates: a.id = b.id
+|  other join predicates: NULL
+|  row-size=178B cardinality=108
+|
+|--01:SCAN HDFS [functional.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=89B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# Limit 0 turns query block into an empty-set node.
+select t1.id, t2.id
+from functional.alltypestiny t1
+left outer join functional.alltypes t2
+on t1.id = t2.id
+limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Limit 0 turns query block into an empty-set node.
+select count(int_col), avg(double_col), count(*)
+from functional.alltypes
+limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Limit 0 causes empty-set inline view.
+select e.id, f.id
+from functional.alltypessmall f
+inner join
+  (select t1.id
+   from functional.alltypestiny t1
+   left outer join functional.alltypes t2
+   on t1.id = t2.id
+   limit 0) e
+on e.id = f.id
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: f.id = t1.id
+|  runtime filters: RF000 <- t1.id
+|  row-size=8B cardinality=0
+|
+|--01:EMPTYSET
+|
+00:SCAN HDFS [functional.alltypessmall f]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> f.id
+   row-size=4B cardinality=100
+====
+# Limit 0 causes union operand to be dropped.
+select * from functional.alltypessmall
+union all
+select * from functional.alltypes limit 0
+union all
+select * from functional.alltypestiny
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  pass-through-operands: all
+|  row-size=89B cardinality=108
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=89B cardinality=8
+|
+01:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# Limit 0 causes empty-set union.
+select * from functional.alltypessmall
+union all
+select * from functional.alltypes where "abc" = "cde"
+union all
+(select * from functional.alltypestiny)
+limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# Inline view with a constant select stmt that is guaranteed to be empty.
+select count(w1.c1)
+from
+  (select 1 as c1 from functional.alltypessmall)
+w1 where w1.c1 is null
+union all
+select int_col from functional.alltypesagg
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  row-size=8B cardinality=11.00K
+|
+|--03:SCAN HDFS [functional.alltypesagg]
+|     HDFS partitions=11/11 files=11 size=814.73KB
+|     row-size=4B cardinality=11.00K
+|
+02:AGGREGATE [FINALIZE]
+|  output: count(1)
+|  row-size=8B cardinality=1
+|
+01:EMPTYSET
+====
+# IMPALA-1234: Analytic with constant empty result set failed precondition check in FE
+select MIN(int_col) OVER () FROM functional.alltypes limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# IMPALA-1860: INSERT/CTAS should evaluate and apply constant predicates.
+insert into functional.alltypes partition(year, month)
+select * from functional.alltypes where 1 = 0
+---- PLAN
+WRITE TO HDFS [functional.alltypes, OVERWRITE=false, PARTITION-KEYS=(year,month)]
+|  partitions=24
+|
+01:SORT
+|  order by: year ASC NULLS LAST, month ASC NULLS LAST
+|  row-size=89B cardinality=0
+|
+00:EMPTYSET
+====
+# IMPALA-1860: INSERT/CTAS should evaluate and apply constant predicates.
+with t as (select * from functional.alltypes where coalesce(NULL) > 10)
+insert into functional.alltypes partition(year, month)
+select * from t
+---- PLAN
+WRITE TO HDFS [functional.alltypes, OVERWRITE=false, PARTITION-KEYS=(year,month)]
+|  partitions=24
+|
+01:SORT
+|  order by: year ASC NULLS LAST, month ASC NULLS LAST
+|  row-size=89B cardinality=0
+|
+00:EMPTYSET
+====
+# IMPALA-1860: INSERT/CTAS should evaluate and apply constant predicates.
+create table test_1860 as
+select * from (select 1 from functional.alltypes limit 0) v
+---- PLAN
+WRITE TO HDFS [default.test_1860, OVERWRITE=false]
+|  partitions=1
+|
+00:EMPTYSET
+====
+# IMPALA-1960: Exprs in the aggregation that reference slots from an inline view when
+# the select stmt has an empty select-project-join portion.
+select sum(T.id), count(T.int_col)
+from
+  (select id, int_col, bigint_col from functional.alltypestiny) T
+where false
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: sum(id), count(int_col)
+|  row-size=16B cardinality=1
+|
+00:EMPTYSET
+====
+# IMPALA-1960: Exprs in the aggregation that reference slots from an inline view when
+# the select stmt has an empty select-project-join portion.
+select sum(T1.id + T2.int_col)
+from
+  (select id, bigint_col from functional.alltypestiny) T1 inner join
+  (select id, int_col from functional.alltypestiny) T2 on (T1.id = T2.id)
+where T1.bigint_col < 10 and 1 > 1
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: sum(id + int_col)
+|  row-size=8B cardinality=1
+|
+00:EMPTYSET
+====
+# IMPALA-1960: Exprs in the aggregation that reference slots from an inline view when
+# the select stmt has an empty select-project-join portion.
+select count(distinct T1.int_col)
+from
+  (select id, int_col from functional.alltypestiny) T1 inner join
+  functional.alltypessmall T2 on T1.id = T2.id
+where T2.bigint_col < 10 and false
+---- PLAN
+PLAN-ROOT SINK
+|
+02:AGGREGATE [FINALIZE]
+|  output: count(T1.int_col)
+|  row-size=8B cardinality=1
+|
+01:AGGREGATE
+|  group by: int_col
+|  row-size=4B cardinality=0
+|
+00:EMPTYSET
+====
+# IMPALA-2088: Test empty union operands with analytic functions.
+# TODO: Simplify the plan of unions with empty operands using an empty set node.
+# TODO: Simplify the plan of unions with only a single non-empty operand to not
+# use a union node (this is tricky because a union materializes a new tuple).
+select lead(-496, 81) over (order by t1.double_col desc, t1.id asc)
+from functional.alltypestiny t1 where 5 = 6
+union
+select 794.67
+from functional.alltypes t1 where 5 = 6
+union all
+select coalesce(10.4, int_col)
+from functional.alltypes where false
+---- PLAN
+PLAN-ROOT SINK
+|
+02:UNION
+|  pass-through-operands: all
+|  row-size=4B cardinality=0
+|
+01:AGGREGATE [FINALIZE]
+|  group by: lead(-496, 81, NULL) OVER(...)
+|  row-size=4B cardinality=0
+|
+00:UNION
+   row-size=4B cardinality=0
+====
+# IMPALA-2088: Test empty union operands with analytic functions.
+select lead(-496, 81) over (order by t1.double_col desc, t1.id asc)
+from functional.alltypestiny t1 where 5 = 6
+union
+select 794.67
+from functional.alltypes t1 where 5 = 6
+union all
+select coalesce(10.4, int_col)
+from functional.alltypes where false
+union all
+select 1
+union all select bigint_col
+from functional.alltypestiny
+---- PLAN
+PLAN-ROOT SINK
+|
+02:UNION
+|  constant-operands=1
+|  pass-through-operands: 01
+|  row-size=16B cardinality=9
+|
+|--03:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=8B cardinality=8
+|
+01:AGGREGATE [FINALIZE]
+|  group by: lead(-496, 81, NULL) OVER(...)
+|  row-size=16B cardinality=0
+|
+00:UNION
+   row-size=16B cardinality=0
+====
+# IMPALA-2216: Make sure the final output exprs are substituted, even
+# if the resulting plan is an EmptySetNode.
+select * from (select 10 as i, 2 as j, '2013' as s) as t
+where t.i < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# IMPALA-2216: Make sure the final output exprs are substituted, even
+# if the table sink is fed by an EmptySetNode.
+insert into functional.alltypes (id) partition(year,month)
+select * from (select 10 as i, 2 as j, 2013 as s) as t
+where t.i < 10
+---- PLAN
+WRITE TO HDFS [functional.alltypes, OVERWRITE=false, PARTITION-KEYS=(2,2013)]
+|  partitions=1
+|
+00:EMPTYSET
+====
+# IMPALA-2430: Test empty blocks containing relative table refs.
+select c_custkey, v1.cnt, v2.o_orderkey, v3.l_linenumber, v4.cnt
+from tpch_nested_parquet.customer c
+left outer join
+  (select count(*) cnt from c.c_orders
+   where false) v1
+left outer join
+  (select o_orderkey from c.c_orders
+   where 20 < 10) v2
+left outer join
+  (select l_linenumber from c.c_orders.o_lineitems
+   where "a" in ("b", "c")) v3
+left outer join
+  (select count(*) cnt from c.c_orders o left outer join
+     (select l_linenumber from o.o_lineitems
+      where null) nv) v4
+where c_custkey < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+01:SUBPLAN
+|  row-size=48B cardinality=15.00K
+|
+|--16:NESTED LOOP JOIN [LEFT OUTER JOIN]
+|  |  row-size=48B cardinality=1
+|  |
+|  |--12:AGGREGATE [FINALIZE]
+|  |  |  output: count(*)
+|  |  |  row-size=8B cardinality=1
+|  |  |
+|  |  08:SUBPLAN
+|  |  |  row-size=0B cardinality=10
+|  |  |
+|  |  |--11:NESTED LOOP JOIN [RIGHT OUTER JOIN]
+|  |  |  |  row-size=0B cardinality=1
+|  |  |  |
+|  |  |  |--09:SINGULAR ROW SRC
+|  |  |  |     row-size=12B cardinality=1
+|  |  |  |
+|  |  |  10:EMPTYSET
+|  |  |
+|  |  07:UNNEST [c.c_orders o]
+|  |     row-size=0B cardinality=10
+|  |
+|  15:NESTED LOOP JOIN [LEFT OUTER JOIN]
+|  |  row-size=40B cardinality=1
+|  |
+|  |--06:EMPTYSET
+|  |
+|  14:NESTED LOOP JOIN [LEFT OUTER JOIN]
+|  |  row-size=36B cardinality=1
+|  |
+|  |--05:EMPTYSET
+|  |
+|  13:NESTED LOOP JOIN [RIGHT OUTER JOIN]
+|  |  row-size=28B cardinality=1
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     row-size=56B cardinality=1
+|  |
+|  04:AGGREGATE [FINALIZE]
+|  |  output: count(*)
+|  |  row-size=8B cardinality=1
+|  |
+|  03:EMPTYSET
+|
+00:SCAN HDFS [tpch_nested_parquet.customer c]
+   HDFS partitions=1/1 files=4 size=289.06MB
+   predicates: c_custkey < 10
+   row-size=56B cardinality=15.00K
+====
+# IMPALA-2539: Test empty union operands containing relative table refs.
+select c_custkey, o_orderkey
+from tpch_nested_parquet.customer c,
+ (select o_orderkey from c.c_orders o1
+  union distinct
+  select o_orderkey from c.c_orders o2
+  where false
+  union all
+  select o_orderkey from c.c_orders o3
+  where false
+ ) v1
+where c_custkey = 1
+---- PLAN
+PLAN-ROOT SINK
+|
+01:SUBPLAN
+|  row-size=28B cardinality=10
+|
+|--07:NESTED LOOP JOIN [CROSS JOIN]
+|  |  row-size=28B cardinality=10
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     row-size=44B cardinality=1
+|  |
+|  06:UNION
+|  |  row-size=8B cardinality=10
+|  |
+|  05:AGGREGATE [FINALIZE]
+|  |  group by: o_orderkey
+|  |  row-size=8B cardinality=10
+|  |
+|  03:UNION
+|  |  row-size=8B cardinality=10
+|  |
+|  04:UNNEST [c.c_orders o1]
+|     row-size=8B cardinality=10
+|
+00:SCAN HDFS [tpch_nested_parquet.customer c]
+   HDFS partitions=1/1 files=4 size=289.06MB
+   predicates: c_custkey = 1
+   row-size=44B cardinality=1
+====
+# IMPALA-2215: Having clause without aggregation.
+select 1 from (select 1) v having 1 > 1
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# IMPALA-5562: Relative table ref and limit 0.
+select * from tpch_nested_parquet.customer c, c.c_orders limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# IMPALA-5812: Test that a cross join with a constant select that returns an empty result
+# set translates into an EMPTYSET in the final plan
+select count(*) from functional.alltypes x cross join (select 1 as j) y where j is null
+---- PLAN
+PLAN-ROOT SINK
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+02:NESTED LOOP JOIN [CROSS JOIN]
+|  row-size=1B cardinality=0
+|
+|--01:EMPTYSET
+|
+00:SCAN HDFS [functional.alltypes x]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   row-size=0B cardinality=7.30K
+====
+# Constant false conjunct with intersect
+# This plan can be improved to eliminate the entire branch
+select int_col from functional.alltypessmall
+intersect
+select int_col from functional.alltypes where "abc" = "cde"
+---- PLAN
+PLAN-ROOT SINK
+|
+03:HASH JOIN [LEFT SEMI JOIN]
+|  hash predicates: int_col IS NOT DISTINCT FROM int_col
+|  runtime filters: RF000 <- int_col
+|  row-size=4B cardinality=0
+|
+|--02:EMPTYSET
+|
+01:AGGREGATE [FINALIZE]
+|  group by: int_col
+|  row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> functional.alltypessmall.int_col
+   row-size=4B cardinality=100
+====
+# Improve this so limit 0 removes the entire branch
+select id from functional.alltypessmall
+intersect
+select id from functional.alltypes limit 0
+except
+select id from functional.alltypestiny where int_col > 0
+---- PLAN
+PLAN-ROOT SINK
+|
+05:HASH JOIN [RIGHT ANTI JOIN]
+|  hash predicates: id IS NOT DISTINCT FROM id
+|  row-size=4B cardinality=0
+|
+|--04:HASH JOIN [LEFT SEMI JOIN]
+|  |  hash predicates: id IS NOT DISTINCT FROM id
+|  |  runtime filters: RF000 <- id
+|  |  row-size=4B cardinality=0
+|  |
+|  |--02:EMPTYSET
+|  |
+|  01:AGGREGATE [FINALIZE]
+|  |  group by: id
+|  |  row-size=4B cardinality=99
+|  |
+|  00:SCAN HDFS [functional.alltypessmall]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF000 -> functional.alltypessmall.id
+|     row-size=4B cardinality=100
+|
+03:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   predicates: int_col > 0
+   row-size=8B cardinality=1
+====
+# Limit 0 clears out all operands
+select id from functional.alltypessmall
+except
+select id from functional.alltypes where "abc" = "cde"
+except
+(select id from functional.alltypestiny)
+limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====

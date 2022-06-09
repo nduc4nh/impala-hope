@@ -1,0 +1,577 @@
+====
+---- QUERY
+# Test identity functions
+select identity(true);
+---- TYPES
+boolean
+---- RESULTS
+true
+====
+---- QUERY
+select identity(cast(10 as tinyint));
+---- TYPES
+tinyint
+---- RESULTS
+10
+====
+---- QUERY
+select identity(cast(10 as smallint));
+---- TYPES
+smallint
+---- RESULTS
+10
+====
+---- QUERY
+select identity(cast(10 as int));
+---- TYPES
+int
+---- RESULTS
+10
+====
+---- QUERY
+select identity(cast(10 as bigint));
+---- TYPES
+bigint
+---- RESULTS
+10
+====
+---- QUERY
+select identity(cast(10.0 as float));
+---- TYPES
+float
+---- RESULTS
+10
+====
+---- QUERY
+select identity(cast(10.0 as double));
+---- TYPES
+double
+---- RESULTS
+10
+====
+---- QUERY
+select identity("why hello there");
+---- TYPES
+string
+---- RESULTS
+'why hello there'
+====
+---- QUERY
+select identity(now());
+---- TYPES
+timestamp
+====
+---- QUERY
+select identity(date '2019-02-20');
+---- TYPES
+date
+---- RESULTS
+2019-02-20
+====
+---- QUERY
+select identity(cast(1 as decimal(9,0)));
+---- TYPES
+decimal
+---- RESULTS
+1
+====
+---- QUERY
+select identity(cast(1 as decimal(18,1)));
+---- TYPES
+decimal
+---- RESULTS
+1.0
+====
+---- QUERY
+select identity(cast(1 as decimal(38,10)));
+---- TYPES
+decimal
+---- RESULTS
+1.0000000000
+====
+---- QUERY
+select identity(NULL);
+---- TYPES
+boolean
+---- RESULTS
+NULL
+====
+---- QUERY
+select constant_timestamp();
+---- TYPES
+timestamp
+---- RESULTS
+2013-10-09 00:00:00.000000001
+====
+---- QUERY
+select constant_date();
+---- TYPES
+date
+---- RESULTS
+2013-10-09
+====
+---- QUERY
+# This provides coverage for ScalarExprEvaluator::GetConstValue(), which will interpret
+# constant_timestamp(). This means that for both native and IR UDFs, constant_timestamp()
+# needs to support evaluation from interpreted code.
+select from_utc_timestamp(constant_timestamp(), "UTC");
+---- TYPES
+timestamp
+---- RESULTS
+2013-10-09 00:00:00.000000001
+====
+---- QUERY
+# Test UDFs with different arguments
+select all_types_fn("1", true, 2, 3, 4, 5, 6.0, 7.0, cast(8 as decimal(2,0)),
+    date '1970-01-10');
+---- TYPES
+int
+---- RESULTS
+46
+====
+---- QUERY
+select no_args();
+---- TYPES
+string
+---- RESULTS
+'string'
+====
+---- QUERY
+# Test UDFs over tables
+select sum(identity(bigint_col)) from functional.alltypes
+---- TYPES
+bigint
+---- RESULTS
+328500
+====
+---- QUERY
+select identity(a) from functional.tinytable;
+---- TYPES
+string
+---- RESULTS
+'aaaaaaa'
+'ccccc'
+'eeeeeeee'
+====
+---- QUERY
+select identity(d1),
+identity(cast(d3 as decimal(38,10))), identity(cast(d5 as decimal(38,10)))
+from functional.decimal_tbl;
+---- TYPES
+decimal,decimal,decimal
+---- RESULTS
+1234,1.2345678900,12345.7890000000
+2345,12.3456789000,3.1410000000
+12345,123.4567890000,11.2200000000
+12345,1234.5678900000,0.1000000000
+132842,12345.6789000000,0.7788900000
+====
+---- QUERY
+select identity(date_part), identity(date_col)
+from functional.date_tbl;
+---- TYPES
+DATE, DATE
+---- RESULTS
+0001-01-01,0001-01-01
+0001-01-01,0001-12-31
+0001-01-01,0002-01-01
+0001-01-01,1399-12-31
+0001-01-01,2017-11-28
+0001-01-01,9999-12-31
+0001-01-01,NULL
+1399-06-27,2017-11-28
+1399-06-27,2018-12-31
+1399-06-27,NULL
+2017-11-27,0001-06-21
+2017-11-27,0001-06-22
+2017-11-27,0001-06-23
+2017-11-27,0001-06-24
+2017-11-27,0001-06-25
+2017-11-27,0001-06-26
+2017-11-27,0001-06-27
+2017-11-27,0001-06-28
+2017-11-27,0001-06-29
+2017-11-27,2017-11-28
+9999-12-31,9999-12-01
+9999-12-31,9999-12-31
+====
+---- QUERY
+select identity(bool_col), identity(tinyint_col),
+       identity(smallint_col), identity(int_col),
+       identity(bigint_col), identity(float_col),
+       identity(double_col), identity(string_col),
+       identity(timestamp_col), identity(year)
+from functional.alltypestiny;
+---- TYPES
+boolean, tinyint, smallint, int, bigint, float, double, string, timestamp, int
+---- RESULTS
+true,0,0,0,0,0,0,'0',2009-02-01 00:00:00,2009
+false,1,1,1,10,1.100000023841858,10.1,'1',2009-02-01 00:01:00,2009
+true,0,0,0,0,0,0,'0',2009-04-01 00:00:00,2009
+false,1,1,1,10,1.100000023841858,10.1,'1',2009-04-01 00:01:00,2009
+true,0,0,0,0,0,0,'0',2009-01-01 00:00:00,2009
+false,1,1,1,10,1.100000023841858,10.1,'1',2009-01-01 00:01:00,2009
+true,0,0,0,0,0,0,'0',2009-03-01 00:00:00,2009
+false,1,1,1,10,1.100000023841858,10.1,'1',2009-03-01 00:01:00,2009
+====
+---- QUERY
+select sum(all_types_fn(
+    string_col, bool_col, tinyint_col, smallint_col,
+    int_col, bigint_col, float_col, double_col, cast(tinyint_col as decimal(2,0)),
+    cast(adddate('1970-01-01', tinyint_col) as date)))
+from functional.alltypes;
+---- TYPES
+bigint
+---- RESULTS
+# Verify with 'select sum(length(string_col)) + sum(cast(bool_col as int))
+#  + sum(tinyint_col) + sum(smallint_col) + sum(int_col) + sum(bigint_col)
+#  + sum(cast(float_col as bigint)) + sum(cast(double_col as bigint)) + sum(tinyint_col)
+#  + sum(tinyint_col)
+#  from functional.alltypes;'
+865050
+====
+---- QUERY
+select no_args() from functional.alltypes limit 1;
+---- TYPES
+string
+---- RESULTS
+'string'
+====
+---- QUERY
+# Chain UDFs/exprs together to test glue
+select identity(no_args());
+---- TYPES
+string
+---- RESULTS
+'string'
+====
+---- QUERY
+select identity(cast(identity(3.0) as bigint));
+---- TYPES
+bigint
+---- RESULTS
+3
+====
+---- QUERY
+select count(*) from functional.alltypessmall having identity(count(*)) > 1
+---- TYPES
+bigint
+---- RESULTS
+100
+====
+---- QUERY
+select count(identity(id)) from functional.alltypessmall
+having identity(count(*)) > 1
+---- TYPES
+bigint
+---- RESULTS
+100
+====
+---- QUERY
+select count(identity(id)) from functional.alltypessmall
+group by identity(int_col)
+having identity(count(*)) > 10
+---- TYPES
+bigint
+---- RESULTS
+12
+12
+12
+12
+12
+====
+---- QUERY
+select identity(a.tinyint_col),
+       identity(b.id),
+       identity(a.string_col)
+from functional.alltypesagg a join functional.alltypessmall b on
+  (identity(a.tinyint_col) = identity(b.id))
+and identity(a.tinyint_col + b.tinyint_col) < 5
+where identity(a.month) = identity(1)
+and identity(a.day) = identity(1)
+and identity(a.string_col) > identity('88')
+and identity(b.bool_col) = identity(false)
+order by identity(a.string_col)
+limit 5
+---- TYPES
+tinyint, int, string
+---- RESULTS
+1,1,'881'
+1,1,'891'
+1,1,'901'
+1,1,'91'
+1,1,'911'
+====
+---- QUERY
+select identity(int_col),
+       identity(min(identity(bool_col))),
+       identity(max(identity(tinyint_col))),
+       identity(max(identity(smallint_col))),
+       identity(max(identity(int_col))),
+       identity(max(identity(bigint_col))),
+       identity(max(identity(float_col))),
+       identity(max(identity(double_col))),
+       identity(max(identity(string_col))),
+       identity(max(identity(timestamp_col)))
+from functional.alltypesagg
+where identity(identity(tinyint_col) > identity(1))
+group by identity(int_col)
+having identity(identity(int_col) > identity(998))
+---- TYPES
+int,boolean,tinyint,smallint,int,bigint,float,double,string,timestamp
+---- RESULTS
+999,false,9,99,999,9990,1098.900024414062,10089.9,'999',2010-01-10 18:02:05.100000000
+====
+---- QUERY
+select identity(year),
+       identity(min(identity(month))),
+       identity(min(string_col)),
+       identity(max(timestamp_col))
+from functional.alltypesagg group by identity(year)
+having identity(identity(year) = identity(2010))
+---- TYPES
+int,int,string,timestamp
+---- RESULTS
+2010,1,'0',2010-01-10 18:02:05.100000000
+====
+---- QUERY
+select min(identity(int_col)) from functional.alltypesagg where int_col is null;
+---- TYPES
+int
+---- RESULTS
+NULL
+====
+---- QUERY
+select var_sum(NULL, NULL, NULL)
+---- TYPES
+int
+---- RESULTS
+NULL
+====
+---- QUERY
+select var_and(true, false, true)
+---- TYPES
+boolean
+---- RESULTS
+false
+====
+---- QUERY
+select var_and(true, true, true, true, true)
+---- TYPES
+boolean
+---- RESULTS
+true
+====
+---- QUERY
+select var_sum(1, 2, 3, 4, 5, 6)
+---- TYPES
+int
+---- RESULTS
+21
+====
+---- QUERY
+select var_sum(1.0, 2.0, 3.0)
+---- TYPES
+decimal
+---- RESULTS
+6.00
+====
+---- QUERY
+select var_sum("Hello", "World", "Foo", "Bar")
+---- TYPES
+int
+---- RESULTS
+16
+====
+---- QUERY
+select var_sum(cast(1 as decimal(4,2)), cast(2 as decimal(4,2)), cast(3 as decimal(4,2)));
+---- TYPES
+decimal
+---- RESULTS
+6.00
+====
+---- QUERY
+# More complicated arguments
+select var_sum(
+    cast(1 as decimal(4,2)), cast(2 as decimal(4,2)),
+    cast(3 as decimal(3,2)) + cast("1.1" as decimal(3,2)));
+---- TYPES
+decimal
+---- RESULTS
+7.10
+====
+---- QUERY
+select tinyint_col, int_col, var_sum(tinyint_col, int_col)
+from functional.alltypestiny
+---- TYPES
+tinyint, int, int
+---- RESULTS
+0,0,0
+1,1,2
+0,0,0
+1,1,2
+0,0,0
+1,1,2
+0,0,0
+1,1,2
+====
+---- QUERY
+select var_sum_multiply(NULL, 1, 2)
+---- TYPES
+double
+---- RESULTS
+NULL
+====
+---- QUERY
+select var_sum_multiply(1.0, 1, 2, NULL, 3)
+---- TYPES
+double
+---- RESULTS
+6
+====
+---- QUERY
+select var_sum_multiply(5.0, 1, 2, 3, 4, 5, 6)
+---- TYPES
+double
+---- RESULTS
+105
+====
+---- QUERY
+select var_sum_multiply2(5.0, 1, 2, 3, 4, 5, 6)
+---- TYPES
+double
+---- RESULTS
+105
+====
+---- QUERY
+select to_lower("HELLO")
+---- TYPES
+string
+---- RESULTS
+'hello'
+====
+---- QUERY
+select to_upper("foobar")
+---- TYPES
+string
+---- RESULTS
+'FOOBAR'
+====
+---- QUERY
+select tinyint_col, int_col, var_sum_multiply(2, tinyint_col, int_col)
+from functional.alltypestiny
+---- TYPES
+tinyint, int, double
+---- RESULTS
+0,0,0
+1,1,4
+0,0,0
+1,1,4
+0,0,0
+1,1,4
+0,0,0
+1,1,4
+====
+---- QUERY
+# Test UDFs that are evaluated in the planner (doesn't take cols as input)
+# and returns a string.
+select count(*) from functional.alltypessmall where No_Args() = 'string'
+---- TYPES
+BIGINT
+---- RESULTS
+100
+====
+---- QUERY
+select count(*) from functional.alltypessmall where No_Args() != 'string'
+---- TYPES
+BIGINT
+---- RESULTS
+0
+====
+---- QUERY
+select validate_arg_type("dummy")
+---- TYPES
+BOOLEAN
+---- RESULTS
+true
+====
+---- QUERY
+select constant_arg(1), constant_arg(int_col) from functional.alltypestiny limit 1;
+---- TYPES
+int,int
+---- RESULTS
+1,NULL
+====
+---- QUERY
+# Test applying a UDF on a partition column predicate (IMPALA-887)
+select * from functional.alltypestiny where identity(year) = 2009 and identity(month) = 1;
+---- RESULTS
+0,true,0,0,0,0,0,0,'01/01/09','0',2009-01-01 00:00:00,2009,1
+1,false,1,1,1,10,1.100000023841858,10.1,'01/01/09','1',2009-01-01 00:01:00,2009,1
+---- TYPES
+INT, BOOLEAN, TINYINT, SMALLINT, INT, BIGINT, FLOAT, DOUBLE, STRING, STRING, TIMESTAMP, INT, INT
+====
+---- QUERY
+select mem_test(100);
+---- TYPES
+bigint
+---- RESULTS
+100
+====
+---- QUERY
+# Make sure rand() is non-constant
+select constant_arg(cast(rand() as int));
+---- TYPES
+INT
+---- RESULTS
+NULL
+====
+---- QUERY
+select four_args(1,2,3,4);
+---- TYPES
+INT
+---- RESULTS
+10
+====
+---- QUERY
+select five_args(1,2,3,4,5);
+---- TYPES
+INT
+---- RESULTS
+15
+====
+---- QUERY
+select six_args(1,2,3,4,5,6);
+---- TYPES
+INT
+---- RESULTS
+21
+====
+---- QUERY
+select seven_args(1,2,3,4,5,6,7);
+---- TYPES
+INT
+---- RESULTS
+28
+====
+---- QUERY
+select eight_args(1,2,3,4,5,6,7,8);
+---- TYPES
+INT
+---- RESULTS
+36
+====
+---- QUERY
+select twenty_args(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+---- TYPES
+INT
+---- RESULTS
+210
+====
+---- QUERY
+select pow(3,2), xpow(3,2);
+---- TYPES
+DOUBLE, DOUBLE
+---- RESULTS
+9,9
+====

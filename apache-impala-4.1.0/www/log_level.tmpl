@@ -1,0 +1,96 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+{{>www/common-header.tmpl}}
+<style type="text/css">
+  .log-level{
+  width: 50%;
+  line-height: 15px
+  }
+</style>
+
+{{?include_log4j_handlers}}
+<h2>Frontend log level configuration (log4j)</h2>
+<div class="log-level">
+<h5>Current frontend log level:</h5>
+<span style="white-space: pre-line">{{get_java_loglevel_result}}</span>
+<br>
+<form action="set_java_loglevel">{{>www/form-hidden-inputs.tmpl}}
+  <div class="form-group" name="level">
+    <input type="text" class="form-control" name="class" placeholder="e.g. org.apache.impala.analysis.Analyzer">
+    <br>
+    <div class="col-xs-20">
+      <label>Log level:</label>
+      <select name="level" class="selectpicker" data-style="btn-primary btn-sm">
+        <option value="all">ALL</option>
+        <option value="debug">DEBUG</option>
+        <option value="error">ERROR</option>
+        <option value="fatal">FATAL</option>
+        <option value="info">INFO</option>
+        <option value="off">OFF</option>
+        <option value="trace">TRACE</option>
+        <option value="warn">WARN</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Set Frontend Log Level</button>
+    </div>
+  </div>
+</form>
+<form action="reset_java_loglevel">{{>www/form-hidden-inputs.tmpl}}
+  <div class="col-xs-20">
+    <button type="submit" class="btn btn-primary btn-sm">Reset Frontend Log Levels</button>
+    <strong>{{reset_java_loglevel_result}}</strong>
+  </div>
+</form>
+<br>
+{{/include_log4j_handlers}}
+
+<h2>Backend log level configuration (glog)</h2>
+<h5>Current backend log level: <span id="glog_text"></span></h5>
+<form action="set_glog_level">{{>www/form-hidden-inputs.tmpl}}
+  <div class="form-group" name="level">
+    <div class="col-xs-20">
+      <label>Log level:</label>
+      <select name="glog" class="selectpicker" data-style="btn-primary btn-sm">
+        <option value="0">0 - Off</option>
+        <option value="1">1 - Info</option>
+        <option value="2">2 - Debug</option>
+        <option value="3">3 - All</option>
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Set Backend Log Level</button>
+    </div>
+  </div>
+</form>
+<form action="reset_glog_level">{{>www/form-hidden-inputs.tmpl}}
+  <div class="col-xs-20">
+    <button type="submit" class="btn btn-primary btn-sm">Reset Backend Log Level</button>
+    <strong>&nbsp &nbsp Default backend log level: {{default_glog_level}}</strong>
+  </div>
+</form>
+
+<script>
+
+  $(document).ready(function() {
+    $('select[name=glog]').val({{glog_level}});
+    var text=$('select[name=glog]').children("option:selected").text();
+    document.getElementById("glog_text").innerHTML = text;
+  });
+
+</script>
+
+{{>www/common-footer.tmpl}}

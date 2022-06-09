@@ -1,0 +1,127 @@
+# This file contains tests where we don't want the python test framework to supply the
+# debug_action value because the test won't succeed with all possible debug_action values.
+====
+---- QUERY
+# Tests for the case where a spilled partition has 0 probe rows and so we don't build the
+# hash table in a partitioned hash join. Always runs with the minimum reservation to force
+# spilling.
+# INNER JOIN
+set debug_action="-1:OPEN:SET_DENY_RESERVATION_PROBABILITY@1.0";
+select straight_join count(*)
+from
+lineitem a, lineitem b
+where
+a.l_partkey = 1 and
+a.l_orderkey = b.l_orderkey;
+---- TYPES
+BIGINT
+---- RESULTS
+173
+---- RUNTIME_PROFILE
+row_regex: .*NumHashTableBuildsSkipped: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# spilled partition with 0 probe rows, NULL AWARE LEFT ANTI JOIN
+set debug_action="-1:OPEN:SET_DENY_RESERVATION_PROBABILITY@1.0";
+select straight_join count(*)
+from
+lineitem a
+where
+a.l_partkey not in (select l_partkey from lineitem where l_partkey > 10)
+and a.l_partkey < 1000;
+---- TYPES
+BIGINT
+---- RESULTS
+287
+---- RUNTIME_PROFILE
+row_regex: .*NumHashTableBuildsSkipped: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# spilled partition with 0 probe rows, RIGHT OUTER JOIN
+set debug_action="-1:OPEN:SET_DENY_RESERVATION_PROBABILITY@1.0";
+select straight_join count(*)
+from
+supplier right outer join lineitem on s_suppkey = l_suppkey
+where s_acctbal > 0 and s_acctbal < 10;
+---- TYPES
+BIGINT
+---- RESULTS
+12138
+---- RUNTIME_PROFILE
+row_regex: .*NumHashTableBuildsSkipped: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# spilled partition with 0 probe rows, RIGHT OUTER JOIN
+# Setting max_row_size == default_spillable_buffer_size was sufficient to trigger
+# IMPALA-9349, because it means there is no surplus reservation during repartitioning.
+set debug_action="-1:OPEN:SET_DENY_RESERVATION_PROBABILITY@1.0";
+select straight_join count(*)
+from
+supplier right outer join lineitem on s_suppkey = l_suppkey
+where s_acctbal > 0 and s_acctbal < 10;
+---- TYPES
+BIGINT
+---- RESULTS
+12138
+---- RUNTIME_PROFILE
+row_regex: .*NumHashTableBuildsSkipped: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# spilled partition with 0 probe rows, RIGHT ANTI JOIN
+set debug_action="-1:OPEN:SET_DENY_RESERVATION_PROBABILITY@1.0";
+with x as (select * from supplier limit 10)
+select straight_join count(*)
+from
+x right anti join lineitem on s_suppkey + 100 = l_suppkey;
+---- TYPES
+BIGINT
+---- RESULTS
+5995258
+---- RUNTIME_PROFILE
+row_regex: .*NumHashTableBuildsSkipped: .* \([1-9][0-9]*\)
+====
+---- QUERY
+# Aggregation query that will OOM and fail to spill because of IMPALA-3304 without
+# any help from DEBUG_ACTION.
+set mem_limit=75m;
+select l_orderkey, group_concat(repeat(l_comment, 10)) comments
+from lineitem
+group by l_orderkey
+order by comments desc
+limit 5
+---- CATCH
+Memory limit exceeded
+====
+---- QUERY
+# Top-N query with large limit that will OOM because spilling is not implemented:
+# IMPALA-3471. It does not need any help from DEBUG_ACTION.
+set topn_bytes_limit=-1;
+set mem_limit=100m;
+select *
+from lineitem
+order by l_orderkey desc
+limit 6000000
+---- CATCH
+Memory limit exceeded
+====
+---- QUERY
+# Hash join that will fail to repartition and therefore fail from out-of-memory because
+# of a large number of duplicate keys on the build side: IMPALA-4857. It does not need
+# any help from DEBUG_ACTION.
+set mem_limit=250m;
+select straight_join *
+from supplier join /* +broadcast */ lineitem on s_suppkey = l_linenumber
+order by l_tax desc
+limit 5
+---- CATCH
+row_regex:.*Cannot perform hash join at node with id .*. Repartitioning did not reduce the size of a spilled partition.*
+====
+---- QUERY
+# Analytic query with certain kinds of large windows can't be spilled: IMPALA-5738. It
+# does not need any help from DEBUG_ACTION.
+set mem_limit=100m;
+select avg(l_tax) over (order by l_orderkey rows between 100000000 preceding and 10000000 following)
+from lineitem
+---- CATCH
+Memory limit exceeded
+====

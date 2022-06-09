@@ -1,0 +1,387 @@
+====
+---- QUERY
+# Create a simple view without renaming the columns.
+create view $DATABASE.simple_view as
+select * from functional.alltypes
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Test that 'if not exists' swallows the error (view already exists)
+create view if not exists $DATABASE.simple_view as
+select * from functional.alltypesagg
+---- RESULTS
+'View already exists.'
+====
+---- QUERY
+# Create another simple view with 'if not exists' on a subset of
+# alltypes' columns using custom column names and comments
+create view if not exists
+$DATABASE.simple_view_sub (x, y comment 'hello', z) as
+select int_col, string_col, timestamp_col from functional.alltypes
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Create a view on a parquet table (Hive cannot create/read/write parquet)
+create view $DATABASE.parquet_view as
+select * from functional_parquet.alltypes where id < 20
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Create a complex view with predicates, joins, aggregates and order by
+create view $DATABASE.complex_view (abc comment 'agg', xyz comment 'gby') as
+select count(a.bigint_col), b.string_col from
+functional.alltypesagg a inner join functional.alltypestiny b
+on a.id = b.id where a.bigint_col < 50
+group by b.string_col having count(a.bigint_col) > 1
+order by b.string_col limit 100
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Create a view on a view
+create view $DATABASE.view_view (aaa, bbb) as
+select * from $DATABASE.complex_view
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Test that the views are displayed by 'show tables'
+show tables in $DATABASE
+---- RESULTS
+'complex_view'
+'parquet_view'
+'simple_view'
+'simple_view_sub'
+'view_view'
+====
+---- QUERY
+# Test that the views can be described
+describe $DATABASE.simple_view
+---- RESULTS
+'id','int',''
+'bool_col','boolean',''
+'tinyint_col','tinyint',''
+'smallint_col','smallint',''
+'int_col','int',''
+'bigint_col','bigint',''
+'float_col','float',''
+'double_col','double',''
+'date_string_col','string',''
+'string_col','string',''
+'timestamp_col','timestamp',''
+'year','int',''
+'month','int',''
+---- TYPES
+string,string,string
+====
+---- QUERY
+describe $DATABASE.simple_view_sub
+---- RESULTS
+'x','int',''
+'y','string','hello'
+'z','timestamp',''
+---- TYPES
+string,string,string
+====
+---- QUERY
+describe $DATABASE.complex_view
+---- RESULTS
+'abc','bigint','agg'
+'xyz','string','gby'
+---- TYPES
+string,string,string
+====
+---- QUERY
+describe $DATABASE.parquet_view
+---- RESULTS
+'id','int',''
+'bool_col','boolean',''
+'tinyint_col','tinyint',''
+'smallint_col','smallint',''
+'int_col','int',''
+'bigint_col','bigint',''
+'float_col','float',''
+'double_col','double',''
+'date_string_col','string',''
+'string_col','string',''
+'timestamp_col','timestamp',''
+'year','int',''
+'month','int',''
+---- TYPES
+string,string,string
+====
+---- QUERY
+describe $DATABASE.view_view
+---- RESULTS
+'aaa','bigint',''
+'bbb','string',''
+---- TYPES
+string,string,string
+====
+---- QUERY
+# Test that the views can be queried.
+select count(*) from $DATABASE.simple_view
+---- RESULTS
+7300
+---- TYPES
+bigint
+====
+---- QUERY
+select count(*) from $DATABASE.simple_view_sub
+---- RESULTS
+7300
+---- TYPES
+bigint
+====
+---- QUERY
+select count(*) from $DATABASE.complex_view
+---- RESULTS
+2
+---- TYPES
+bigint
+====
+---- QUERY
+select count(*) from $DATABASE.parquet_view
+---- RESULTS
+20
+---- TYPES
+bigint
+====
+---- QUERY
+select count(*) from $DATABASE.view_view
+---- RESULTS
+2
+---- TYPES
+bigint
+====
+---- QUERY
+# Test dropping a view
+drop view $DATABASE.simple_view_sub
+---- RESULTS
+'View has been dropped.'
+====
+---- QUERY
+# Test that the view is gone
+show tables in $DATABASE
+---- RESULTS
+'complex_view'
+'parquet_view'
+'simple_view'
+'view_view'
+====
+---- QUERY
+# Test 'if exists' for dropping a view (view does not exist)
+drop view if exists $DATABASE.bad_view
+---- RESULTS
+'View does not exist.'
+====
+---- QUERY
+# Test 'if exists' does not drop a table with same name
+create table $DATABASE.drop_tbl_test(a int)
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+drop view if exists $DATABASE.drop_tbl_test
+---- RESULTS
+'Drop view is not allowed on a table.'
+====
+---- QUERY
+# Test drop table 'if exists' does not drop a view with same name.
+# We try to drop a table with name complex_view and it should should
+# still be listed in the subsequent show tables output (as a view).
+drop table if exists $DATABASE.complex_view
+---- RESULTS
+'Drop table is not allowed on a view.'
+====
+---- QUERY
+# Test that the table is present
+show tables in $DATABASE
+---- RESULTS
+'drop_tbl_test'
+'complex_view'
+'parquet_view'
+'simple_view'
+'view_view'
+====
+---- QUERY
+# Test renaming a view
+alter view $DATABASE.view_view rename to $DATABASE.view_on_view
+---- RESULTS
+'Renaming was successful.'
+====
+---- QUERY
+# Test renaming a parquet view
+alter view $DATABASE.parquet_view rename to $DATABASE.new_parquet_view
+---- RESULTS
+'Renaming was successful.'
+====
+---- QUERY
+# Test that the view was renamed
+show tables in $DATABASE
+---- RESULTS
+'drop_tbl_test'
+'complex_view'
+'new_parquet_view'
+'simple_view'
+'view_on_view'
+====
+---- QUERY
+# Alter a view with predicates, joins, aggregates and order by
+alter view $DATABASE.complex_view (aaa comment 'abc', bbb comment 'xyz') as
+select count(a.bigint_col), b.string_col from
+functional.alltypesagg a inner join functional.alltypestiny b
+on a.id = b.id where a.bigint_col < 50
+group by b.string_col having count(a.bigint_col) > 1
+order by b.string_col limit 100
+---- RESULTS
+'View has been altered.'
+====
+---- QUERY
+# Test verifying the description of the altered view
+describe $DATABASE.complex_view
+---- RESULTS
+'aaa','bigint','abc'
+'bbb','string','xyz'
+---- TYPES
+string,string,string
+====
+---- QUERY
+# Test querying the altered view
+select * from $DATABASE.complex_view;
+---- RESULTS
+2,'0'
+2,'1'
+---- TYPES
+bigint,string
+====
+---- QUERY
+# Alter a view on a view
+alter view $DATABASE.view_on_view (foo, bar) as
+select * from $DATABASE.complex_view
+---- RESULTS
+'View has been altered.'
+====
+---- QUERY
+# Test describing the description of the altered view
+describe $DATABASE.view_on_view
+---- RESULTS
+'foo','bigint',''
+'bar','string',''
+---- TYPES
+string,string,string
+====
+---- QUERY
+# Test querying the altered view
+select foo, bar from $DATABASE.view_on_view;
+---- RESULTS
+2,'0'
+2,'1'
+---- TYPES
+bigint,string
+====
+---- QUERY
+# Test altering a with a new definition
+alter view $DATABASE.new_parquet_view as
+select bigint_col, string_col from functional_parquet.alltypesagg
+where bigint_col is null limit 10
+---- RESULTS
+'View has been altered.'
+====
+---- QUERY
+# Test querying the altered view
+select count(bigint_col), count(string_col) from $DATABASE.new_parquet_view
+---- RESULTS
+0,10
+---- TYPES
+bigint,bigint
+====
+---- QUERY
+# Create a view on a constant select and try to query it.
+create view $DATABASE.const_view
+as select 1, 'a', cast(10.0 as float)
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+select * from $DATABASE.const_view
+---- RESULTS
+1,'a',10
+---- TYPES
+tinyint,string,float
+====
+---- QUERY
+# Test that parentheses are preserved in view creation.
+# If the parentheses were ignored the query would return a count > 0.
+create view $DATABASE.paren_view as
+select count(*) from functional.alltypessmall
+where true and (true or false) and false
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Test that parentheses are preserved in view creation.
+select * from $DATABASE.paren_view
+---- RESULTS
+0
+---- TYPES
+bigint
+====
+---- QUERY
+# Create a view with decimal columns. Regression test for IMPALA-1021.
+create view $DATABASE.decimal_view as
+select * from functional.decimal_tbl
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Query a view with decimal columns. Regression test for IMPALA-1021.
+select * from $DATABASE.decimal_view
+---- RESULTS
+1234,2222,1.2345678900,0.12345678900000000000000000000000000000,12345.78900,1
+12345,333,123.4567890000,0.12345678900000000000000000000000000000,11.22000,1
+12345,333,1234.5678900000,0.12345678900000000000000000000000000000,0.10000,1
+132842,333,12345.6789000000,0.12345678900000000000000000000000000000,0.77889,1
+2345,111,12.3456789000,0.12345678900000000000000000000000000000,3.14100,1
+---- TYPES
+decimal,decimal,decimal,decimal,decimal,decimal
+====
+---- QUERY
+# Create a view with date columns.
+create view $DATABASE.date_view as
+select * from functional.date_tbl
+---- RESULTS
+'View has been created.'
+====
+---- QUERY
+# Query a view with date columns.
+select * from $DATABASE.date_view
+---- RESULTS
+0,0001-01-01,0001-01-01
+1,0001-12-31,0001-01-01
+2,0002-01-01,0001-01-01
+3,1399-12-31,0001-01-01
+4,2017-11-28,0001-01-01
+5,9999-12-31,0001-01-01
+6,NULL,0001-01-01
+10,2017-11-28,1399-06-27
+11,NULL,1399-06-27
+12,2018-12-31,1399-06-27
+20,0001-06-21,2017-11-27
+21,0001-06-22,2017-11-27
+22,0001-06-23,2017-11-27
+23,0001-06-24,2017-11-27
+24,0001-06-25,2017-11-27
+25,0001-06-26,2017-11-27
+26,0001-06-27,2017-11-27
+27,0001-06-28,2017-11-27
+28,0001-06-29,2017-11-27
+29,2017-11-28,2017-11-27
+30,9999-12-01,9999-12-31
+31,9999-12-31,9999-12-31
+---- TYPES
+int,date,date
+====

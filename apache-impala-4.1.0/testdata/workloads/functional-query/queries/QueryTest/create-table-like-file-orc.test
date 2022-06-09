@@ -1,0 +1,143 @@
+====
+---- HIVE_QUERY
+use $DATABASE;
+create external table copy_decimal_tiny
+stored as orc
+tblproperties ('external.table.purge'='TRUE')
+as select * from functional_orc_def.decimal_tiny;
+====
+---- QUERY
+create table $DATABASE.temp_decimal_table_orc like ORC
+'$FILESYSTEM_PREFIX/test-warehouse/$DATABASE.db/copy_decimal_tiny/000000_0'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.temp_decimal_table_orc
+---- RESULTS
+'c1','decimal(10,4)','Inferred from ORC file.'
+'c2','decimal(15,5)','Inferred from ORC file.'
+'c3','decimal(1,1)','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+create table $DATABASE.temp_chars_table like ORC
+'$NAMENODE/test-warehouse/chars_formats_orc_def/chars-formats.orc'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.temp_chars_table
+---- RESULTS
+'cs','char(5)','Inferred from ORC file.'
+'cl','char(140)','Inferred from ORC file.'
+'vc','varchar(32)','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- HIVE_QUERY
+use $DATABASE;
+create external table copy_zipcode_incomes
+stored as orc
+tblproperties ('external.table.purge'='TRUE')
+as select * from functional_orc_def.zipcode_incomes;
+====
+---- QUERY
+create table $DATABASE.like_zipcodes_file_orc like ORC
+'$FILESYSTEM_PREFIX/test-warehouse/$DATABASE.db/copy_zipcode_incomes/000000_0'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.like_zipcodes_file_orc
+---- RESULTS
+'id','string','Inferred from ORC file.'
+'zip','string','Inferred from ORC file.'
+'description1','string','Inferred from ORC file.'
+'description2','string','Inferred from ORC file.'
+'income','int','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- HIVE_QUERY
+use $DATABASE;
+create external table copy_alltypestiny
+stored as orc
+tblproperties ('external.table.purge'='TRUE')
+as select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col,
+          double_col, date_string_col, string_col, timestamp_col
+from functional_orc_def.alltypestiny;
+====
+---- QUERY
+create table $DATABASE.like_alltypestiny_file_orc like ORC
+'$FILESYSTEM_PREFIX/test-warehouse/$DATABASE.db/copy_alltypestiny/000000_0'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.like_alltypestiny_file_orc
+---- RESULTS
+'id','int','Inferred from ORC file.'
+'bool_col','boolean','Inferred from ORC file.'
+'tinyint_col','tinyint','Inferred from ORC file.'
+'smallint_col','smallint','Inferred from ORC file.'
+'int_col','int','Inferred from ORC file.'
+'bigint_col','bigint','Inferred from ORC file.'
+'float_col','float','Inferred from ORC file.'
+'double_col','double','Inferred from ORC file.'
+'date_string_col','string','Inferred from ORC file.'
+'string_col','string','Inferred from ORC file.'
+'timestamp_col','timestamp','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+create table non_transactional_complextypes_clone like ORC
+'$FILESYSTEM_PREFIX/test-warehouse/complextypestbl_non_transactional_orc_def/nullable.orc'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe non_transactional_complextypes_clone
+---- RESULTS
+'id','bigint','Inferred from ORC file.'
+'int_array','array<int>','Inferred from ORC file.'
+'int_array_array','array<array<int>>','Inferred from ORC file.'
+'int_map','map<string,int>','Inferred from ORC file.'
+'int_map_array','array<map<string,int>>','Inferred from ORC file.'
+'nested_struct','struct<\n  a:int,\n  b:array<int>,\n  c:struct<\n    d:array<array<struct<\n      e:int,\n      f:string\n    >>>\n  >,\n  g:map<string,struct<\n    h:struct<\n      i:array<double>\n    >\n  >>\n>','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+create external table transactional_complextypes_clone like ORC
+'$TRANSACTIONAL_COMPLEXTYPESTBL_FILE'
+stored as orc;
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe transactional_complextypes_clone
+---- RESULTS
+'operation','int','Inferred from ORC file.'
+'originaltransaction','bigint','Inferred from ORC file.'
+'bucket','int','Inferred from ORC file.'
+'rowid','bigint','Inferred from ORC file.'
+'currenttransaction','bigint','Inferred from ORC file.'
+'row','struct<\n  id:bigint,\n  int_array:array<int>,\n  int_array_array:array<array<int>>,\n  int_map:map<string,int>,\n  int_map_array:array<map<string,int>>,\n  nested_struct:struct<\n    a:int,\n    b:array<int>,\n    c:struct<\n      d:array<array<struct<\n        e:int,\n        f:string\n      >>>\n    >,\n    g:map<string,struct<\n      h:struct<\n        i:array<double>\n      >\n    >>\n  >\n>','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+create table timestamp_with_local_timezone_2 like ORC
+'$FILESYSTEM_PREFIX/test-warehouse/$DATABASE.db/timestamp_with_local_timezone/timestamp_with_local_timezone.orc';
+describe timestamp_with_local_timezone_2
+---- RESULTS
+'id','int','Inferred from ORC file.'
+'user','string','Inferred from ORC file.'
+'action','string','Inferred from ORC file.'
+'event_time','timestamp','Inferred from ORC file.'
+---- TYPES
+STRING, STRING, STRING
+====

@@ -1,0 +1,47 @@
+bin
+target
+
+# Eclipse artifacts
+.classpath
+.settings
+.project
+*.launch
+
+# IntelliJ artifacts
+.idea
+*.iml
+*.ipr
+*.iws
+
+# OS X Artifacts
+.DS_Store
+
+# emacs backup files
+*~
+
+# Generated hive-site.xml files
+src/test/resources/hive-site.xml
+src/test/resources/hive-site-ext/
+src/test/resources/hive-site_ext.xml
+
+# Generated hbase-site.xml file
+src/test/resources/hbase-site.xml
+
+# Generated core-site.xml file
+src/test/resources/core-site.xml
+
+# Generated minicluster config
+src/test/resources/minicluster-conf.xml
+
+# Generated hive-log4j2.properties file
+src/test/resources/hive-log4j2.properties
+
+# Generated authorization policy
+src/test/resources/authz-policy.ini
+
+# Generated thrift files
+generated-sources
+
+derby.log
+
+TempStatsStore

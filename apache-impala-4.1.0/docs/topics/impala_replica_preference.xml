@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="replica_preference" rev="2.7.0">
+
+  <title>REPLICA_PREFERENCE Query Option (<keyword keyref="impala27"/> or higher only)</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>REPLICA_PREFERENCE</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Impala Query Options"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Data Analysts"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p rev="2.7.0">
+      <indexterm audience="hidden">REPLICA_PREFERENCE query option</indexterm>
+    </p>
+
+    <p>
+      The <codeph>REPLICA_PREFERENCE</codeph> query option lets you distribute the work more
+      evenly if hotspots and bottlenecks persist. It causes the access cost of all replicas of a
+      data block to be considered equal to or worse than the configured value. This allows
+      Impala to schedule reads to suboptimal replicas (e.g. local in the presence of cached
+      ones) in order to distribute the work across more executor nodes.
+    </p>
+
+    <p>
+      Allowed values are: <codeph>CACHE_LOCAL</codeph> (<codeph>0</codeph>),
+      <codeph>DISK_LOCAL</codeph> (<codeph>2</codeph>), <codeph>REMOTE</codeph>
+      (<codeph>4</codeph>)
+    </p>
+
+    <p>
+      <b>Type:</b> Enum
+    </p>
+
+    <p>
+      <b>Default:</b> <codeph>CACHE_LOCAL (0)</codeph>
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/added_in_270"/>
+
+    <p>
+      <b>Usage Notes:</b>
+    </p>
+
+    <p>
+      By default Impala selects the best replica it can find in terms of access cost. The
+      preferred order is cached, local, and remote. With <codeph>REPLICA_PREFERENCE</codeph>,
+      the preference of all replicas are capped at the selected value. For example, when
+      <codeph>REPLICA_PREFERENCE</codeph> is set to <codeph>DISK_LOCAL</codeph>, cached and
+      local replicas are treated with the equal preference. When set to
+      <codeph>REMOTE</codeph>, all three types of replicas, cached, local, remote, are treated
+      with equal preference.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/related_info"/>
+
+    <p>
+      <xref href="impala_perf_hdfs_caching.xml#hdfs_caching"/>,
+      <xref href="impala_schedule_random_replica.xml#schedule_random_replica"/>
+    </p>
+
+  </conbody>
+
+</concept>

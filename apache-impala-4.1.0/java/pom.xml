@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.apache.impala</groupId>
+  <artifactId>impala-parent</artifactId>
+  <version>4.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Apache Impala Parent POM</name>
+
+  <properties>
+    <surefire.reports.dir>${env.IMPALA_LOGS_DIR}/fe_tests</surefire.reports.dir>
+    <jacoco.skip>true</jacoco.skip>
+    <jacoco.data.file>${env.IMPALA_FE_TEST_COVERAGE_DIR}/jacoco.exec</jacoco.data.file>
+    <jacoco.report.dir>${env.IMPALA_FE_TEST_COVERAGE_DIR}</jacoco.report.dir>
+    <hadoop.version>${env.IMPALA_HADOOP_VERSION}</hadoop.version>
+    <hive.version>${env.IMPALA_HIVE_VERSION}</hive.version>
+    <hive.storage.api.version>${env.IMPALA_HIVE_STORAGE_API_VERSION}</hive.storage.api.version>
+    <hive.major.version>${env.IMPALA_HIVE_MAJOR_VERSION}</hive.major.version>
+    <hive.dist.type>${env.IMPALA_HIVE_DIST_TYPE}</hive.dist.type>
+    <hudi.version>${env.IMPALA_HUDI_VERSION}</hudi.version>
+    <ranger.version>${env.IMPALA_RANGER_VERSION}</ranger.version>
+    <postgres.jdbc.version>${env.IMPALA_POSTGRES_JDBC_DRIVER_VERSION}</postgres.jdbc.version>
+    <hbase.version>${env.IMPALA_HBASE_VERSION}</hbase.version>
+    <avro.version>${env.IMPALA_AVRO_JAVA_VERSION}</avro.version>
+    <orc.version>${env.IMPALA_ORC_JAVA_VERSION}</orc.version>
+    <ozone.version>${env.IMPALA_OZONE_VERSION}</ozone.version>
+    <parquet.version>${env.IMPALA_PARQUET_VERSION}</parquet.version>
+    <kite.version>${env.IMPALA_KITE_VERSION}</kite.version>
+    <knox.version>${env.IMPALA_KNOX_VERSION}</knox.version>
+    <gcs.version>${env.IMPALA_GCS_VERSION}</gcs.version>
+    <cos.version>${env.IMPALA_COS_VERSION}</cos.version>
+    <thrift.version>0.11.0</thrift.version>
+    <impala.extdatasrc.api.version>${project.version}</impala.extdatasrc.api.version>
+    <impala.query.event.hook.api.version>${project.version}</impala.query.event.hook.api.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <kudu.version>${env.IMPALA_KUDU_VERSION}</kudu.version>
+    <commons-io.version>2.6</commons-io.version>
+    <slf4j.version>1.7.30</slf4j.version>
+    <junit.version>4.12</junit.version>
+    <!-- Beware compatibility requirements with Thrift and
+         KMS; see IMPALA-4210. -->
+    <httpcomponents.core.version>4.4.9</httpcomponents.core.version>
+    <yarn-extras.version>${project.version}</yarn-extras.version>
+    <eclipse.output.directory>eclipse-classes</eclipse.output.directory>
+    <!-- hive-exec seems to leak this version of guava onto our classpath,
+         so it's important to depend on the same one -->
+    <guava.version>28.1-jre</guava.version>
+    <derby.version>10.14.2.0</derby.version>
+    <jackson-databind.version>2.10.5.1</jackson-databind.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <iceberg.version>${env.IMPALA_ICEBERG_VERSION}</iceberg.version>
+    <pac4j.version>4.5.5</pac4j.version>
+    <!-- xmlsec, bcprov-jdk15on and springframework are not used by Impala directly,
+         but they are needed by pac4j. This uses a newer xmlsec/spring to address CVEs,
+         but bcprov-jdk15on matches the versions from pac4j 4.5.5. -->
+    <xmlsec.version>2.2.3</xmlsec.version>
+    <bcprov-jdk15on.version>1.68</bcprov-jdk15on.version>
+    <springframework.version>5.3.18</springframework.version>
+    <json-smart.version>2.4.7</json-smart.version>
+  </properties>
+
+  <repositories>
+    <!--
+    Repository order matters, especially when using mirrors. This optimizes
+    for the common case where the mirror is intended to catch artifacts
+    that would otherwise come from central and other physical servers.
+    That means putting repositories in this order:
+    1. Local / S3 repositories
+    2. Regular remote repositories
+    3. Banned repositories
+    This allows builds to get artifacts from the local repositories
+    and s3 buckets without trying the mirror first, while still
+    getting other artifacts from the mirror.
+    -->
+    <!-- Local/S3 repositories -->
+    <repository>
+      <id>impala.toolchain.kudu.repo</id>
+      <url>${env.IMPALA_TOOLCHAIN_KUDU_MAVEN_REPOSITORY}</url>
+      <name>Impala Toolchain Kudu Repository</name>
+      <releases>
+        <enabled>${env.IMPALA_TOOLCHAIN_KUDU_MAVEN_REPOSITORY_ENABLED}</enabled>
+      </releases>
+      <!--
+      This repository now uses explicit versions, so snapshots are no longer required.
+      -->
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <!--
+      The Maven repository for the CDP build identified by CDP_BUILD_NUMBER.
+      CDP does not use maven SNAPSHOT versions - every build has a version number.
+      -->
+      <id>impala.cdp.repo</id>
+      <url>${env.CDP_MAVEN_REPOSITORY}</url>
+      <name>Impala CDP Repository</name>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+
+    <!-- Regular remote repositories -->
+    <repository>
+      <id>cdh.rcs.releases.repo</id>
+      <url>https://repository.cloudera.com/artifactory/cdh-releases-rcs</url>
+      <name>CDH Releases Repository</name>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+
+    <!-- Banned repositories -->
+    <!--
+    Ban Apache repositories that tend to cause timeouts - see IMPALA-8516.
+    These are pulled in via transitive deps, e.g. Sentry. Other repositories contain
+    mirrored versions of these dependencies but don't have the same timeout issues.
+    -->
+    <repository>
+      <id>apache.snapshots</id>
+      <name>Apache Development Snapshot Repository</name>
+      <url>https://repository.apache.org/content/repositories/snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <!--
+       Hadoop defines the same repo with this name. We need to include it here to
+      effectively blacklist it.
+      -->
+      <id>apache.snapshots.https</id>
+      <name>Apache Development Snapshot Repository</name>
+      <url>https://repository.apache.org/content/repositories/snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>apache</id>
+      <name>Apache Repository</name>
+      <url>https://repository.apache.org/content/repositories/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <!--
+      This is a transitive dependency from Sentry. Disable downloading snapshots from here
+      since we only want to consume actual releases and we can save Maven from reaching
+      out to this repo unnecessarily to look for snapshot versions. Sentry has been
+      removed, so this may eventually be removed.
+      -->
+      <id>glassfish-repo-archive.repo</id>
+      <name>Glassfish repository - Transitive from Sentry</name>
+      <url>https://mvnrepository.com/artifact/org.glassfish/javax.el/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+    </repository>
+    <repository>
+      <!--
+      The Impala development bootstrapping depends on CDH Maven snapshots
+      which transitively pull dependencies from other repositories which
+      can cause the build to be non-reproducible, e.g. IMPALA-7316. This
+      patch makes the build to be reproducible by banning
+      cdh.snapshots.repo so that Maven does not accidentally download the
+      latest CDH snapshots when running a build, which can cause
+      incompatibility issues.
+      -->
+      <id>cdh.snapshots.repo</id>
+      <url>https://repository.cloudera.com/content/repositories/snapshots</url>
+      <name>CDH Snapshots Repository</name>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <!--
+      HWX Nexus is disabled. This is a tombstone to list out why:
+      1. Snapshots are disabled because HWX Nexus contains snapshots of artifacts
+      that can conflict with the artifacts in any of the other repositories with
+      SNAPSHOT versions. We don't want any conflicting sources for SNAPSHOT versions,
+      so it is better to keep this disabled. In the past, this was a particular
+      problem for CDH Hadoop components that used SNAPSHOT versions.
+      2.  In a previous change, we depended on the hadoop-cloud-storage artifact from
+      the impala.cdp.repo. This had the odd property that it referenced versions of
+      artifacts that were not in the impala.cdp.repo. For example, artifact A at
+      version 280 may have a dependency on artifact B at version 279, but the maven
+      repository may only have artifact B at version 280. Nexus was meant to handle
+      these dangling dependencies (see IMPALA-8766). However, HWX Nexus ages out jars
+      from old build numbers. When the artifact B at version 279 ages out, it breaks
+      the build. Just as seriously, if Impala uses the impala.cdp.repo in a way that
+      requires an external maven repository, old commits may become unbuildable if that
+      external maven repository removes any of the jars we need.
+      So, HWX Nexus is disabled and should face strong scrutiny before being reenabled.
+      -->
+      <id>hwx.public.repo</id>
+      <url>https://nexus-private.hortonworks.com/nexus/content/groups/public</url>
+      <name>Hortonworks public repository</name>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+    </repository>
+  </repositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>cdh.rcs.releases.repo</id>
+      <url>https://repository.cloudera.com/artifactory/cdh-releases-rcs</url>
+      <name>CDH Releases Repository</name>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <modules>
+    <module>datagenerator</module>
+    <module>executor-deps</module>
+    <module>ext-data-source</module>
+    <module>../fe</module>
+    <module>query-event-hook-api</module>
+    <module>shaded-deps/hive-exec</module>
+    <module>shaded-deps/s3a-aws-sdk</module>
+    <module>TableFlattener</module>
+    <module>test-hive-udfs</module>
+    <module>yarn-extras</module>
+  </modules>
+
+</project>

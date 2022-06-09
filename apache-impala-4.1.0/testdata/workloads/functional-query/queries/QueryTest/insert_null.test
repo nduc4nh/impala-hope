@@ -1,0 +1,180 @@
+====
+---- QUERY
+CREATE TABLE nullinsert (
+  str_col1 string,
+  str_col2 string,
+  str_col3 string,
+  str_col4 string,
+  int_cal int
+)
+row format delimited fields terminated by ','  escaped by '\\'
+LOCATION '$FILESYSTEM_PREFIX/test-warehouse/$DATABASE.db/nullinsert';
+CREATE EXTERNAL TABLE nullinsert_alt(
+  whole_row string
+)
+row format delimited fields terminated by '|'
+LOCATION '$FILESYSTEM_PREFIX/test-warehouse/$DATABASE.db/nullinsert';
+create table alltypesinsert like $ORIGINAL_DB.alltypesinsert;
+create table nullformat_custom like $ORIGINAL_DB.nullformat_custom;
+====
+---- QUERY
+# Test that we properly write null values to text tables.
+insert overwrite table nullinsert
+select NULL, "", "NULL", "\\N", NULL from functional.alltypes limit 1
+---- RESULTS
+: 1
+====
+---- QUERY
+select * from nullinsert
+---- RESULTS
+'NULL','','NULL','\\N',NULL
+---- TYPES
+string, string, string, string, int
+====
+---- QUERY
+select * from nullinsert_alt
+---- RESULTS
+'\\N,,NULL,\\\\N,\\N'
+---- TYPES
+string
+====
+---- QUERY
+# Test NULL partition keys using static partition insert. Both partitions keys are NULL.
+truncate alltypesinsert;
+insert overwrite table alltypesinsert
+partition(year=NULL, month=NULL)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from functional.alltypessmall
+where year=2009 and month=4
+---- RESULTS
+year=__HIVE_DEFAULT_PARTITION__/month=__HIVE_DEFAULT_PARTITION__: 25
+====
+---- QUERY
+# Verify contents of alltypesinsert.
+select count(*) from alltypesinsert where year is null and month is null
+---- RESULTS
+25
+---- TYPES
+bigint
+====
+---- QUERY
+# Verify that truncate NULL
+truncate alltypesinsert;
+select * from alltypesinsert
+---- RESULTS
+---- TYPES
+int, boolean, tinyint, smallint, int, bigint, float, double, string, string, timestamp, int, int
+====
+---- QUERY
+# Test NULL partition keys using static partition insert. Year partition key is NULL.
+truncate alltypesinsert;
+insert overwrite table alltypesinsert
+partition(year=NULL, month=10)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from functional.alltypessmall
+where year=2009 and month=4
+---- RESULTS
+year=__HIVE_DEFAULT_PARTITION__/month=10: 25
+====
+---- QUERY
+# Verify contents of alltypesinsert.
+select count(*) from alltypesinsert where year is null and month=10
+---- RESULTS
+25
+---- TYPES
+bigint
+====
+---- QUERY
+# Test NULL partition keys using dynamic partition insert. Month partition key is NULL.
+truncate alltypesinsert;
+insert overwrite table alltypesinsert
+partition(year=2008, month=NULL)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col
+from functional.alltypessmall
+where year=2009 and month=4
+---- RESULTS
+year=2008/month=__HIVE_DEFAULT_PARTITION__: 25
+====
+---- QUERY
+# Verify contents of alltypesinsert.
+select count(*) from alltypesinsert where year=2008 and month is null
+---- RESULTS
+25
+---- TYPES
+bigint
+====
+---- QUERY
+# Test NULL partition keys using dynamic partition insert.
+insert overwrite table alltypesinsert
+partition(year, month)
+select id, bool_col, tinyint_col, smallint_col, int_col, bigint_col,
+float_col, double_col, date_string_col, string_col, timestamp_col,
+cast(if(bool_col, NULL, 2007) as int) as year, cast(if(tinyint_col % 3 = 0, NULL, 6) as int) as month
+from functional.alltypessmall
+where year=2009 and month=4
+---- RESULTS: VERIFY_IS_EQUAL_SORTED
+year=2007/month=6: 8
+year=2007/month=__HIVE_DEFAULT_PARTITION__: 5
+year=__HIVE_DEFAULT_PARTITION__/month=6: 7
+year=__HIVE_DEFAULT_PARTITION__/month=__HIVE_DEFAULT_PARTITION__: 5
+====
+---- QUERY
+# Verify contents of each new partition in alltypesinsert.
+select count(*) from alltypesinsert where year=2007 and month=6
+---- RESULTS
+8
+---- TYPES
+bigint
+====
+---- QUERY
+# Verify contents of each new partition in alltypesinsert.
+select count(*) from alltypesinsert where year=2007 and month is null
+---- RESULTS
+5
+---- TYPES
+bigint
+====
+---- QUERY
+# Verify contents of each new partition in alltypesinsert.
+select count(*) from alltypesinsert where year is null and month=6
+---- RESULTS
+7
+---- TYPES
+bigint
+====
+---- QUERY
+# Verify contents of each new partition in alltypesinsert.
+select count(*) from alltypesinsert where year is null and month is null
+---- RESULTS
+5
+---- TYPES
+bigint
+====
+---- QUERY
+# Insert nulls and non-null values into table with
+# custom table property serialization.null.format='xyz'
+insert overwrite nullformat_custom
+select 1, NULL, NULL, NULL, NULL union all
+select 2, true, "", 1, 1 union all
+select 3, false, "NULL", 2, 2 union all
+select 4, false, "xyz", 3, 3 union all
+select 5, false, "xyzbar", 4, 4
+---- RESULTS
+: 5
+====
+---- QUERY
+# Test correct interpretation of NULLs with custom
+# table property serialization.null.format='xyz'
+select id, a, b, b is null, c, d from nullformat_custom order by id limit 10
+---- RESULTS
+1,NULL,'NULL',true,NULL,NULL
+2,true,'',false,1,1
+3,false,'NULL',false,2,2
+4,false,'NULL',true,3,3
+5,false,'xyzbar',false,4,4
+---- TYPES
+int, boolean, string, boolean, int, double
+====

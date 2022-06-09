@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="explain_plan">
+
+  <title>Understanding Impala Query Performance - EXPLAIN Plans and Query Profiles</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>EXPLAIN Plans and Query Profiles</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Performance"/>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Querying"/>
+      <data name="Category" value="Troubleshooting"/>
+      <data name="Category" value="Reports"/>
+      <data name="Category" value="Concepts"/>
+      <data name="Category" value="Administrators"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Data Analysts"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      To understand the high-level performance considerations for Impala queries, read the
+      output of the <codeph>EXPLAIN</codeph> statement for the query. You can get the
+      <codeph>EXPLAIN</codeph> plan without actually running the query itself.
+    </p>
+
+    <p rev="1.4.0">
+      For an overview of the physical performance characteristics for a query, issue the
+      <codeph>SUMMARY</codeph> statement in <cmdname>impala-shell</cmdname> immediately after
+      executing a query. This condensed information shows which phases of execution took the
+      most time, and how the estimates for memory usage and number of rows at each phase compare
+      to the actual values.
+    </p>
+
+    <p>
+      To understand the detailed performance characteristics for a query, issue the
+      <codeph>PROFILE</codeph> statement in <cmdname>impala-shell</cmdname> immediately after
+      executing a query. This low-level information includes physical details about memory, CPU,
+      I/O, and network usage, and thus is only available after the query is actually run.
+    </p>
+
+    <p outputclass="toc inpage"/>
+
+    <p>
+      Also, see <xref href="impala_hbase.xml#hbase_performance"/> and
+      <xref href="impala_s3.xml#s3_performance"/> for examples of interpreting
+      <codeph>EXPLAIN</codeph> plans for queries against HBase tables <ph rev="2.2.0">and data
+      stored in the Amazon Simple Storage System (S3)</ph>.
+    </p>
+
+  </conbody>
+
+  <concept id="perf_explain">
+
+    <title>Using the EXPLAIN Plan for Performance Tuning</title>
+
+    <conbody>
+
+      <p>
+        The <codeph><xref href="impala_explain.xml#explain">EXPLAIN</xref></codeph> statement
+        gives you an outline of the logical steps that a query will perform, such as how the
+        work will be distributed among the nodes and how intermediate results will be combined
+        to produce the final result set. You can see these details before actually running the
+        query. You can use this information to check that the query will not operate in some
+        very unexpected or inefficient way.
+      </p>
+
+<!-- Turn into a conref in ciiu_langref too. Relocate to common.xml. -->
+
+<codeblock conref="impala_explain.xml#explain/explain_plan_simple"/>
+
+      <p conref="../shared/impala_common.xml#common/explain_interpret"/>
+
+      <p>
+        The <codeph>EXPLAIN</codeph> plan is also printed at the beginning of the query profile
+        report described in <xref href="#perf_profile"/>, for convenience in examining both the
+        logical and physical aspects of the query side-by-side.
+      </p>
+
+      <p rev="1.2">
+        The amount of detail displayed in the <codeph>EXPLAIN</codeph> output is controlled by
+        the <xref href="impala_explain_level.xml#explain_level">EXPLAIN_LEVEL</xref> query
+        option. You typically increase this setting from <codeph>standard</codeph> to
+        <codeph>extended</codeph> (or from <codeph>1</codeph> to <codeph>2</codeph>) when
+        doublechecking the presence of table and column statistics during performance tuning, or
+        when estimating query resource usage in conjunction with the resource management
+        features.
+      </p>
+
+<!-- To do:
+        This is a good place to have a few examples.
+      -->
+
+    </conbody>
+
+  </concept>
+
+  <concept id="perf_summary">
+
+    <title>Using the SUMMARY Report for Performance Tuning</title>
+
+    <conbody>
+
+      <p>
+        The
+        <codeph><xref href="impala_shell_commands.xml#shell_commands"
+            >SUMMARY</xref></codeph>
+        command within the <cmdname>impala-shell</cmdname> interpreter gives you an
+        easy-to-digest overview of the timings for the different phases of execution for a
+        query. Like the <codeph>EXPLAIN</codeph> plan, it is easy to see potential performance
+        bottlenecks. Like the <codeph>PROFILE</codeph> output, it is available after the query
+        is run and so displays actual timing numbers.
+      </p>
+
+      <p>
+        The <codeph>SUMMARY</codeph> report is also printed at the beginning of the query
+        profile report described in <xref href="#perf_profile"/>, for convenience in examining
+        high-level and low-level aspects of the query side-by-side.
+      </p>
+
+      <p>
+        When the <codeph>MT_DOP</codeph> query option is set to a value larger than
+        <codeph>0</codeph>, the <codeph>#Inst</codeph> column in the output shows the number of
+        fragment instances. Impala decomposes each query into smaller units of work that are
+        distributed across the cluster, and these units are referred as fragments.
+      </p>
+
+      <p>
+        When the <codeph>MT_DOP</codeph> query option is set to 0, the <codeph>#Inst</codeph>
+        column in the output shows the same value as the <codeph>#Hosts</codeph> column, since
+        there is exactly one fragment for each host.
+      </p>
+
+      <p>
+        For example, here is a query involving an aggregate function, on a single-node cluster.
+        The different stages of the query and their timings are shown (rolled up for all nodes),
+        along with estimated and actual values used in planning the query. In this case, the
+        <codeph>AVG()</codeph> function is computed for a subset of data on each node (stage 01)
+        and then the aggregated results from all nodes are combined at the end (stage 03). You
+        can see which stages took the most time, and whether any estimates were substantially
+        different than the actual data distribution.
+      </p>
+
+<codeblock>> SELECT AVG(ss_sales_price) FROM store_sales WHERE ss_coupon_amt = 0;
+> SUMMARY;
++--------------+--------+--------+----------+----------+-------+------------+----------+---------------+-----------------+
+| Operator     | #Hosts | #Inst  | Avg Time | Max Time | #Rows | Est. #Rows | Peak Mem | Est. Peak Mem | Detail          |
++--------------+--------+--------+----------+----------+-------+------------+----------+---------------+-----------------+
+| 03:AGGREGATE | 1      | 1      | 1.03ms   | 1.03ms   | 1     | 1          | 48.00 KB | -1 B          | MERGE FINALIZE  |
+| 02:EXCHANGE  | 1      | 1      | 0ns      | 0ns      | 1     | 1          | 0 B      | -1 B          | UNPARTITIONED   |
+| 01:AGGREGATE | 1      | 1      |30.79ms   | 30.79ms  | 1     | 1          | 80.00 KB | 10.00 MB      |                 |
+| 00:SCAN HDFS | 1      | 1      | 5.45s    | 5.45s    | 2.21M | -1         | 64.05 MB | 432.00 MB     | tpc.store_sales |
++--------------+--------+--------+----------+----------+-------+------------+----------+---------------+-----------------+
+</codeblock>
+
+      <p>
+        Notice how the longest initial phase of the query is measured in seconds (s), while
+        later phases working on smaller intermediate results are measured in milliseconds (ms)
+        or even nanoseconds (ns).
+      </p>
+
+    </conbody>
+
+  </concept>
+
+  <concept id="perf_profile">
+
+    <title>Using the Query Profile for Performance Tuning</title>
+
+    <conbody>
+
+      <p>
+        The <codeph>PROFILE</codeph> command, available in the <cmdname>impala-shell</cmdname>
+        interpreter, produces a detailed low-level report showing how the most recent query was
+        executed. Unlike the <codeph>EXPLAIN</codeph> plan described in
+        <xref
+          href="#perf_explain"/>, this information is only available after the
+        query has finished. It shows physical details such as the number of bytes read, maximum
+        memory usage, and so on for each node. You can use this information to determine if the
+        query is I/O-bound or CPU-bound, whether some network condition is imposing a
+        bottleneck, whether a slowdown is affecting some nodes but not others, and to check that
+        recommended configuration settings such as short-circuit local reads are in effect.
+      </p>
+
+      <p rev="">
+        By default, time values in the profile output reflect the wall-clock time taken by an
+        operation. For values denoting system time or user time, the measurement unit is
+        reflected in the metric name, such as <codeph>ScannerThreadsSysTime</codeph> or
+        <codeph>ScannerThreadsUserTime</codeph>. For example, a multi-threaded I/O operation
+        might show a small figure for wall-clock time, while the corresponding system time is
+        larger, representing the sum of the CPU time taken by each thread. Or a wall-clock time
+        figure might be larger because it counts time spent waiting, while the corresponding
+        system and user time figures only measure the time while the operation is actively using
+        CPU cycles.
+      </p>
+
+      <p>
+        The <xref href="impala_explain_plan.xml#perf_explain"><codeph>EXPLAIN</codeph>
+        plan</xref> is also printed at the beginning of the query profile report, for
+        convenience in examining both the logical and physical aspects of the query
+        side-by-side. The
+        <xref href="impala_explain_level.xml#explain_level">EXPLAIN_LEVEL</xref> query option
+        also controls the verbosity of the <codeph>EXPLAIN</codeph> output printed by the
+        <codeph>PROFILE</codeph> command.
+      </p>
+
+      <p>
+        In <keyword keyref="impala32_full"/>, a new <codeph>Per Node Profiles</codeph> section
+        was added to the profile output. The new section includes the following metrics that can
+        be controlled by the
+        <codeph><xref
+            href="impala_resource_trace_ratio.xml#resource_trace_ratio"
+            >RESOURCE_TRACE_RATIO</xref></codeph>
+        query option.
+      </p>
+
+      <ul>
+        <li>
+          <codeph>CpuIoWaitPercentage</codeph>
+        </li>
+
+        <li>
+          <codeph>CpuSysPercentage</codeph>
+        </li>
+
+        <li>
+          <codeph>CpuUserPercentage</codeph>
+        </li>
+
+        <li>
+          <codeph>HostDiskReadThroughput</codeph>: All data read by the host as part of the
+          execution of this query (spilling), by the HDFS data node, and by other processes
+          running on the same system.
+        </li>
+
+        <li>
+          <codeph>HostDiskWriteThroughput</codeph>: All data written by the host as part of the
+          execution of this query (spilling), by the HDFS data node, and by other processes
+          running on the same system.
+        </li>
+
+        <li>
+          <codeph>HostNetworkRx</codeph>: All data received by the host as part of the execution
+          of this query, other queries, and other processes running on the same system.
+        </li>
+
+        <li>
+          <codeph>HostNetworkTx</codeph>: All data transmitted by the host as part of the
+          execution of this query, other queries, and other processes running on the same
+          system.
+        </li>
+      </ul>
+
+    </conbody>
+
+  </concept>
+
+</concept>

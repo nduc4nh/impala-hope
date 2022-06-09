@@ -1,0 +1,23 @@
+====
+---- QUERY
+# Simple pattern literal
+use functional
+====
+---- QUERY
+select count(*) from alltypes
+---- TYPES
+bigint
+---- RESULTS
+7300
+====
+---- QUERY
+use functional_seq_snap
+====
+---- QUERY
+# TODO: Test confirming negative results - i.e. select from unknown table
+select count(*) from alltypes
+---- TYPES
+bigint
+---- RESULTS 
+7300
+====

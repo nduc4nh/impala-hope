@@ -1,0 +1,41 @@
+====
+---- QUERY
+alter table functional.insert_only_transactional_table change column x y bigint;
+---- CATCH
+AnalysisException: ALTER TABLE not supported on transactional (ACID) table: functional.insert_only_transactional_table
+====
+---- QUERY
+drop stats functional.insert_only_transactional_table;
+---- CATCH
+AnalysisException: DROP STATS not supported on transactional (ACID) table: functional.insert_only_transactional_table
+====
+---- QUERY
+insert into functional_orc_def.full_transactional_table values (1);
+---- CATCH
+AnalysisException: INSERT not supported on full transactional (ACID) table: functional_orc_def.full_transactional_table
+====
+---- QUERY
+truncate table functional_orc_def.full_transactional_table;
+---- CATCH
+AnalysisException: TRUNCATE not supported on full transactional (ACID) table: functional_orc_def.full_transactional_table
+====
+---- QUERY
+# Impala should reject tables that have multiple files in the same
+# bucket in the same directory.
+# Note: This table is clearly not bucketed, but for row ID
+# generation it has virtual buckets based on the file names.
+create table test_promotion_fail (i int) stored as orc;
+====
+---- HIVE_QUERY
+use $DATABASE;
+insert into test_promotion_fail values (1);
+insert into test_promotion_fail values (1);
+alter table test_promotion_fail
+set tblproperties('EXTERNAL'='false','transactional'='true');
+====
+---- QUERY
+refresh test_promotion_fail;
+select * from  test_promotion_fail;
+---- CATCH
+Found original file with unexpected name
+====

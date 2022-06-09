@@ -1,0 +1,120 @@
+# Test implicit and explicit casts. Binary predicates containing an explicit cast
+# cannot be offered to the data source.
+select * from functional.alltypes_datasource
+where tinyint_col < 256 and
+      float_col != 0 and
+      cast(int_col as bigint) < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN DATA SOURCE [functional.alltypes_datasource]
+data source predicates: tinyint_col < 256
+predicates: float_col != 0, CAST(int_col AS BIGINT) < 10
+   row-size=116B cardinality=500
+====
+# The first four predicates are in a form that can be offered to the data source
+# and the first and third will be accepted (it accepts every other conjunct).
+# The second and fourth will be evaluated by Impala. The negated predicates,
+# i.e. NOT <PREDICATE>, are not in a form able to be offered to the data source,
+# so they will always be evaluated by Impala.
+select * from functional.alltypes_datasource
+where 10 > int_col and
+      5 > double_col and
+      string_col != "Foo" and
+      string_col != "Bar" and
+      not true = bool_col and
+      not 5.0 = double_col
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN DATA SOURCE [functional.alltypes_datasource]
+data source predicates: int_col < 10, string_col != 'Foo'
+predicates: double_col < 5, NOT bool_col = TRUE, NOT double_col = 5.0, string_col != 'Bar'
+   row-size=116B cardinality=500
+====
+# The 3rd predicate is not in a form that can be offered to the data source so
+# the 4th will be offered and accepted instead.
+select * from functional.alltypes_datasource
+where int_col < 10 and
+      double_col > 5 and
+      string_col in ("Foo", "Bar") and
+      bool_col != false
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN DATA SOURCE [functional.alltypes_datasource]
+data source predicates: int_col < 10, bool_col != FALSE
+predicates: double_col > 5, string_col IN ('Foo', 'Bar')
+   row-size=116B cardinality=500
+====
+# Tests that all predicates from the On-clause are applied (IMPALA-805)
+# and that slot equivalences are enforced at lowest possible plan node
+# for tables produced by a data source.
+select 1 from functional.alltypes_datasource a
+inner join functional.alltypes_datasource b
+# equivalence class
+on a.id = b.id and a.id = b.int_col and a.id = b.bigint_col
+and a.tinyint_col = b.id and a.smallint_col = b.id
+and a.int_col = b.id and a.bigint_col = b.id
+# redundant predicates to test minimal spanning tree of equivalent slots
+where a.tinyint_col = a.smallint_col and a.int_col = a.bigint_col
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = b.id
+|  row-size=35B cardinality=500
+|
+|--01:SCAN DATA SOURCE [functional.alltypes_datasource b]
+|--predicates: b.id = b.int_col, b.id = b.bigint_col
+|     row-size=0B cardinality=500
+|
+00:SCAN DATA SOURCE [functional.alltypes_datasource a]
+predicates: a.id = a.int_col, a.id = a.tinyint_col, a.int_col = a.bigint_col, a.tinyint_col = a.smallint_col
+   row-size=0B cardinality=500
+====
+# Tests that <=>, IS DISTINCT FROM, and IS NOT DISTINCT FROM all can be offered to the
+# data source.
+select * from functional.alltypes_datasource
+where id <=> 1
+and bool_col <=> true
+and tinyint_col IS DISTINCT FROM 2
+and smallint_col IS DISTINCT FROM 3
+and int_col is not distinct from 4
+and bigint_col is not distinct from 5
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN DATA SOURCE [functional.alltypes_datasource]
+data source predicates: id IS NOT DISTINCT FROM 1, tinyint_col IS DISTINCT FROM 2, int_col IS NOT DISTINCT FROM 4
+predicates: bigint_col IS NOT DISTINCT FROM 5, bool_col IS NOT DISTINCT FROM TRUE, smallint_col IS DISTINCT FROM 3
+   row-size=116B cardinality=500
+====
+# EmptySet datasource
+select * from functional.alltypes_datasource
+where id <=> 1 and id = 2
+and bool_col <=> true
+and tinyint_col IS DISTINCT FROM 2
+and smallint_col IS DISTINCT FROM 3
+and int_col is not distinct from 4
+and bigint_col is not distinct from 5
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# IMPALA-5602: If a query contains predicates that are all pushed to the datasource and
+# there is a limit, then the query should not incorrectly run with 'small query'
+# optimization.
+select * from functional.alltypes_datasource where id = 1 limit 15
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:EXCHANGE [UNPARTITIONED]
+|  limit: 15
+|
+00:SCAN DATA SOURCE [functional.alltypes_datasource]
+data source predicates: id = 1
+   limit: 15
+   row-size=116B cardinality=15
+====

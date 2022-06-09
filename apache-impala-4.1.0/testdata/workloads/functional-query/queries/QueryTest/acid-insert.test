@@ -1,0 +1,184 @@
+====
+---- QUERY
+create table insertonly_nopart (i int)
+tblproperties('transactional'='true', 'transactional_properties'='insert_only');
+insert into insertonly_nopart values (1), (2);
+====
+---- QUERY
+select i from insertonly_nopart order by i;
+---- RESULTS
+1
+2
+---- TYPES
+INT
+====
+---- QUERY
+insert into insertonly_nopart values (3);
+====
+---- QUERY
+select i from insertonly_nopart order by i;
+---- RESULTS
+1
+2
+3
+---- TYPES
+INT
+====
+---- QUERY
+# IMPALA-10422: Run EXPLAIN before INSERT OVERWRITE to check that
+# EXPLAIN statements don't leak transactions and locks.
+explain insert overwrite insertonly_nopart values (10);
+insert overwrite insertonly_nopart values (10);
+====
+---- QUERY
+select i from insertonly_nopart order by i;
+---- RESULTS
+10
+---- TYPES
+INT
+====
+---- QUERY
+insert overwrite insertonly_nopart select 100;
+====
+---- QUERY
+select i from insertonly_nopart order by i;
+---- RESULTS
+100
+---- TYPES
+INT
+====
+---- QUERY
+create table insertonly_nopart_ctas
+tblproperties('transactional'='true', 'transactional_properties'='insert_only')
+as select * from insertonly_nopart;
+select * from insertonly_nopart_ctas;
+---- RESULTS
+100
+---- TYPES
+INT
+====
+---- QUERY
+show files in insertonly_nopart_ctas;
+---- LABELS
+Path,Size,Partition
+---- RESULTS
+row_regex:'$NAMENODE/$MANAGED_WAREHOUSE_DIR/$DATABASE.db/insertonly_nopart_ctas/delta_1_1/.*','\d+B',''
+---- TYPES
+STRING,STRING,STRING
+====
+---- QUERY
+drop table insertonly_nopart_ctas;
+====
+---- QUERY
+insert overwrite insertonly_nopart
+select * from insertonly_nopart limit 0;
+====
+---- QUERY
+select i from insertonly_nopart order by i;
+---- RESULTS
+---- TYPES
+INT
+====
+---- QUERY
+create table if not exists insertonly_part (i int)
+partitioned by (p int)
+tblproperties('transactional'='true', 'transactional_properties'='insert_only');
+insert into insertonly_part partition (p=1) values (10), (11);
+insert into insertonly_part partition (p=2) values (20);
+====
+---- QUERY
+select p, i from insertonly_part order by i;
+---- RESULTS
+1,10
+1,11
+2,20
+---- TYPES
+INT,INT
+====
+---- QUERY
+insert into insertonly_part partition (p=2) values (21);
+insert into insertonly_part partition (p=3) values (30);
+====
+---- QUERY
+select p, i from insertonly_part order by i;
+---- RESULTS
+1,10
+1,11
+2,20
+2,21
+3,30
+---- TYPES
+INT,INT
+====
+---- QUERY
+insert overwrite insertonly_part partition (p=2) values (22);
+insert overwrite insertonly_part partition (p=3) values (31);
+====
+---- QUERY
+select p, i from insertonly_part order by i;
+---- RESULTS
+1,10
+1,11
+2,22
+3,31
+---- TYPES
+INT,INT
+====
+---- QUERY
+insert overwrite insertonly_part partition (p=1)
+select * from insertonly_nopart limit 0;
+insert overwrite insertonly_part partition (p=2)
+select * from insertonly_nopart limit 0;
+====
+---- QUERY
+select p, i from insertonly_part order by i;
+---- RESULTS
+3,31
+---- TYPES
+INT,INT
+====
+---- QUERY
+insert overwrite insertonly_part partition (p)
+values (1000, 1), (2000, 2), (4000, 4), (5000, 5), (5001, 5);
+====
+---- QUERY
+select p, i from insertonly_part order by p, i;
+---- RESULTS
+1,1000
+2,2000
+3,31
+4,4000
+5,5000
+5,5001
+---- TYPES
+INT,INT
+====
+---- QUERY
+create table insertonly_part_ctas
+partitioned by (p)
+tblproperties('transactional'='true', 'transactional_properties'='insert_only')
+as select * from insertonly_part;
+select p, i from insertonly_part_ctas;
+---- RESULTS
+1,1000
+2,2000
+3,31
+4,4000
+5,5000
+5,5001
+---- TYPES
+INT,INT
+====
+---- QUERY
+show files in insertonly_part_ctas;
+---- LABELS
+Path,Size,Partition
+---- RESULTS
+row_regex:'$NAMENODE/$MANAGED_WAREHOUSE_DIR/$DATABASE.db/insertonly_part_ctas/p=1/delta_1_1/.*','\d+B','p=1'
+row_regex:'$NAMENODE/$MANAGED_WAREHOUSE_DIR/$DATABASE.db/insertonly_part_ctas/p=2/delta_1_1/.*','\d+B','p=2'
+row_regex:'$NAMENODE/$MANAGED_WAREHOUSE_DIR/$DATABASE.db/insertonly_part_ctas/p=3/delta_1_1/.*','\d+B','p=3'
+row_regex:'$NAMENODE/$MANAGED_WAREHOUSE_DIR/$DATABASE.db/insertonly_part_ctas/p=4/delta_1_1/.*','\d+B','p=4'
+row_regex:'$NAMENODE/$MANAGED_WAREHOUSE_DIR/$DATABASE.db/insertonly_part_ctas/p=5/delta_1_1/.*','\d+B','p=5'
+---- TYPES
+STRING,STRING,STRING
+====

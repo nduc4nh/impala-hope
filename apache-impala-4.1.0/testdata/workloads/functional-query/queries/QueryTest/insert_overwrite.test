@@ -1,0 +1,245 @@
+====
+---- QUERY
+create table insert_overwrite_nopart like $ORIGINAL_DB.insert_overwrite_nopart;
+create table insert_overwrite_partitioned like $ORIGINAL_DB.insert_overwrite_partitioned;
+====
+---- QUERY
+# insert overwrite into unpartitioned table
+insert overwrite table insert_overwrite_nopart
+select int_col
+from functional.tinyinttable
+---- RESULTS
+: 10
+====
+---- QUERY
+# Check results - note larger limit than expected in case there's more data written than there should be
+select col1
+from insert_overwrite_nopart
+order by col1
+limit 20
+---- TYPES
+int
+---- RESULTS
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+====
+---- QUERY
+# Now do an overwrite that should delete what was just written
+insert overwrite table insert_overwrite_nopart
+select 10
+from functional.tinyinttable
+---- RESULTS
+: 10
+====
+---- QUERY
+# check results from previous insert
+select col1
+from insert_overwrite_nopart
+order by col1
+limit 20
+---- TYPES
+int
+---- RESULTS
+10
+10
+10
+10
+10
+10
+10
+10
+10
+10
+====
+---- QUERY
+insert overwrite table insert_overwrite_nopart
+select 3
+from functional.tinyinttable
+limit 0
+---- RESULTS
+: 0
+====
+---- QUERY
+select count(*) from insert_overwrite_nopart
+---- TYPES
+bigint
+---- RESULTS
+0
+====
+---- QUERY
+# Static partitioned insert
+insert overwrite table insert_overwrite_partitioned
+PARTITION(col2=5)
+select int_col
+from functional.tinyinttable
+---- RESULTS
+col2=5: 10
+====
+---- QUERY
+# Check results of previous insert
+select col1, col2 from insert_overwrite_partitioned
+order by col1
+limit 20
+---- TYPES
+int,int
+---- RESULTS
+0,5
+1,5
+2,5
+3,5
+4,5
+5,5
+6,5
+7,5
+8,5
+9,5
+====
+---- QUERY
+# Insert into another partition, to check that original partition stays intact
+insert overwrite table insert_overwrite_partitioned
+PARTITION(col2=6)
+select int_col
+from functional.tinyinttable
+---- RESULTS
+col2=6: 10
+====
+---- QUERY
+# Check results of previous insert
+select col1, col2 from
+insert_overwrite_partitioned
+order by col2, col1
+limit 30
+---- TYPES
+int,int
+---- RESULTS
+0,5
+1,5
+2,5
+3,5
+4,5
+5,5
+6,5
+7,5
+8,5
+9,5
+0,6
+1,6
+2,6
+3,6
+4,6
+5,6
+6,6
+7,6
+8,6
+9,6
+====
+---- QUERY
+# Overwrite one partition, check that the other partition remains intact
+insert overwrite table insert_overwrite_partitioned
+partition(col2=5)
+select 10 from functional.tinyinttable
+---- RESULTS
+col2=5: 10
+====
+---- QUERY
+# Confirm that one partition is still intact
+select col1, col2 from insert_overwrite_partitioned
+order by col2, col1 limit 30
+---- TYPES
+int,int
+---- RESULTS
+10,5
+10,5
+10,5
+10,5
+10,5
+10,5
+10,5
+10,5
+10,5
+10,5
+0,6
+1,6
+2,6
+3,6
+4,6
+5,6
+6,6
+7,6
+8,6
+9,6
+====
+---- QUERY
+# Dynamic partitions
+insert overwrite table insert_overwrite_partitioned
+partition(col2)
+select int_col, int_col
+from functional.tinyinttable
+---- RESULTS
+col2=0: 1
+col2=1: 1
+col2=2: 1
+col2=3: 1
+col2=4: 1
+col2=5: 1
+col2=6: 1
+col2=7: 1
+col2=8: 1
+col2=9: 1
+====
+---- QUERY
+# Confirm results of previous insert
+select col1, col2
+from insert_overwrite_partitioned
+order by col2
+limit 30
+---- TYPES
+int,int
+---- RESULTS
+0,0
+1,1
+2,2
+3,3
+4,4
+5,5
+6,6
+7,7
+8,8
+9,9
+====
+---- QUERY
+# Overwrite dynamic partition. Limit to 1 row without actually using limit, which forces non-parallel insert
+insert overwrite table insert_overwrite_partitioned
+partition(col2)
+select 10, 0 from functional.tinyinttable
+where int_col = 0
+---- RESULTS
+col2=0: 1
+====
+---- QUERY
+select col1, col2
+from insert_overwrite_partitioned
+order by col2
+limit 30
+---- TYPES
+int,int
+---- RESULTS
+10,0
+1,1
+2,2
+3,3
+4,4
+5,5
+6,6
+7,7
+8,8
+9,9
+====

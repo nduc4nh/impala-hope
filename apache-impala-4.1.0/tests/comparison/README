@@ -1,0 +1,125 @@
+Purpose:
+
+This package is intended to augment the standard test suite. The standard tests are
+more efficient with regards to features tested versus execution time. However their
+coverage as a test suite still leaves gaps in query coverage. This package provides a
+random query generator to compare the results of a wide range of queries against a
+reference database engine. The queries will range from very simple single table selects to
+extremely complicated with multiple level of nesting. This method of testing will be
+slower but has a larger coverage area.
+
+
+Requirements:
+
+1) It's assumed that Impala is running locally. The minicluster should either be run with
+   Yarn (by setting INCLUDE_YARN=true and running ./buildall.sh -start_minicluster), or
+   mapreduce should be configured to use local mode (by modifying mapreduce.framework.name
+   in testdata/cluster/node_templates/common/etc/hadoop/conf/mapred-site.xml to 'local'
+   and running ./buildall.sh -start_minicluster)
+
+2) Impyla -- an implementation of DB API 2 for Impala.
+
+     sudo pip install impyla
+
+3) At least one python driver for a reference database.
+
+     sudo apt-get install python-mysqldb
+     sudo apt-get install python-psycopg2   # Postgresql
+
+For Impala/Kudu CRUD random query generation and comparison, please see
+the supplemental POSTGRES.txt on setting up PostgresQL 9.5 or higher as
+a reference database.
+
+Please see the supplemental ORACLE.txt on setting up Oracle as a reference
+database.
+
+
+Usage:
+
+1) Generate test data
+
+     ./data_generator.py --use-postgresql
+
+   This will generate tables and data in Postgresql and Impala
+
+
+2) Run the comparison
+
+     ./discrepancy_searcher.py
+
+   This will generate queries using the test database and compare the results against
+   Postgresql (the default).
+
+
+Things to Know:
+
+1) A good number of queries to run seems to be about 5k. Ideally each test run would
+   discover the complete list of known issues. From experience a 1k query test run may
+   complete without finding any issues that were discovered in previous runs. 5k seems
+   to be about the magic number were most issues will be rediscovered. This can take 1-2
+   hours. However as of this writing it's rare to run 1k queries without finding at
+   least one discrepancy.
+
+2) It's possible to provide a randomization seed so that the randomness is actually
+   reproducible. The data generation currently has a default seed so will always produce
+   the same tables. This also mean if a new data type is added those generated tables
+   will change.
+
+3) There is a query log. It's possible that a sequence of queries is required to expose
+   a bug. If you come across a failure that can't be reproduced by rerunning the failed
+   query, try running the queries leading up to that query as well.
+
+
+Miscellaneous:
+
+1) Instead of generating new random queries with each run, it may be better to reuse a
+   list of queries from a previous run that are known to produce results. As of this
+   writing only about 50% of queries produce results. So it may be better to trade high
+   randomness for higher quality queries. For example it would be possible to build up a
+   library of 100k queries that produce results then randomly select 2.5k of those.
+   Maybe that would provide testing equivalent to 5k totally random queries in less
+   time.
+
+   This would also be useful in eliminating queries that have known issues above.
+
+
+Postgresql:
+
+1) Supports basically all Impala language features. Exceptions include:
+
+   a) IGNORE NULLS clause for analytic functions
+
+2) Has strange sorting of strings, '-1' > '1'. This may be important if ORDER BY is ever
+   used. The databases being compared would need to have the same collation, which is
+   probably configurable.
+
+MySQL:
+
+1) Does not support analytics.
+
+2) Has poor boolean support.
+
+Oracle:
+
+1) No Boolean support.
+
+2) Better analytic function support, e.g. "IGNORE NULLS" is supported.
+
+3) Strange oddities abound, like no LIMIT clause.
+
+Improvements:
+
+1) Add the ability to incrementally increase the complexity of query profiles
+   automatically during execution. For example, the profile could start with no joins,
+   then after 100 or so queries, the number of joins could be increased. This would
+   lead to bugs that are not related to joins being found by much simpler queries.
+
+2) Add support for simplifying buggy queries. When a random query fails the comparison
+   check it is basically always much too complex for directly posting a bug report. It
+   is also time consuming to simplify the queries because there is a lot of trial and
+   error and manually editing queries.
+
+3) Add common built-in functions. Ex: NVL, ...
+
+4) Add support for comparing results with codegen enabled and disabled. Uri recently added
+   support for query options in Impyla.

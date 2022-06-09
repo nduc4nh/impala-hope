@@ -1,0 +1,44 @@
+String Data
+-----------
+Created by modifying Impala's HdfsAvroTableWriter(removed).
+
+These files' schemas have a single nullable string column 's'.
+
+negative_string_len.avro: contains two values, but the second value has a negative length.
+
+invalid_union.avro: contains three values, all of which have an invalid union value (4,
+which decodes to 2). Also has a single extra byte at the end (0x0a), which will be
+interpreted as a malformed data block.
+
+truncated_string.avro: contains one value, which is missing the last byte.
+
+Float Data
+----------
+Created by modifying Impala's HdfsAvroTableWriter(removed).
+
+These files' schemas have a single nullable float column 'c1'.
+
+truncated_float.avro: contains two float values. The second is missing the last byte.
+
+Bad Schema
+----------
+Created by editing the schema of a valid Avro file with vim.
+
+invalid_decimal_schema.avro: two columns, name STRING and value DECIMAL(5,7).
+  The DECIMAL value is invalid.
+
+Date Data
+---------
+out_of_range_date.avro:
+Small avro table with a single DATE column. Contains 5 values, two of which are out of
+range.
+
+hive2_pre_gregorian_date.avro:
+Small avro table with one DATE column, created by Hive 2.1.1.
+Used to demonstrate avro interoperability issues between Hive and Impala for dates
+before the introduction of Gregorian calendar in 1582-10-15.
+
+hive3_pre_gregorian_date.avro:
+Small avro table with one DATE column, created by Hive 3.1.0.
+Used to demonstrate that pre-Gregorian avro dates written by Hive3 are read back correctly
+by Impala.

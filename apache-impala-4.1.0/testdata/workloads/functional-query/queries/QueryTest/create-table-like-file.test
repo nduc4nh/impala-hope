@@ -1,0 +1,194 @@
+====
+---- QUERY
+create table $DATABASE.temp_decimal_table like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/decimal.parquet'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.temp_decimal_table
+---- RESULTS
+'d32','decimal(3,2)','Inferred from Parquet file.'
+'d11','decimal(1,1)','Inferred from Parquet file.'
+'d1015','decimal(15,10)','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+create table $DATABASE.like_zipcodes_file like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/zipcode_incomes.parquet'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.like_zipcodes_file
+---- RESULTS
+'id','string','Inferred from Parquet file.'
+'zip','string','Inferred from Parquet file.'
+'description1','string','Inferred from Parquet file.'
+'description2','string','Inferred from Parquet file.'
+'income','int','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+create table $DATABASE.like_alltypestiny_file like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/alltypestiny.parquet'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.like_alltypestiny_file
+---- RESULTS
+'id','int','Inferred from Parquet file.'
+'bool_col','boolean','Inferred from Parquet file.'
+'tinyint_col','int','Inferred from Parquet file.'
+'smallint_col','int','Inferred from Parquet file.'
+'int_col','int','Inferred from Parquet file.'
+'bigint_col','bigint','Inferred from Parquet file.'
+'float_col','float','Inferred from Parquet file.'
+'double_col','double','Inferred from Parquet file.'
+'date_string_col','string','Inferred from Parquet file.'
+'string_col','string','Inferred from Parquet file.'
+'timestamp_col','timestamp','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+# Creating a table from a file containing parquet logical types
+# used to annotate string columns (UTF8, ENUM).
+create external table $DATABASE.like_enumtype_file like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/enum/enum.parquet'
+STORED AS PARQUET
+LOCATION '$FILESYSTEM_PREFIX/test-warehouse/schemas/enum'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.like_enumtype_file
+---- RESULTS
+'species','string','Inferred from Parquet file.'
+'name','string','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+select * FROM $DATABASE.like_enumtype_file
+---- RESULTS
+'BEAR','Winnie'
+---- TYPES
+STRING, STRING
+====
+---- QUERY
+# Make sure creating a table with the same name doesn't throw an error when
+# IF NOT EXISTS is specified.
+create table if not exists $DATABASE.like_alltypestiny_file like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/zipcode_incomes.parquet'
+---- RESULTS
+'Table already exists.'
+====
+---- QUERY
+# Should not have changed since last statement was IF NOT EXISTS.
+describe $DATABASE.like_alltypestiny_file
+---- RESULTS
+'id','int','Inferred from Parquet file.'
+'bool_col','boolean','Inferred from Parquet file.'
+'tinyint_col','int','Inferred from Parquet file.'
+'smallint_col','int','Inferred from Parquet file.'
+'int_col','int','Inferred from Parquet file.'
+'bigint_col','bigint','Inferred from Parquet file.'
+'float_col','float','Inferred from Parquet file.'
+'double_col','double','Inferred from Parquet file.'
+'date_string_col','string','Inferred from Parquet file.'
+'string_col','string','Inferred from Parquet file.'
+'timestamp_col','timestamp','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+drop table if exists $DATABASE.temp_legacy_table
+---- RESULTS
+'Table does not exist.'
+====
+---- QUERY
+create table $DATABASE.temp_legacy_table like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/legacy_nested.parquet'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.temp_legacy_table
+---- RESULTS
+'t_long','bigint','Inferred from Parquet file.'
+'t_struct','struct<\n  f_int:int,\n  t_struct:struct<\n    f_int:int,\n    f_int2:int\n  >,\n  int_arr:array<int>,\n  int_map:map<string,int>\n>','Inferred from Parquet file.'
+'t_array_basic','array<int>','Inferred from Parquet file.'
+'t_array_struct','array<struct<\n  f_int1:int,\n  f_int2:int,\n  f_int3:int\n>>','Inferred from Parquet file.'
+'t_array_array','array<array<int>>','Inferred from Parquet file.'
+'t_array_map','array<map<string,int>>','Inferred from Parquet file.'
+'map_int','map<string,int>','Inferred from Parquet file.'
+'map_struct','map<string,struct<\n  f_int:int,\n  f_int2:int\n>>','Inferred from Parquet file.'
+'map_array','map<string,array<int>>','Inferred from Parquet file.'
+'map_map','map<string,map<string,int>>','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+drop table if exists $DATABASE.temp_legacy_table
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+drop table if exists $DATABASE.temp_modern_table
+---- RESULTS
+'Table does not exist.'
+====
+---- QUERY
+create table $DATABASE.temp_modern_table like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/modern_nested.parquet'
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe $DATABASE.temp_modern_table
+---- RESULTS
+'t_long','bigint','Inferred from Parquet file.'
+'t_struct','struct<\n  f_int:int,\n  t_struct:struct<\n    f_int:int,\n    f_int2:int\n  >,\n  int_arr:array<int>,\n  int_map:map<string,int>\n>','Inferred from Parquet file.'
+'t_array_basic','array<int>','Inferred from Parquet file.'
+'t_array_struct','array<struct<\n  f_int1:int,\n  f_int2:int,\n  f_int3:int\n>>','Inferred from Parquet file.'
+'t_array_array','array<array<int>>','Inferred from Parquet file.'
+'t_array_map','array<map<string,int>>','Inferred from Parquet file.'
+'map_int','map<string,int>','Inferred from Parquet file.'
+'map_struct','map<string,struct<\n  f_int:int,\n  f_int2:int\n>>','Inferred from Parquet file.'
+'map_array','map<string,array<int>>','Inferred from Parquet file.'
+'map_map','map<string,map<string,int>>','Inferred from Parquet file.'
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+drop table if exists $DATABASE.temp_modern_table
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+# Test adding sort.columns when creating a table like a parquet file.
+create table $DATABASE.sorted_zipcodes_file like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/zipcode_incomes.parquet'
+sort by (id, zip) stored as textfile;
+describe formatted $DATABASE.sorted_zipcodes_file;
+---- RESULTS: VERIFY_IS_SUBSET
+'','sort.columns        ','id,zip              '
+---- TYPES
+STRING,STRING,STRING
+====
+---- QUERY
+# Test adding sort.columns and sort.zorder when creating a table like a parquet file.
+create table $DATABASE.decimal_file like parquet
+'$FILESYSTEM_PREFIX/test-warehouse/schemas/decimal.parquet'
+sort by zorder (d32, d11) stored as textfile;
+describe formatted $DATABASE.decimal_file;
+---- RESULTS: VERIFY_IS_SUBSET
+'','sort.columns        ','d32,d11             '
+'','sort.order          ','ZORDER              '
+---- TYPES
+STRING,STRING,STRING
+====

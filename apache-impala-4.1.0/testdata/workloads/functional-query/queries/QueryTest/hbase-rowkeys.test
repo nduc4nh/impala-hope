@@ -1,0 +1,142 @@
+====
+---- QUERY
+# predicate on row key col is applied to scan if row key is mapped as string col
+select count(*)
+from stringids
+where id = '5'
+---- TYPES
+bigint
+---- RESULTS
+1
+====
+---- QUERY
+# predicate on row key col is not applied to scan if row key is mapped as non-string col
+# but the result is still correct
+select count(*)
+from alltypesagg
+where id = 5
+---- TYPES
+bigint
+---- RESULTS
+1
+====
+---- QUERY
+# ids are stored in ascii and ordered lexicographically
+# exclusive upper bound
+select count(*)
+from stringids
+where id < '5'
+---- TYPES
+bigint
+---- RESULTS
+4445
+====
+---- QUERY
+# inclusive upper bound
+select count(*)
+from stringids
+where id <= '5'
+---- TYPES
+bigint
+---- RESULTS
+4446
+====
+---- QUERY
+# inclusive lower bound
+select count(*)
+from stringids
+where id >= '6'
+---- TYPES
+bigint
+---- RESULTS
+4444
+====
+---- QUERY
+# exclusive lower bound
+select count(*)
+from stringids
+where id > '6'
+---- TYPES
+bigint
+---- RESULTS
+4443
+====
+---- QUERY
+# combinations
+select count(*)
+from stringids
+where id > concat('', '5')
+and id < concat('6', '')
+---- TYPES
+bigint
+---- RESULTS
+1110
+====
+---- QUERY
+select count(*)
+from stringids
+where id >= '5'
+and id < '6'
+---- TYPES
+bigint
+---- RESULTS
+1111
+====
+---- QUERY
+select count(*)
+from stringids
+where id > '5'
+and id <= '6'
+---- TYPES
+bigint
+---- RESULTS
+1111
+====
+---- QUERY
+select count(*)
+from stringids
+where id >= '5'
+and id <= '6'
+---- TYPES
+bigint
+---- RESULTS
+1112
+====
+---- QUERY
+# predicates on non-key cols are evaluated in the executor
+# and non-string comparisons work
+select count(*)
+from stringids
+where id < '5'
+and smallint_col < 5
+---- TYPES
+bigint
+---- RESULTS
+180
+====
+---- QUERY
+# IMP-1188 - row key lower bound is bigger than upper bound.
+select count(*) from stringids where id > 'b' and id < 'a'
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMP-1188 - row key predicate is null.
+select count(*) from stringids
+where id > cast(cast('sdfs' as int) as string)
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMP-1188 - cast string row key to int
+select count(*) from stringids
+where cast(id as int) < 5
+---- RESULTS
+5
+---- TYPES
+BIGINT
+====

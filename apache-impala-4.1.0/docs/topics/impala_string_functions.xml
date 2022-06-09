@@ -1,0 +1,1819 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="string_functions">
+
+  <title>Impala String Functions</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>String Functions</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Impala Functions"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="Data Analysts"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Querying"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p rev="2.0.0">
+      String functions are classified as those primarily accepting or returning
+      <codeph>STRING</codeph>, <codeph>VARCHAR</codeph>, or <codeph>CHAR</codeph> data types,
+      for example to measure the length of a string or concatenate two strings together.
+      <ul>
+        <li>
+          All the functions that accept <codeph>STRING</codeph> arguments also accept the
+          <codeph>VARCHAR</codeph> and <codeph>CHAR</codeph> types introduced in Impala 2.0.
+        </li>
+
+        <li>
+          Whenever <codeph>VARCHAR</codeph> or <codeph>CHAR</codeph> values are passed to a
+          function that returns a string value, the return type is normalized to
+          <codeph>STRING</codeph>. For example, a call to <codeph>CONCAT()</codeph> with a mix
+          of <codeph>STRING</codeph>, <codeph>VARCHAR</codeph>, and <codeph>CHAR</codeph>
+          arguments produces a <codeph>STRING</codeph> result.
+        </li>
+      </ul>
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/related_info"/>
+
+    <p>
+      The string functions operate mainly on these data types:
+      <xref href="impala_string.xml#string"/>, <xref href="impala_varchar.xml#varchar"/>, and
+      <xref href="impala_char.xml#char"/>.
+    </p>
+
+    <p>
+      <b>Function reference:</b>
+    </p>
+
+    <p>
+      Impala supports the following string functions:
+    </p>
+
+    <ul>
+      <li>
+        <xref href="#string_functions/ascii">ASCII</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/base64decode">BASE64DECODE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/base64encode">BASE64ENCODE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/btrim">BTRIM</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/bytes">BYTES</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/char_length">CHAR_LENGTH</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/chr">CHR</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/concat">CONCAT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/concat_ws">CONCAT_WS</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/find_in_set">FIND_IN_SET</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/group_concat">GROUP_CONCAT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/initcap">INITCAP</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/instr">INSTR</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/jaro_distance">JARO_DISTANCE, JARO_DIST</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/jaro_similarity">JARO_SIMILARITY, JARO_SIM</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/jaro_winkler_distance"
+          >JARO_WINKER_DISTANCE,
+        JW_DST</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/jaro_winkler_similarity"
+          >JARO_WINKER_SIMILARITY,
+        JW_SIM</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/left">LEFT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/length">LENGTH</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/levenshtein">LEVENSHTEIN, LE_DST</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/locate">LOCATE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/lower">LOWER, LCASE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/lpad">LPAD</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/ltrim">LTRI </xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/parse_url">PARSE_URL</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/regexp_escape">REGEXP_ESCAPE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/regexp_extract">REGEXP_EXTRACT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/regexp_like">REGEXP_LIKE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/regexp_replace">REGEXP_REPLACE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/repeat">REPEAT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/replace">REPLACE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/reverse">REVERSE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/right">RIGHT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/rpad">RPAD</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/rtrim">RTRIM</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/space">SPACE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/split_part">SPLIT_PART</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/strleft">STRLEFT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/strright">STRRIGHT</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/substr">SUBSTR, SUBSTRING</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/translate">TRANSLATE</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/trim">TRIM</xref>
+      </li>
+
+      <li>
+        <xref href="#string_functions/upper">UPPER, UCASE</xref>
+      </li>
+    </ul>
+
+    <dl>
+      <dlentry id="ascii">
+
+        <dt>
+          ASCII(STRING str)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the numeric ASCII code of the first character of the argument.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="base64decode" rev="2.6.0 IMPALA-2107">
+
+        <dt>
+          BASE64DECODE(STRING str)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b>
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            For general information about Base64 encoding, see
+            <xref
+              keyref="base64"/>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/base64_use_cases"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_charset"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_alignment"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_error_handling"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_examples"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="base64encode" rev="2.6.0 IMPALA-2107">
+
+        <dt>
+          BASE64ENCODE(STRING str)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b>
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            For general information about Base64 encoding, see
+            <xref
+              keyref="base64"/>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/base64_use_cases"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_charset"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_alignment"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/base64_examples"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="btrim">
+
+        <dt>
+          BTRIM(STRING a), BTRIM(STRING a, STRING chars_to_trim)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Removes all instances of one or more characters from the start and end
+          of a <codeph>STRING</codeph> value. By default, removes only spaces. If a
+          non-<codeph>NULL</codeph> optional second argument is specified, the function removes
+          all occurrences of characters in that second argument from the beginning and end of
+          the string.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples show the default <codeph>BTRIM()</codeph> behavior, and what
+            changes when you specify the optional second argument. All the examples bracket the
+            output value with <codeph>[ ]</codeph> so that you can see any leading or trailing
+            spaces in the <codeph>BTRIM()</codeph> result. By default, the function removes and
+            number of both leading and trailing spaces. When the second argument is specified,
+            any number of occurrences of any character in the second argument are removed from
+            the start and end of the input string; in this case, spaces are not removed (unless
+            they are part of the second argument) and any instances of the characters are not
+            removed if they do not come right at the beginning or end of the string.
+          </p>
+<codeblock>-- Remove multiple spaces before and one space after.
+select concat('[',btrim('    hello '),']');
++---------------------------------------+
+| concat('[', btrim('    hello '), ']') |
++---------------------------------------+
+| [hello]                               |
++---------------------------------------+
+
+-- Remove any instances of x or y or z at beginning or end. Leave spaces alone.
+select concat('[',btrim('xy    hello zyzzxx','xyz'),']');
++------------------------------------------------------+
+| concat('[', btrim('xy    hello zyzzxx', 'xyz'), ']') |
++------------------------------------------------------+
+| [    hello ]                                         |
++------------------------------------------------------+
+
+-- Remove any instances of x or y or z at beginning or end.
+-- Leave x, y, z alone in the middle of the string.
+select concat('[',btrim('xyhelxyzlozyzzxx','xyz'),']');
++----------------------------------------------------+
+| concat('[', btrim('xyhelxyzlozyzzxx', 'xyz'), ']') |
++----------------------------------------------------+
+| [helxyzlo]                                         |
++----------------------------------------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="bytes">
+        <dt>BYTES</dt>
+        <dd><b>Purpose:</b> Returns the number of bytes contained in the specified byte string. <p>
+            <b>Syntax:</b> BYTES (<i>byte_expression</i>)</p><p>Where:</p><p><i>byte_expression</i>
+            is the byte string for which the number of bytes is to be returned.</p><p
+            conref="../shared/impala_common.xml#common/usage_notes_blurb"/><p>The BYTES function is
+            similar to the LENGTH() function except that it always returns the number of bytes
+            regardless of the status of UTF-8 mode whether it is turned ON or OFF.</p><p>The
+            following is the list of supported string data types to be used in
+              <i>byte_expression</i>:</p><ul>
+            <li>STRING</li>
+            <li>VARCHAR</li>
+            <li>CHAR</li>
+          </ul><note>The BYTES (<i>byte_expression</i>) function counts the trailing zeros because
+            trailing zero bytes are considered bytes. In the case of a fixed <i>length</i> column,
+            the length of the value is always equal to the length defined for the column whereas the
+            length of the value in a <i>variable</i> length column is always equal to the number of
+            bytes, including any trailing zero bytes, contained in that value.</note><p
+            conref="../shared/impala_common.xml#common/example_blurb"/><p>The following example
+            obtains the number of bytes from “cloudera” by applying the BYTES function to the column
+            “cloudera”, which is type
+            VARCHAR.</p><codeblock>SELECT bytes(cast('cloudera' as varchar(20))) FROM xyz;
+            +----------------------------------------+
+            | bytes(cast('cloudera' as varchar(20))) |
+            +----------------------------------------+
+            | 8                                      |
+            +----------------------------------------+
+          </codeblock><note>Use the TRIM function on the <i>byte_expression</i> to
+            exclude the trailing blanks included in the byte count for a data value.</note>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="char_length">
+
+        <dt>
+          CHAR_LENGTH(STRING a), CHARACTER_LENGTH(STRING a)
+        </dt>
+
+        <dd rev="IMPALA-6391 IMPALA-2172">
+          <b>Purpose:</b> Returns the length in characters of the argument string, including any
+          trailing spaces that pad a <codeph>CHAR</codeph> value.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            When applied to a <codeph>STRING</codeph> value, it returns the same result as the
+            <codeph>length()</codeph> function. When applied to a <codeph>CHAR</codeph> value,
+            it might return a larger value than <codeph>length()</codeph> does, to account for
+            trailing spaces in the <codeph>CHAR</codeph>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/length_demo"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="chr">
+
+        <dt>
+          CHR(INT character_code)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a character specified by a decimal code point value. The
+          interpretation and display of the resulting character depends on your system locale.
+          Because consistent processing of Impala string values is only guaranteed for values
+          within the ASCII range, only use this function for values corresponding to ASCII
+          characters. In particular, parameter values greater than 255 return an empty string.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b> Can be used as the inverse of the <codeph>ascii()</codeph>
+            function, which converts a character to its numeric ASCII code.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+<codeblock>SELECT chr(65);
++---------+
+| chr(65) |
++---------+
+| A       |
++---------+
+
+SELECT chr(97);
++---------+
+| chr(97) |
++---------+
+| a       |
++---------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="concat">
+
+        <dt>
+          CONCAT(STRING a, STRING b...)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a single string representing all the argument values joined
+          together. If any argument is <codeph>NULL</codeph>, it returns <codeph>NULL</codeph>.
+          <p/>
+
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/concat_blurb"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="concat_ws">
+
+        <dt>
+          CONCAT_WS(STRING sep, STRING a, STRING b...)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a single string representing the second and following argument
+          values joined together, delimited by a specified separator.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/concat_blurb"/>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="find_in_set">
+
+        <dt>
+          FIND_IN_SET(STRING str, STRING strList)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the position (starting from 1) of the first occurrence of a
+          specified string within a comma-separated string. Returns <codeph>NULL</codeph> if
+          either argument is <codeph>NULL</codeph>, 0 if the search string is not found, or 0 if
+          the search string contains a comma.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.2" id="group_concat">
+
+        <dt>
+          GROUP_CONCAT(STRING s [, STRING sep])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a single string representing the argument value concatenated
+          together for each row of the result set. If the optional separator string is
+          specified, the separator is added between each pair of concatenated values.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/concat_blurb"/>
+
+          <p>
+            By default, returns a single string covering the whole result set. To include other
+            columns or values in the result set, or to produce multiple concatenated strings for
+            subsets of rows, include a <codeph>GROUP BY</codeph> clause in the query.
+          </p>
+
+          <p>
+            Strictly speaking, <codeph>GROUP_CONCAT()</codeph> is an aggregate function, not a
+            scalar function like the others in this list. For additional details and examples,
+            see <xref
+              href="impala_group_concat.xml#group_concat"/>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.2" id="initcap">
+
+        <dt>
+          INITCAP(STRING str)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the input string with the first letter of each word
+          capitalized and all other letters in lowercase.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p>
+            <b>Example: </b>
+          </p>
+
+          <p>
+            <codeph>INITCAP("i gOt mY ChiCkeNs in tHe yard.")</codeph> returns <codeph>" I Got
+            My Chickens In The Yard."</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="instr">
+
+        <dt>
+          INSTR(STRING str, STRING substr <ph rev="IMPALA-3973">[, BIGINT position [, BIGINT
+          occurrence ] ]</ph>)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the position (starting from 1) of the first
+          occurrence of a <varname>substr</varname> within a longer string. <p>
+            <b>Return type:</b>
+            <codeph>INT</codeph>
+          </p>
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+          <p> If the <varname>substr</varname> is not present in
+              <varname>str</varname>, the function returns 0. </p>
+          <p rev="IMPALA-3973 2.8.0"> The optional third and fourth arguments
+            let you find instances of the <varname>substr</varname> other than
+            the first instance starting from the left. </p>
+          <ul>
+            <li> The third argument, <varname>position</varname>, lets you
+              specify a starting point within the <varname>str</varname> other
+              than 1.
+              <codeblock>
+-- Restricting the search to positions 7..end,
+-- the first occurrence of 'b' is at position 9.
+select instr('foo bar bletch', 'b', 7);
++---------------------------------+
+| instr('foo bar bletch', 'b', 7) |
++---------------------------------+
+| 9                               |
++---------------------------------+
+</codeblock>
+            </li>
+            <li> If there are no more occurrences after the specified position,
+              the result is 0. </li>
+            <li> If <varname>position</varname> is negative, the search works
+              right-to-left starting that many characters from the right. The
+              return value still represents the position starting from the left
+              side of <varname>str</varname>.
+              <codeblock rev="IMPALA-3973 2.8.0">
+-- Scanning right to left, the first occurrence of 'o'
+-- is at position 8. (8th character from the left.)
+select instr('hello world','o',-1);
++-------------------------------+
+| instr('hello world', 'o', -1) |
++-------------------------------+
+| 8                             |
++-------------------------------+
+
+</codeblock></li>
+            <li> The fourth argument, <varname>occurrence</varname>, lets you
+              specify an occurrence other than the first.
+              <codeblock rev="IMPALA-3973 2.8.0">
+-- 2nd occurrence of 'b' is at position 9.
+select instr('foo bar bletch', 'b', 1, 2);
++------------------------------------+
+| instr('foo bar bletch', 'b', 1, 2) |
++------------------------------------+
+| 9                                  |
++------------------------------------+
+</codeblock></li>
+            <li> If <varname>occurrence</varname> is greater than the number of
+              matching occurrences, the function returns 0. </li>
+            <li>
+              <varname>occurrence</varname> cannot be negative or zero. A
+              non-positive value for this argument causes an error. </li>
+            <li> If either of the optional arguments,
+                <varname>position</varname> or <varname>occurrence</varname>, is
+                <codeph>NULL</codeph>, the function also returns
+                <codeph>NULL</codeph>.</li>
+          </ul>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="jaro_distance">
+
+        <dt>
+          JARO_DISTANCE(STRING str1, STRING str2), JARO_DST(STRING str1, STRING str2)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://ipfs.io/ipfs/QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco/wiki/Jaro%E2%80%93Winkler_distance.html"
+            format="html" scope="external">Jaro
+          distance</xref> between two input strings. The Jaro distance is a measure of
+          similarity between two strings and is the complementary of
+          <codeph>JARO_SIMILARITY()</codeph>, i.e. (1 - <codeph>JARO_SIMILARITY()</codeph>).
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If the two input strings are identical, the function returns 0.0.
+          </p>
+
+          <p>
+            If there is no matching character between the input strings, the function returns
+            1.0.
+          </p>
+
+          <p>
+            If either input strings is <codeph>NULL</codeph>, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            If the length of either input string is bigger than 255 characters, the function
+            returns an error.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="jaro_similarity">
+
+        <dt>
+          JARO_SIMILARITY(STRING str1, STRING str2), JARO_SIM(STRING str1, STRING str2)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://ipfs.io/ipfs/QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco/wiki/Jaro%E2%80%93Winkler_distance.html"
+            format="html" scope="external">Jaro
+          similarity</xref> of two strings. The higher the Jaro similarity for two strings is,
+          the more similar the strings are.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If the two input strings are identical, the function returns 1.0.
+          </p>
+
+          <p>
+            If there is no matching character between the input strings, the function returns
+            0.0.
+          </p>
+
+          <p>
+            If either input strings is <codeph>NULL</codeph>, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            If the length of either input string is bigger than 255 characters, the function
+            returns an error.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="jaro_winkler_distance">
+
+        <dt>
+          JARO_WINKLER_DISTANCE(STRING str1, STRING str2[, DOUBLE scaling_factor, DOUBLE
+          boost_threshold]), JW_DST(STRING str1, STRING str2[, DOUBLE scaling_factor, DOUBLE
+          boost_threshold])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://ipfs.io/ipfs/QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco/wiki/Jaro%E2%80%93Winkler_distance.html"
+            format="html" scope="external">Jaro-Winkler
+          distance</xref> of two input strings. It is the complementary of
+          <codeph>JARO_WINKLER_SIMILARITY()</codeph>, i.e. 1 -
+          <codeph>JARO_WINKLER_SIMILARITY()</codeph>.
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If the two input strings are identical, the function returns 0.0.
+          </p>
+
+          <p>
+            If there is no matching character between the input strings, the function returns
+            1.0.
+          </p>
+
+          <p>
+            The function returns an error in the following cases:
+            <ul>
+              <li>
+                The length of either input string is bigger than 255 characters.
+              </li>
+
+              <li>
+                <varname>scaling_factor</varname> &lt; 0.0 or <varname>scaling_factor</varname>
+                > 0.25
+              </li>
+
+              <li>
+                <varname>boost_threshold</varname> &lt; 0.0 or
+                <varname>boost_threshold</varname> > 1.0
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            If either input strings is <codeph>NULL</codeph>, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            The default <varname>scaling factor</varname> is 0.1.
+          </p>
+
+          <p>
+            The prefix weight will only be applied if the Jaro-distance exceeds the optional
+            <varname>boost_threshold</varname>. By default, the
+            <varname>boost_threshold</varname> value is 0.7.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="jaro_winkler_similarity">
+
+        <dt>
+          JARO_WINKLER_SIMILARITY(STRING str1, STRING str2[, DOUBLE scaling_factor, DOUBLE
+          boost_threshold]), JARO_SIM(STRING str1, STRING str2[, DOUBLE scaling_factor, DOUBLE
+          boost_threshold])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the
+          <xref
+            href="https://ipfs.io/ipfs/QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco/wiki/Jaro%E2%80%93Winkler_distance.html"
+            format="html" scope="external">Jaro-Winkler
+          Similarity</xref> between two input strings. The Jaro-Winkler similarity uses a prefix
+          weight, specified by <varname>scaling factor</varname>, which gives more favorable
+          ratings to strings that match from the beginning for a set prefix length, up to a
+          maximum of four characters.
+          <p>
+            Use Jaro or Jaro-Winkler functions to perform fuzzy matches on relatively short
+            strings, e.g. to scrub user inputs of names against the records in the database.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If the two input strings are identical, the function returns 1.0.
+          </p>
+
+          <p>
+            If there is no matching character between the input strings, the function returns
+            0.0.
+          </p>
+
+          <p>
+            The function returns an error in the following cases:
+            <ul>
+              <li>
+                The length of either input string is bigger than 255 characters.
+              </li>
+
+              <li>
+                <varname>scaling_factor</varname> &lt; 0.0 or <varname>scaling_factor</varname>
+                > 0.25
+              </li>
+
+              <li>
+                <varname>boost_threshold</varname> &lt; 0.0 or
+                <varname>boost_threshold</varname> > 1.0
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            If either input strings is <codeph>NULL</codeph>, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            The default <varname>scaling factor</varname> is 0.1.
+          </p>
+
+          <p>
+            The prefix weight will only be applied if the Jaro-similarity exceeds the optional
+            <varname>boost_threshold</varname>. By default, the
+            <varname>boost_threshold</varname> value is 0.7.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="left">
+
+        <dt>
+          LEFT(STRING a, INT num_chars)
+        </dt>
+
+        <dd>
+          See the <codeph>STRLEFT()</codeph> function.
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="length">
+
+        <dt>
+          LENGTH(STRING a)
+        </dt>
+
+        <dd rev="IMPALA-6391 IMPALA-2172">
+          <b>Purpose:</b> Returns the length in characters of the argument string, ignoring any
+          trailing spaces in <codeph>CHAR</codeph> values.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            When applied to a <codeph>STRING</codeph> value, it returns the same result as the
+            <codeph>CHAR_LENGTH()</codeph> function. When applied to a <codeph>CHAR</codeph>
+            value, it might return a smaller value than <codeph>CHAR_LENGTH()</codeph> does,
+            because <codeph>LENGTH()</codeph> ignores any trailing spaces in the
+            <codeph>CHAR</codeph>.
+          </p>
+
+          <note>
+            Because the behavior of <codeph>LENGTH()</codeph> with <codeph>CHAR</codeph> values
+            containing trailing spaces is not standardized across the industry, when porting
+            code from other database systems, evaluate the behavior of <codeph>LENGTH()</codeph>
+            on the source system and switch to <codeph>CHAR_LENGTH()</codeph> for Impala if
+            necessary.
+          </note>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p conref="../shared/impala_common.xml#common/length_demo"/>
+        </dd>
+
+      </dlentry>
+    </dl>
+
+    <dl>
+      <dlentry id="levenshtein" rev="3.2">
+
+        <dt>
+          LEVENSHTEIN(STRING str1, STRING str2), <ph id="le_dst"
+            >LE_DST(STRING
+          str1, STRING str2)</ph>
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the Levenshtein distance between two input strings. The
+          Levenshtein distance between two strings is the minimum number of single-character
+          edits required to transform one string to other. The function indicates how different
+          the input strings are.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+          <b>Usage notes:</b>
+          <p>
+            If input strings are equal, the function returns 0.
+          </p>
+
+          <p>
+            If either input exceeds 255 characters, the function returns an error.
+          </p>
+
+          <p>
+            If either input string is <codeph>NULL</codeph>, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            If the length of one input string is zero, the function returns the length of the
+            other string.
+          </p>
+
+          <p>
+            <b>Example:</b>
+          </p>
+
+          <p>
+            <codeph>LEVENSHTEIN ('welcome', 'We come')</codeph> returns 2, first change to
+            replace '<codeph>w</codeph>' to '<codeph>W</codeph>', and then to replace
+            '<codeph>l</codeph>' to a space character.
+          </p>
+        </dd>
+
+      </dlentry>
+    </dl>
+
+    <dl>
+      <dlentry id="locate">
+
+        <dt>
+          LOCATE(STRING substr, STRING str[, INT pos])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the position (starting from 1) of the first occurrence of a
+          substring within a longer string, optionally after a particular position.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="lower">
+
+        <dt>
+          LOWER(STRING a), <ph id="lcase">LCASE(STRING a)</ph>
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument string converted to all-lowercase.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p
+            conref="../shared/impala_common.xml#common/case_insensitive_comparisons_tip"
+          />
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="lpad">
+
+        <dt>
+          LPAD(STRING str, INT len, STRING pad)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a string of a specified length, based on the first argument
+          string. If the specified string is too short, it is padded on the left with a
+          repeating sequence of the characters from the pad string. If the specified string is
+          too long, it is truncated on the right.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="ltrim">
+
+        <dt>
+          LTRIM(STRING a [, STRING chars_to_trim])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument string with all occurrences of characters
+          specified by the second argument removed from the left side. Removes spaces if the
+          second argument is not specified.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="parse_url">
+
+        <dt>
+          PARSE_URL(STRING urlString, STRING partToExtract [, STRING keyToExtract])
+        </dt>
+
+        <dd>
+          <indexterm audience="hidden">parse_url() function</indexterm>
+          <b>Purpose:</b> Returns the portion of a URL corresponding to a specified part. The
+          part argument can be <codeph>'PROTOCOL'</codeph>, <codeph>'HOST'</codeph>,
+          <codeph>'PATH'</codeph>, <codeph>'REF'</codeph>, <codeph>'AUTHORITY'</codeph>,
+          <codeph>'FILE'</codeph>, <codeph>'USERINFO'</codeph>, or <codeph>'QUERY'</codeph>.
+          Uppercase is required for these literal values. When requesting the
+          <codeph>QUERY</codeph> portion of the URL, you can optionally specify a key to
+          retrieve just the associated value from the key-value pairs in the query string.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b> This function is important for the traditional Hadoop use case
+            of interpreting web logs. For example, if the web traffic data features raw URLs not
+            divided into separate table columns, you can count visitors to a particular page by
+            extracting the <codeph>'PATH'</codeph> or <codeph>'FILE'</codeph> field, or analyze
+            search terms by extracting the corresponding key from the <codeph>'QUERY'</codeph>
+            field.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="3.0" id="regexp_escape">
+
+        <dt>
+          REGEXP_ESCAPE(STRING source)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> The <codeph>REGEXP_ESCAPE()</codeph> function returns a string escaped
+          for the special character in RE2 library so that the special characters are
+          interpreted literally rather than as special characters. The following special
+          characters are escaped by the function:
+<codeblock><![CDATA[.\+*?[^]$(){}=!<>|:-]]></codeblock>
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2_warning"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_escapes"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            This example shows escaping one of special characters in RE2.
+          </p>
+<codeblock>
++------------------------------------------------------+
+| regexp_escape('Hello.world')                         |
++------------------------------------------------------+
+| Hello\.world                                         |
++------------------------------------------------------+
+</codeblock>
+          <p>
+            This example shows escaping all the special characters in RE2.
+          </p>
+<codeblock><![CDATA[
++------------------------------------------------------------+
+| regexp_escape('a.b\\c+d*e?f[g]h$i(j)k{l}m=n!o<p>q|r:s-t')  |
++------------------------------------------------------------+
+| a\.b\\c\+d\*e\?f\[g\]h\$i\(j\)k\{l\}m\=n\!o\<p\>q\|r\:s\-t |
++------------------------------------------------------------+
+]]>
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="regexp_extract">
+
+        <dt>
+          REGEXP_EXTRACT(STRING subject, STRING pattern, INT index)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified () group from a string based on a regular
+          expression pattern. Group 0 refers to the entire extracted string, while group 1, 2,
+          and so on refers to the first, second, and so on <codeph>(...)</codeph> portion.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2_warning"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_escapes"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            This example shows how group 0 matches the full pattern string, including the
+            portion outside any <codeph>()</codeph> group:
+          </p>
+<codeblock>[localhost:21000] &gt; select regexp_extract('abcdef123ghi456jkl','.*?(\\d+)',0);
++------------------------------------------------------+
+| regexp_extract('abcdef123ghi456jkl', '.*?(\\d+)', 0) |
++------------------------------------------------------+
+| abcdef123ghi456                                      |
++------------------------------------------------------+
+Returned 1 row(s) in 0.11s</codeblock>
+          <p>
+            This example shows how group 1 matches just the contents inside the first
+            <codeph>()</codeph> group in the pattern string:
+          </p>
+<codeblock>[localhost:21000] &gt; select regexp_extract('abcdef123ghi456jkl','.*?(\\d+)',1);
++------------------------------------------------------+
+| regexp_extract('abcdef123ghi456jkl', '.*?(\\d+)', 1) |
++------------------------------------------------------+
+| 456                                                  |
++------------------------------------------------------+
+Returned 1 row(s) in 0.11s</codeblock>
+          <p rev="2.0.0">
+            Unlike in earlier Impala releases, the regular expression library used in Impala 2.0
+            and later supports the <codeph>.*?</codeph> idiom for non-greedy matches. This
+            example shows how a pattern string starting with <codeph>.*?</codeph> matches the
+            shortest possible portion of the source string, returning the rightmost set of
+            lowercase letters. A pattern string both starting and ending with
+            <codeph>.*?</codeph> finds two potential matches of equal length, and returns the
+            first one found (the leftmost set of lowercase letters).
+          </p>
+<codeblock>[localhost:21000] &gt; select regexp_extract('AbcdBCdefGHI','.*?([[:lower:]]+)',1);
++--------------------------------------------------------+
+| regexp_extract('abcdbcdefghi', '.*?([[:lower:]]+)', 1) |
++--------------------------------------------------------+
+| def                                                    |
++--------------------------------------------------------+
+[localhost:21000] &gt; select regexp_extract('AbcdBCdefGHI','.*?([[:lower:]]+).*?',1);
++-----------------------------------------------------------+
+| regexp_extract('abcdbcdefghi', '.*?([[:lower:]]+).*?', 1) |
++-----------------------------------------------------------+
+| bcd                                                       |
++-----------------------------------------------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="regexp_like">
+
+        <dt>
+          REGEXP_LIKE(STRING source, STRING pattern[, STRING options])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns <codeph>true</codeph> or <codeph>false</codeph> to indicate
+          whether the source string contains anywhere inside it the regular expression given by
+          the pattern. The optional third argument consists of letter flags that change how the
+          match is performed, such as <codeph>i</codeph> for case-insensitive matching.
+          <p
+            conref="../shared/impala_common.xml#common/syntax_blurb"/>
+
+          <p>
+            The flags that you can include in the optional third argument are:
+          </p>
+          <ul>
+            <li>
+              <codeph>c</codeph>: Case-sensitive matching (the default).
+            </li>
+
+            <li>
+              <codeph>i</codeph>: Case-insensitive matching. If multiple instances of
+              <codeph>c</codeph> and <codeph>i</codeph> are included in the third argument, the
+              last such option takes precedence.
+            </li>
+
+            <li>
+              <codeph>m</codeph>: Multi-line matching. The <codeph>^</codeph> and
+              <codeph>$</codeph> operators match the start or end of any line within the source
+              string, not the start and end of the entire string.
+            </li>
+
+            <li>
+              <codeph>n</codeph>: Newline matching. The <codeph>.</codeph> operator can match
+              the newline character. A repetition operator such as <codeph>.*</codeph> can match
+              a portion of the source string that spans multiple lines.
+            </li>
+          </ul>
+          <p>
+            <b>Return type:</b> <codeph>BOOLEAN</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2_warning"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_escapes"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            This example shows how <codeph>regexp_like()</codeph> can test for the existence of
+            various kinds of regular expression patterns within a source string:
+          </p>
+<codeblock><![CDATA[
+-- Matches because the 'f' appears somewhere in 'foo'.
+select regexp_like('foo','f');
++-------------------------+
+| regexp_like('foo', 'f') |
++-------------------------+
+| true                    |
++-------------------------+
+
+-- Does not match because the comparison is case-sensitive by default.
+select regexp_like('foo','F');
++-------------------------+
+| regexp_like('foo', 'f') |
++-------------------------+
+| false                   |
++-------------------------+
+
+-- The 3rd argument can change the matching logic, such as 'i' meaning case-insensitive.
+select regexp_like('foo','F','i');
++------------------------------+
+| regexp_like('foo', 'f', 'i') |
++------------------------------+
+| true                         |
++------------------------------+
+
+-- The familiar regular expression notations work, such as ^ and $ anchors...
+select regexp_like('foo','f$');
++--------------------------+
+| regexp_like('foo', 'f$') |
++--------------------------+
+| false                    |
++--------------------------+
+
+select regexp_like('foo','o$');
++--------------------------+
+| regexp_like('foo', 'o$') |
++--------------------------+
+| true                     |
++--------------------------+
+
+-- ...and repetition operators such as * and +
+select regexp_like('foooooobar','fo+b');
++-----------------------------------+
+| regexp_like('foooooobar', 'fo+b') |
++-----------------------------------+
+| true                              |
++-----------------------------------+
+
+select regexp_like('foooooobar','fx*y*o*b');
++---------------------------------------+
+| regexp_like('foooooobar', 'fx*y*o*b') |
++---------------------------------------+
+| true                                  |
++---------------------------------------+
+]]>
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="regexp_replace">
+
+        <dt>
+          REGEXP_REPLACE(STRING initial, STRING pattern, STRING replacement)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the initial argument with the regular expression pattern
+          replaced by the final argument string.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_re2_warning"/>
+
+          <p conref="../shared/impala_common.xml#common/regexp_escapes"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            These examples show how you can replace parts of a string matching a pattern with
+            replacement text, which can include backreferences to any <codeph>()</codeph> groups
+            in the pattern string. The backreference numbers start at 1, and any
+            <codeph>\</codeph> characters must be escaped as <codeph>\\</codeph>.
+          </p>
+
+          <p>
+            Replace a character pattern with new text:
+          </p>
+<codeblock>[localhost:21000] &gt; select regexp_replace('aaabbbaaa','b+','xyz');
++------------------------------------------+
+| regexp_replace('aaabbbaaa', 'b+', 'xyz') |
++------------------------------------------+
+| aaaxyzaaa                                |
++------------------------------------------+
+Returned 1 row(s) in 0.11s</codeblock>
+          <p>
+            Replace a character pattern with substitution text that includes the original
+            matching text:
+          </p>
+<codeblock>[localhost:21000] &gt; select regexp_replace('aaabbbaaa','(b+)','&lt;\\1&gt;');
++----------------------------------------------+
+| regexp_replace('aaabbbaaa', '(b+)', '&lt;\\1&gt;') |
++----------------------------------------------+
+| aaa&lt;bbb&gt;aaa                                  |
++----------------------------------------------+
+Returned 1 row(s) in 0.11s</codeblock>
+          <p>
+            Remove all characters that are not digits:
+          </p>
+<codeblock>[localhost:21000] &gt; select regexp_replace('123-456-789','[^[:digit:]]','');
++---------------------------------------------------+
+| regexp_replace('123-456-789', '[^[:digit:]]', '') |
++---------------------------------------------------+
+| 123456789                                         |
++---------------------------------------------------+
+Returned 1 row(s) in 0.12s</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="repeat">
+
+        <dt>
+          REPEAT(STRING str, INT n)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument string repeated a specified number of times.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="replace" rev="2.9.0 IMPALA-4729">
+
+        <dt>
+          REPLACE(STRING initial, STRING target, STRING replacement)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the initial argument with all occurrences of the target string
+          replaced by the replacement string.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Because this function does not use any regular expression patterns, it is typically
+            faster than <codeph>regexp_replace()</codeph> for simple string substitutions.
+          </p>
+
+          <p>
+            If any argument is <codeph>NULL</codeph>, the return value is <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            Matching is case-sensitive.
+          </p>
+
+          <p>
+            If the replacement string contains another instance of the target string, the
+            expansion is only performed once, instead of applying again to the newly constructed
+            string.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_290"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+<codeblock>-- Replace one string with another.
+select replace('hello world','world','earth');
++------------------------------------------+
+| replace('hello world', 'world', 'earth') |
++------------------------------------------+
+| hello earth                              |
++------------------------------------------+
+
+-- All occurrences of the target string are replaced.
+select replace('hello world','o','0');
++----------------------------------+
+| replace('hello world', 'o', '0') |
++----------------------------------+
+| hell0 w0rld                      |
++----------------------------------+
+
+-- If no match is found, the original string is returned unchanged.
+select replace('hello world','xyz','abc');
++--------------------------------------+
+| replace('hello world', 'xyz', 'abc') |
++--------------------------------------+
+| hello world                          |
++--------------------------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="reverse">
+
+        <dt>
+          REVERSE(STRING a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument string with characters in reversed order.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="right">
+
+        <dt>
+          RIGHT(STRING a, INT num_chars)
+        </dt>
+
+        <dd>
+          See the <codeph>STRRIGHT()</codeph> function.
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="rpad">
+
+        <dt>
+          RPAD(STRING str, INT len, STRING pad)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a string of a specified length, based on the first argument
+          string. If the specified string is too short, it is padded on the right with a
+          repeating sequence of the characters from the pad string. If the specified string is
+          too long, it is truncated on the right.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="rtrim">
+
+        <dt>
+          RTRIM(STRING a [, STRING chars_to_trim])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument string with all occurrences of characters
+          specified by the second argument removed from the right side. Removes spaces if the
+          second argument is not specified.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="space">
+
+        <dt>
+          SPACE(INT n)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a concatenated string of the specified number of spaces.
+          Shorthand for <codeph>REPEAT(' ',<varname>n</varname>)</codeph>.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0 IMPALA-2084" id="split_part">
+
+        <dt>
+          SPLIT_PART(STRING source, STRING delimiter, BIGINT index)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the requested <codeph>index</codeph>th part of the input
+          <varname>source</varname> string split by the <varname>delimiter</varname>.
+          <ul>
+            <li>
+              If <varname>index</varname> is a positive number, returns the
+              <varname>index</varname>th part from the left within the <varname>source</varname>
+              string.
+            </li>
+
+            <li>
+              If <varname>index</varname> is a negative number, returns the
+              <varname>index</varname>th part from the right within the
+              <varname>source</varname> string.
+            </li>
+
+            <li>
+              If <varname>index</varname> is 0, returns an error.
+            </li>
+          </ul>
+          <p>
+            The <varname>delimiter</varname> can consist of multiple characters, not just a
+            single character.
+          </p>
+
+          <p>
+            All matching of the delimiter is done exactly, not using any regular expression
+            patterns.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"
+              />
+
+          <p>
+            <codeph>SPLIT_PART('x,y,z',',',2)</codeph> returns <codeph>'y'</codeph>.
+          </p>
+
+          <p>
+            <codeph>SPLIT_PART('one***two***three','***',2)</codeph> returns
+            <codeph>'two'</codeph>.
+          </p>
+
+          <p>
+            <codeph>SPLIT_PART('abc@@def@@ghi', '@@', 3)</codeph> returns
+            <codeph>'ghi'</codeph>.
+          </p>
+
+          <p>
+            <codeph>SPLIT_PART('abc@@def@@ghi', '@@', -3)</codeph> returns
+            <codeph>'abc'</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="strleft">
+
+        <dt>
+          STRLEFT(STRING a, INT num_chars)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the leftmost characters of the string. Shorthand for a call to
+          <codeph>SUBSTR()</codeph> with 2 arguments.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="strright">
+
+        <dt>
+          STRRIGHT(STRING a, INT num_chars)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the rightmost characters of the string. Shorthand for a call
+          to <codeph>SUBSTR()</codeph> with 2 arguments.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="substr">
+
+        <dt>
+          SUBSTR(STRING a, INT start [, INT len]),
+          <ph id="substring"
+            >SUBSTRING(STRING a, INT start [, INT len])</ph>
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the portion of the string starting at a specified point,
+          optionally with a specified maximum length. The characters in the string are indexed
+          starting at 1.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="translate">
+
+        <dt>
+          TRANSLATE(STRING input, STRING from, STRING to)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the <codeph>input</codeph> string with each character in the
+          <codeph>from</codeph> argument replaced with the corresponding character in the
+          <codeph>to</codeph> argument. The characters are matched in the order they appear in
+          <codeph>from</codeph> and <codeph>to</codeph>.
+          <p>
+            For example: <codeph>translate ('hello world','world','earth')</codeph> returns
+            <codeph>'hetta earth'</codeph>.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If <codeph>from</codeph> contains more characters than <codeph>to</codeph>, the
+            <codeph>from</codeph> characters that are beyond the length of <codeph>to</codeph>
+            are removed in the result.
+          </p>
+
+          <p>
+            For example:
+          </p>
+
+          <p>
+            <codeph>translate('abcdedg', 'bcd', '1')</codeph> returns <codeph>'a1eg'</codeph>.
+          </p>
+
+          <p>
+            <codeph>translate('Unit Number#2', '# ', '_')</codeph> returns
+            <codeph>'UnitNumber_2'</codeph>.
+          </p>
+
+          <p>
+            If <codeph>from</codeph> is <codeph>NULL</codeph>, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            If <codeph>to</codeph> contains more characters than <codeph>from</codeph>, the
+            extra characters in <codeph>to</codeph> are ignored.
+          </p>
+
+          <p>
+            If <codeph>from</codeph> contains duplicate characters, the duplicate character is
+            replaced with the first matching character in <codeph>to</codeph>.
+          </p>
+
+          <p>
+            For example: <codeph>translate ('hello','ll','67')</codeph> returns
+            <codeph>'he66o'</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="trim">
+
+        <dt>
+          TRIM(STRING a)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the input string with both leading and trailing spaces
+          removed. The same as passing the string through both <codeph>LTRIM()</codeph> and
+          <codeph>RTRIM()</codeph>.
+          <p>
+            <b>Usage notes:</b> Often used during data cleansing operations during the ETL
+            cycle, if input values might still have surrounding spaces. For a more
+            general-purpose function that can remove other leading and trailing characters
+            besides spaces, see <codeph>BTRIM()</codeph>.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="upper">
+
+        <dt>
+          UPPER(STRING a), <ph id="ucase">UCASE(STRING a)</ph>
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the argument string converted to all-uppercase.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p
+            conref="../shared/impala_common.xml#common/case_insensitive_comparisons_tip"
+          />
+        </dd>
+
+      </dlentry>
+    </dl>
+
+  </conbody>
+
+</concept>

@@ -1,0 +1,484 @@
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_tables(
+  level STRING,
+  event_time TIMESTAMP,
+  register_time DATE,
+  message STRING,
+  price DECIMAL(8,1),
+  map_test MAP <STRING, array <STRING>>,
+  struct_test STRUCT <f1: BIGINT, f2: BIGINT>
+)
+PARTITIONED BY SPEC
+(
+  level,
+  TRUNCATE(10, level),
+  event_time,
+  HOURS(event_time),
+  BUCKET(1000, event_time),
+  DAY(register_time)
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_hadoop_tables;
+---- RESULTS
+'level','string','','true'
+'event_time','timestamp','','true'
+'register_time','date','','true'
+'message','string','','true'
+'price','decimal(8,1)','','true'
+'map_test','map<string,array<string>>','','true'
+'struct_test','struct<\n  f1:bigint,\n  f2:bigint\n>','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_hadoop_tables;
+---- RESULTS
+0,1,1000,'level','IDENTITY'
+0,1,1001,'level_trunc','TRUNCATE 10'
+0,2,1002,'event_time','IDENTITY'
+0,2,1003,'event_time_hour','HOUR'
+0,2,1004,'event_time_bucket','BUCKET 1000'
+0,3,1005,'register_time_day','DAY'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====
+---- QUERY
+DROP TABLE iceberg_hadoop_tables;
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_tables(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+DESCRIBE iceberg_hadoop_tables;
+---- RESULTS
+'level','string','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+CREATE EXTERNAL TABLE iceberg_hadoop_tbls_external(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+---- RESULTS
+'Location is necessary for external iceberg table.'
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_tbls_with_loc(
+  level STRING
+)
+PARTITIONED BY SPEC
+(
+  level,
+  BUCKET(12345, level),
+  TRUNCATE(15, level)
+)
+STORED AS ICEBERG
+LOCATION '/$DATABASE.iceberg_test_with_location'
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+CREATE EXTERNAL TABLE iceberg_hadoop_tbls_external(
+  level STRING
+)
+STORED AS ICEBERG
+LOCATION '/$DATABASE.iceberg_test_with_location'
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_hadoop_tbls_external;
+---- RESULTS
+'level','string','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_hadoop_tbls_external;
+---- RESULTS
+0,1,1000,'level','IDENTITY'
+0,1,1001,'level_bucket','BUCKET 12345'
+0,1,1002,'level_trunc','TRUNCATE 15'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====
+---- QUERY
+CREATE EXTERNAL TABLE iceberg_hadoop_tbls_external_empty_col
+STORED AS ICEBERG
+LOCATION '/$DATABASE.iceberg_test_with_location'
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_hadoop_tbls_external_empty_col;
+---- RESULTS
+'level','string','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_hadoop_tbls_external_empty_col;
+---- RESULTS
+0,1,1000,'level','IDENTITY'
+0,1,1001,'level_bucket','BUCKET 12345'
+0,1,1002,'level_trunc','TRUNCATE 15'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====
+---- QUERY
+DROP TABLE iceberg_hadoop_tbls_with_loc;
+DROP TABLE iceberg_hadoop_tbls_external;
+DROP TABLE iceberg_hadoop_tbls_external_empty_col;
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_catalog(
+  level STRING,
+  event_time TIMESTAMP,
+  register_time DATE,
+  message STRING,
+  price DECIMAL(8,1),
+  map_test MAP <STRING, array <STRING>>,
+  struct_test STRUCT <f1: BIGINT, f2: BIGINT>
+)
+PARTITIONED BY SPEC
+(
+  level,
+  TRUNCATE(10, level),
+  event_time,
+  HOUR(event_time),
+  BUCKET(1000, event_time),
+  DAYS(register_time)
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/$DATABASE/hadoop_catalog_test');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_hadoop_catalog;
+---- RESULTS
+'level','string','','true'
+'event_time','timestamp','','true'
+'register_time','date','','true'
+'message','string','','true'
+'price','decimal(8,1)','','true'
+'map_test','map<string,array<string>>','','true'
+'struct_test','struct<\n  f1:bigint,\n  f2:bigint\n>','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_hadoop_catalog;
+---- RESULTS
+0,1,1000,'level','IDENTITY'
+0,1,1001,'level_trunc','TRUNCATE 10'
+0,2,1002,'event_time','IDENTITY'
+0,2,1003,'event_time_hour','HOUR'
+0,2,1004,'event_time_bucket','BUCKET 1000'
+0,3,1005,'register_time_day','DAY'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====
+---- QUERY
+DROP TABLE iceberg_hadoop_catalog;
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_catalog(
+  level STRING
+)
+PARTITIONED BY SPEC
+(
+  level,
+  BUCKET(12345, level),
+  TRUNCATE(10, level)
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/$DATABASE/hadoop_catalog_test');
+CREATE EXTERNAL TABLE iceberg_hadoop_cat_external(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/$DATABASE/hadoop_catalog_test', 'iceberg.table_identifier'='$DATABASE.iceberg_hadoop_catalog');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_hadoop_cat_external;
+---- RESULTS
+'level','string','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_hadoop_cat_external;
+---- RESULTS
+0,1,1000,'level','IDENTITY'
+0,1,1001,'level_bucket','BUCKET 12345'
+0,1,1002,'level_trunc','TRUNCATE 10'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====
+---- QUERY
+DROP TABLE iceberg_hadoop_catalog;
+DROP TABLE iceberg_hadoop_cat_external;
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_cat_drop(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test');
+CREATE TABLE iceberg_hadoop_cat_query(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test');
+DROP TABLE iceberg_hadoop_cat_drop;
+SELECT * FROM iceberg_hadoop_cat_query;
+---- TYPES
+string
+---- RESULTS
+====
+---- QUERY
+DESCRIBE FORMATTED iceberg_hadoop_cat_query;
+---- RESULTS: VERIFY_IS_SUBSET
+'Location:           ','$NAMENODE/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test/$DATABASE/iceberg_hadoop_cat_query','NULL'
+'','iceberg.catalog_location','/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test'
+'','write.format.default','parquet             '
+'','iceberg.catalog     ','hadoop.catalog      '
+---- TYPES
+string, string, string
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_cat_with_ident(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test',
+'iceberg.table_identifier'='org.db.tbl');
+DESCRIBE FORMATTED iceberg_hadoop_cat_with_ident;
+---- RESULTS: VERIFY_IS_SUBSET
+'Location:           ','$NAMENODE/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test/org/db/tbl','NULL'
+'','iceberg.catalog_location','/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test'
+'','write.format.default','parquet             '
+'','iceberg.catalog     ','hadoop.catalog      '
+---- TYPES
+string, string, string
+====
+---- QUERY
+INSERT INTO iceberg_hadoop_cat_with_ident values ("ice");
+====
+---- QUERY
+CREATE EXTERNAL TABLE iceberg_hadoop_cat_with_ident_ext
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test',
+'iceberg.table_identifier'='org.db.tbl');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE FORMATTED iceberg_hadoop_cat_with_ident_ext;
+---- RESULTS: VERIFY_IS_SUBSET
+'Location:           ','$NAMENODE/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test/org/db/tbl','NULL'
+'','iceberg.catalog_location','/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test'
+'','write.format.default','parquet             '
+'','iceberg.catalog     ','hadoop.catalog      '
+---- TYPES
+string, string, string
+====
+---- QUERY
+SELECT * FROM iceberg_hadoop_cat_with_ident_ext;
+---- RESULTS
+'ice'
+---- TYPES
+STRING
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_cat_with_orc(
+  level STRING,
+  event_time TIMESTAMP,
+  register_time DATE,
+  message STRING,
+  price DECIMAL(8,1),
+  map_test MAP <STRING, array <STRING>>,
+  struct_test STRUCT <f1: BIGINT, f2: BIGINT>
+)
+PARTITIONED BY SPEC
+(
+  level,
+  event_time,
+  HOUR(event_time),
+  DAY(register_time)
+)
+STORED AS ICEBERG
+TBLPROPERTIES('write.format.default'='orc','iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_hadoop_cat_with_orc;
+---- RESULTS
+'level','string','','true'
+'event_time','timestamp','','true'
+'register_time','date','','true'
+'message','string','','true'
+'price','decimal(8,1)','','true'
+'map_test','map<string,array<string>>','','true'
+'struct_test','struct<\n  f1:bigint,\n  f2:bigint\n>','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_hadoop_cat_with_orc;
+---- RESULTS
+0,1,1000,'level','IDENTITY'
+0,2,1001,'event_time','IDENTITY'
+0,2,1002,'event_time_hour','HOUR'
+0,3,1003,'register_time_day','DAY'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====
+---- QUERY
+DROP TABLE iceberg_hadoop_cat_with_orc;
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+# Default transactional property doesn't affect Iceberg tables.
+set default_transactional_type=insert_only;
+create table iceberg_default_trans (i int)
+stored as iceberg
+tblproperties('iceberg.catalog'='hadoop.tables');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+describe formatted iceberg_default_trans
+---- RESULTS: VERIFY_IS_NOT_IN
+'','transactional       ','true               '
+'','transactional_properties','insert_only         '
+---- TYPES
+STRING, STRING, STRING
+====
+---- QUERY
+CREATE TABLE iceberg_part_hive_cat(
+  level STRING,
+  event_time TIMESTAMP,
+  register_time DATE,
+  message STRING,
+  price DECIMAL(8,1),
+  map_test MAP <STRING, array <STRING>>,
+  struct_test STRUCT <f1: BIGINT, f2: BIGINT>
+)
+PARTITIONED BY SPEC
+(
+  level,
+  event_time,
+  HOUR(event_time),
+  DAY(register_time)
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hive.catalog')
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_part_hive_cat;
+---- RESULTS
+'level','string','','true'
+'event_time','timestamp','','true'
+'register_time','date','','true'
+'message','string','','true'
+'price','decimal(8,1)','','true'
+'map_test','map<string,array<string>>','','true'
+'struct_test','struct<\n  f1:bigint,\n  f2:bigint\n>','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+DESCRIBE FORMATTED iceberg_part_hive_cat;
+---- RESULTS: VERIFY_IS_SUBSET
+'Location:           ','$NAMENODE/test-warehouse/$DATABASE.db/iceberg_part_hive_cat','NULL'
+row_regex:'','metadata_location   ','$NAMENODE/test-warehouse/$DATABASE.db/iceberg_part_hive_cat/metadata/.*.metadata.json'
+'','table_type          ','ICEBERG             '
+'','iceberg.catalog     ','hive.catalog        '
+---- TYPES
+string, string, string
+====
+---- QUERY
+CREATE TABLE iceberg_nullable_test(
+  level STRING NOT NULL,
+  event_time TIMESTAMP NULL,
+  register_time DATE
+)
+STORED AS ICEBERG;
+DESCRIBE iceberg_nullable_test;
+---- RESULTS
+'level','string','','false'
+'event_time','timestamp','','true'
+'register_time','date','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+CREATE TABLE iceberg_old_style_partitions (
+  register_time DATE,
+  message STRING,
+  price DECIMAL(8,1),
+  map_test MAP <STRING, array <STRING>>,
+  struct_test STRUCT <f1: BIGINT, f2: BIGINT>
+)
+PARTITIONED BY (
+  level STRING,
+  event_id INT
+)
+STORED AS ICEBERG;
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+DESCRIBE iceberg_old_style_partitions;
+---- RESULTS
+'register_time','date','','true'
+'message','string','','true'
+'price','decimal(8,1)','','true'
+'map_test','map<string,array<string>>','','true'
+'struct_test','struct<\n  f1:bigint,\n  f2:bigint\n>','','true'
+'level','string','','true'
+'event_id','int','','true'
+---- TYPES
+STRING,STRING,STRING,STRING
+====
+---- QUERY
+SHOW PARTITIONS iceberg_old_style_partitions;
+---- RESULTS
+0,6,1000,'level','IDENTITY'
+0,7,1001,'event_id','IDENTITY'
+---- TYPES
+BIGINT,BIGINT,BIGINT,STRING,STRING
+====

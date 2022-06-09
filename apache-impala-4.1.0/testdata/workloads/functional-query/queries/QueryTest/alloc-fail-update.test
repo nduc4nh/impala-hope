@@ -1,0 +1,67 @@
+====
+---- QUERY
+# Due to somewhat non-determinstic way memory allocation happens in Impala now,
+# we will just check to make sure the exception is a memory allocation failure.
+select group_concat(l_comment) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+select min(l_comment) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+select max(l_comment) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+select rank() over (partition by l_orderkey order by l_commitdate) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+select first_value(l_comment) over (partition by l_orderkey order by l_commitdate) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+select last_value(l_comment) over (partition by l_orderkey order by l_commitdate) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+select cast(l_comment as char(120)) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+# This aims to exercise malloc() failure in the Serialize() function of appx_median() but
+# allocation can sometimes fail in the Init() functions as well.
+select appx_median(l_quantity), appx_median(l_discount) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+# This aims to exercise malloc() failure in the Serialize() functions of distinctpc() and
+# ndv() but allocation can sometimes fail in the Init() functions as well.
+select ndv(l_partkey), distinctpc(l_suppkey) from tpch.lineitem
+---- CATCH
+failed to allocate
+====
+---- QUERY
+# IMPALA-5252: Verify HiveUdfCall allocations are checked.
+create function replace_string(string) returns string
+location '$FILESYSTEM_PREFIX/test-warehouse/impala-hive-udfs.jar'
+symbol='org.apache.impala.ReplaceStringUdf';
+select replace_string(l_comment) from tpch.lineitem limit 10;
+---- CATCH
+failed to allocate
+====
+---- QUERY
+with t as (select '[0,1]' as s union all select '[1,2]' union all select '[2,3]')
+select get_json_object(t.s, '$[0]') from t;
+---- CATCH
+failed to allocate
+====

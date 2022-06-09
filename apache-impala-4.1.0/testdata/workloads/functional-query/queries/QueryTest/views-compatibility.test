@@ -1,0 +1,263 @@
+====
+---- CREATE_VIEW
+# Simple view without removing/renaming any columns.
+create view test as select * from functional.alltypessmall
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Simple view some columns renamed.
+create view test (abc, xyz) as
+select string_col, timestamp_col from functional.alltypessmall
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# View with aggregates and group by.
+create view test (c, a, g) as
+select count(string_col) as x, avg(bigint_col) as y, int_col
+from functional.alltypessmall group by int_col
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that auto-generated column names are fully compatible
+# (non-SlotRef exprs use auto-generated column names)
+create view test as
+select int_col % 3, trim(string_col), float_col * 10
+from functional.alltypessmall
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that auto-generated column names are fully compatible
+# (non-SlotRef exprs use auto-generated column names)
+create view test (a, b, c) as
+select int_col % 3, trim(string_col), float_col * 10
+from functional.alltypessmall
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that creating a view in Impala with limit and offset works in Impala;
+# it does not work in Hive 1, which does not support offset. Works in Hive 2.
+create view test as
+select id, int_col, string_col from functional.alltypesagg
+order by int_col limit 10 offset 5
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that creating a view in Impala with "NULLS FIRST/LAST" works when the nulls
+# ordering is the default behavior. View creation in Hive 1 will fail because the NULLS
+# FIRST/LAST is not supported; works in Hive 2.
+create view test as
+select id, int_col, string_col from functional.alltypesagg
+order by int_col asc nulls last limit 10
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# A view created in Impala with "NULLS FIRST/LAST" will not work in Hive 1 when the null
+# ordering is not the default; works in Hive 2.
+create view test as
+select id, int_col, string_col from functional.alltypesagg
+order by int_col desc nulls last limit 10
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that exotic column names are quoted in
+# Impala's view to make them parseable by Hive.
+# Hive cannot parse the unquoted identifiers starting with "_",
+# so the view creation should fail.
+create view test as
+select _c0, _c1, _c2 from
+(select int_col % 3 AS _c0, trim(string_col) AS _c1, float_col * 10 AS _c2
+from functional.alltypessmall) t
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=FAILURE
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that Impala adds quotes to table aliases if necessary
+# As of Hive .13, Hive's view creation should also work with this query
+create view test as
+select int_col, string_col, float_col from
+(select int_col, string_col, float_col
+from functional.alltypessmall) as t
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Same test as above, except without the "AS" to make the view creation
+# in Hive succeed. Both Impala and Hive should be able to parse the view.
+create view test as
+select int_col, string_col, float_col from
+(select int_col, string_col, float_col
+from functional.alltypessmall) t
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test a complex query with subqueries, joins, aggregates, group by,
+# order by and limit. As of Hive .13 this should also work in Hive
+create view test (a, b, c) as
+select count(t1.int_col), avg(t2.float_col), t1.string_col from
+(select id, int_col, string_col from functional.alltypesagg where id < 10) t1
+inner join
+(select id, float_col, string_col from functional.alltypessmall where id < 5) t2
+on t1.id = t2.id
+where t1.int_col % 2 = 0 and t2.float_col is not null
+group by t1.string_col having count(t2.float_col) > 2
+order by t1.string_col limit 100
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test a complex query with an explicit alias for the order-by columns.
+# This time both Hive and Impala can parse the view.
+create view test (a, b, c) as
+select count(t1.int_col), avg(t2.float_col), t1.string_col as scol from
+(select id, int_col, string_col from functional.alltypesagg where id < 10) t1
+inner join
+(select id, float_col, string_col from functional.alltypessmall where id < 5) t2
+on t1.id = t2.id
+where t1.int_col % 2 = 0 and t2.float_col is not null
+group by t1.string_col having count(t2.float_col) > 2
+order by scol limit 100
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# Test that identifiers requiring quotes have quotes in
+# their view definition and are parseable by both Hive and Impala.
+create view test (abc, xyz) as
+select string_col as `^^^`, int_col as `???` from functional.alltypessmall
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# A view that uses a Hive-specfic SQL construct (SORT BY)
+# is expected to work only in Hive (and fail gracefully in Impala).
+create view test as select int_col from functional.alltypessmall sort by int_col
+---- CREATE_VIEW_RESULTS
+IMPALA=FAILURE
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=FAILURE
+====
+---- CREATE_VIEW
+# Test a view that creates a CROSS JOIN, should work in both Hive and Impala
+create view test as
+select t1.id as t1_id, t2.id as t2_id
+from functional.alltypestiny t1 cross join functional.alltypestiny t2
+order by t1_id, t2_id limit 100;
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# View with ROLLUP and grouping(), which are supported by Impala and Hive
+create view test (i, b, c, g1, g2) as
+select int_col, bigint_col, count(string_col), grouping(int_col),
+    grouping(bigint_col)
+from functional.alltypessmall
+group by rollup(int_col, bigint_col)
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+---- QUERY_HIVE_VIEW_RESULTS
+IMPALA=SUCCESS
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=SUCCESS
+====
+---- CREATE_VIEW
+# View with ROLLUP and grouping_id(), which is not supported by Hive
+create view test (i, b, c, g) as
+select int_col, bigint_col, count(string_col), grouping_id(int_col, bigint_col)
+from functional.alltypessmall
+group by rollup(int_col, bigint_col)
+---- CREATE_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=FAILURE
+---- QUERY_IMPALA_VIEW_RESULTS
+IMPALA=SUCCESS
+HIVE=FAILURE
+====

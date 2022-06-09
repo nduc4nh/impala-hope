@@ -1,0 +1,779 @@
+# Distributed nested-loop join is allowed after IMPALA-9099.
+select count(*) from
+functional_parquet.alltypestiny a,
+functional_parquet.alltypestiny b
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=2.03GB mem-reservation=16.00KB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: count(*)
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  mem-estimate=100.00KB mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 03(GETNEXT), 00(OPEN)
+|
+02:NESTED LOOP JOIN [CROSS JOIN]
+|  mem-estimate=2.00GB mem-reservation=0B thread-reservation=0
+|  tuple-ids=0,1 row-size=0B cardinality=unavailable
+|  in pipelines: 00(GETNEXT), 01(OPEN)
+|
+|--01:SCAN HDFS [functional_parquet.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=11.92KB
+|     stored statistics:
+|       table: rows=unavailable size=unavailable
+|       partitions: 0/4 rows=unavailable
+|       columns: all
+|     extrapolated-rows=disabled max-scan-range-rows=unavailable
+|     mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+|     tuple-ids=1 row-size=0B cardinality=unavailable
+|     in pipelines: 01(GETNEXT)
+|
+00:SCAN HDFS [functional_parquet.alltypestiny a]
+   HDFS partitions=4/4 files=4 size=11.92KB
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/4 rows=unavailable
+     columns: all
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+   tuple-ids=0 row-size=0B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F02:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=116.00KB mem-reservation=0B thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: count(*)
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+06:AGGREGATE [FINALIZE]
+|  output: count:merge(*)
+|  mem-estimate=100.00KB mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 06(GETNEXT), 03(OPEN)
+|
+05:EXCHANGE [UNPARTITIONED]
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 03(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+Per-Instance Resources: mem-estimate=16.10MB mem-reservation=8.00KB thread-reservation=1
+03:AGGREGATE
+|  output: count(*)
+|  mem-estimate=100.00KB mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 03(GETNEXT), 00(OPEN)
+|
+02:NESTED LOOP JOIN [CROSS JOIN, BROADCAST]
+|  join table id: 00
+|  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  tuple-ids=0,1 row-size=0B cardinality=unavailable
+|  in pipelines: 00(GETNEXT), 01(OPEN)
+|
+|--F03:PLAN FRAGMENT [RANDOM] hosts=3 instances=3
+|  |  Per-Instance Resources: mem-estimate=2.00GB mem-reservation=0B thread-reservation=1
+|  JOIN BUILD
+|  |  join-table-id=00 plan-id=01 cohort-id=01
+|  |  mem-estimate=2.00GB mem-reservation=0B thread-reservation=0
+|  |
+|  04:EXCHANGE [BROADCAST]
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=1 row-size=0B cardinality=unavailable
+|  |  in pipelines: 01(GETNEXT)
+|  |
+|  F01:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+|  Per-Instance Resources: mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=1
+|  01:SCAN HDFS [functional_parquet.alltypestiny b, RANDOM]
+|     HDFS partitions=4/4 files=4 size=11.92KB
+|     stored statistics:
+|       table: rows=unavailable size=unavailable
+|       partitions: 0/4 rows=unavailable
+|       columns: all
+|     extrapolated-rows=disabled max-scan-range-rows=unavailable
+|     mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+|     tuple-ids=1 row-size=0B cardinality=unavailable
+|     in pipelines: 01(GETNEXT)
+|
+00:SCAN HDFS [functional_parquet.alltypestiny a, RANDOM]
+   HDFS partitions=4/4 files=4 size=11.92KB
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/4 rows=unavailable
+     columns: all
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+   tuple-ids=0 row-size=0B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+====
+# Distributed hash-join is allowed after IMPALA-9099.
+select count(*) from
+functional_parquet.alltypestiny a,
+functional_parquet.alltypestiny b
+where a.id = b.id
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=2.03GB mem-reservation=35.02MB thread-reservation=1 runtime-filters-memory=1.00MB
+PLAN-ROOT SINK
+|  output exprs: count(*)
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  mem-estimate=100.00KB mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 03(GETNEXT), 00(OPEN)
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = b.id
+|  fk/pk conjuncts: assumed fk/pk
+|  runtime filters: RF000[bloom] <- b.id
+|  mem-estimate=2.00GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=0,1 row-size=8B cardinality=unavailable
+|  in pipelines: 00(GETNEXT), 01(OPEN)
+|
+|--01:SCAN HDFS [functional_parquet.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=11.92KB
+|     stored statistics:
+|       table: rows=unavailable size=unavailable
+|       partitions: 0/4 rows=unavailable
+|       columns: unavailable
+|     extrapolated-rows=disabled max-scan-range-rows=unavailable
+|     mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+|     tuple-ids=1 row-size=4B cardinality=unavailable
+|     in pipelines: 01(GETNEXT)
+|
+00:SCAN HDFS [functional_parquet.alltypestiny a]
+   HDFS partitions=4/4 files=4 size=11.92KB
+   runtime filters: RF000[bloom] -> a.id
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/4 rows=unavailable
+     columns: unavailable
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+   tuple-ids=0 row-size=4B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F02:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=116.00KB mem-reservation=0B thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: count(*)
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+06:AGGREGATE [FINALIZE]
+|  output: count:merge(*)
+|  mem-estimate=100.00KB mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 06(GETNEXT), 03(OPEN)
+|
+05:EXCHANGE [UNPARTITIONED]
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 03(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
+Per-Instance Resources: mem-estimate=16.10MB mem-reservation=8.00KB thread-reservation=1
+03:AGGREGATE
+|  output: count(*)
+|  mem-estimate=100.00KB mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=8B cardinality=1
+|  in pipelines: 03(GETNEXT), 00(OPEN)
+|
+02:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash-table-id=00
+|  hash predicates: a.id = b.id
+|  fk/pk conjuncts: assumed fk/pk
+|  mem-estimate=0B mem-reservation=0B spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=0,1 row-size=8B cardinality=unavailable
+|  in pipelines: 00(GETNEXT), 01(OPEN)
+|
+|--F03:PLAN FRAGMENT [RANDOM] hosts=3 instances=3
+|  |  Per-Instance Resources: mem-estimate=2.00GB mem-reservation=103.00MB thread-reservation=1 runtime-filters-memory=1.00MB
+|  JOIN BUILD
+|  |  join-table-id=00 plan-id=01 cohort-id=01
+|  |  build expressions: b.id
+|  |  runtime filters: RF000[bloom] <- b.id
+|  |  mem-estimate=2.00GB mem-reservation=102.00MB spill-buffer=2.00MB thread-reservation=0
+|  |
+|  04:EXCHANGE [BROADCAST]
+|  |  mem-estimate=32.00KB mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=1 row-size=4B cardinality=unavailable
+|  |  in pipelines: 01(GETNEXT)
+|  |
+|  F01:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+|  Per-Instance Resources: mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=1
+|  01:SCAN HDFS [functional_parquet.alltypestiny b, RANDOM]
+|     HDFS partitions=4/4 files=4 size=11.92KB
+|     stored statistics:
+|       table: rows=unavailable size=unavailable
+|       partitions: 0/4 rows=unavailable
+|       columns: unavailable
+|     extrapolated-rows=disabled max-scan-range-rows=unavailable
+|     mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+|     tuple-ids=1 row-size=4B cardinality=unavailable
+|     in pipelines: 01(GETNEXT)
+|
+00:SCAN HDFS [functional_parquet.alltypestiny a, RANDOM]
+   HDFS partitions=4/4 files=4 size=11.92KB
+   runtime filters: RF000[bloom] -> a.id
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/4 rows=unavailable
+     columns: unavailable
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=8.00KB thread-reservation=0
+   tuple-ids=0 row-size=4B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+====
+# Insert is allowed.
+insert into functional_parquet.alltypes partition(year,month)
+select * from functional_parquet.alltypessmall
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=1.12GB mem-reservation=12.09MB thread-reservation=1
+WRITE TO HDFS [functional_parquet.alltypes, OVERWRITE=false, PARTITION-KEYS=(year,month)]
+|  partitions=4
+|  output exprs: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+|  mem-estimate=1.00GB mem-reservation=0B thread-reservation=0
+|
+01:SORT
+|  order by: year ASC NULLS LAST, month ASC NULLS LAST
+|  mem-estimate=128.00MB mem-reservation=12.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=80B cardinality=unavailable
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [functional_parquet.alltypessmall]
+   HDFS partitions=4/4 files=4 size=14.76KB
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/4 rows=unavailable
+     columns missing stats: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=88.00KB thread-reservation=0
+   tuple-ids=0 row-size=80B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+|  Per-Instance Resources: mem-estimate=1.12GB mem-reservation=12.09MB thread-reservation=1
+WRITE TO HDFS [functional_parquet.alltypes, OVERWRITE=false, PARTITION-KEYS=(year,month)]
+|  partitions=4
+|  output exprs: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+|  mem-estimate=1.00GB mem-reservation=0B thread-reservation=0
+|
+01:SORT
+|  order by: year ASC NULLS LAST, month ASC NULLS LAST
+|  mem-estimate=128.00MB mem-reservation=12.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=2 row-size=80B cardinality=unavailable
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [functional_parquet.alltypessmall, RANDOM]
+   HDFS partitions=4/4 files=4 size=14.76KB
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/4 rows=unavailable
+     columns missing stats: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=88.00KB thread-reservation=0
+   tuple-ids=0 row-size=80B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+====
+# CTAS is allowed.
+create table ctas_mt_dop_test as select * from functional_parquet.alltypes
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=16.10MB mem-reservation=88.00KB thread-reservation=1
+WRITE TO HDFS [default.ctas_mt_dop_test, OVERWRITE=false]
+|  partitions=1
+|  output exprs: functional_parquet.alltypes.id, functional_parquet.alltypes.bool_col, functional_parquet.alltypes.tinyint_col, functional_parquet.alltypes.smallint_col, functional_parquet.alltypes.int_col, functional_parquet.alltypes.bigint_col, functional_parquet.alltypes.float_col, functional_parquet.alltypes.double_col, functional_parquet.alltypes.date_string_col, functional_parquet.alltypes.string_col, functional_parquet.alltypes.timestamp_col, functional_parquet.alltypes.year, functional_parquet.alltypes.month
+|  mem-estimate=100.00KB mem-reservation=0B thread-reservation=0
+|
+00:SCAN HDFS [functional_parquet.alltypes]
+   HDFS partitions=24/24 files=24 size=202.34KB
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/24 rows=unavailable
+     columns missing stats: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=88.00KB thread-reservation=0
+   tuple-ids=0 row-size=80B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=9
+|  Per-Instance Resources: mem-estimate=16.10MB mem-reservation=88.00KB thread-reservation=1
+WRITE TO HDFS [default.ctas_mt_dop_test, OVERWRITE=false]
+|  partitions=1
+|  output exprs: functional_parquet.alltypes.id, functional_parquet.alltypes.bool_col, functional_parquet.alltypes.tinyint_col, functional_parquet.alltypes.smallint_col, functional_parquet.alltypes.int_col, functional_parquet.alltypes.bigint_col, functional_parquet.alltypes.float_col, functional_parquet.alltypes.double_col, functional_parquet.alltypes.date_string_col, functional_parquet.alltypes.string_col, functional_parquet.alltypes.timestamp_col, functional_parquet.alltypes.year, functional_parquet.alltypes.month
+|  mem-estimate=100.00KB mem-reservation=0B thread-reservation=0
+|
+00:SCAN HDFS [functional_parquet.alltypes, RANDOM]
+   HDFS partitions=24/24 files=24 size=202.34KB
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/24 rows=unavailable
+     columns missing stats: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   mem-estimate=16.00MB mem-reservation=88.00KB thread-reservation=0
+   tuple-ids=0 row-size=80B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+====
+# Single-table scan/filter/agg/topn should work.
+select count(int_col) cnt from functional_parquet.alltypes
+where id < 10
+group by bigint_col
+order by cnt, bigint_col
+limit 10
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=144.00MB mem-reservation=34.02MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: count(int_col)
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+02:TOP-N [LIMIT=10]
+|  order by: count(int_col) ASC, bigint_col ASC
+|  mem-estimate=160B mem-reservation=0B thread-reservation=0
+|  tuple-ids=2 row-size=16B cardinality=10
+|  in pipelines: 02(GETNEXT), 01(OPEN)
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(int_col)
+|  group by: bigint_col
+|  mem-estimate=128.00MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=1 row-size=16B cardinality=unavailable
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [functional_parquet.alltypes]
+   HDFS partitions=24/24 files=24 size=202.34KB
+   predicates: id < CAST(10 AS INT)
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/24 rows=unavailable
+     columns: unavailable
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   parquet statistics predicates: id < CAST(10 AS INT)
+   parquet dictionary predicates: id < CAST(10 AS INT)
+   mem-estimate=16.00MB mem-reservation=24.00KB thread-reservation=0
+   tuple-ids=0 row-size=16B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F02:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=16.00KB mem-reservation=0B thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: count(int_col)
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+05:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: count(int_col) ASC, bigint_col ASC
+|  limit: 10
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=2 row-size=16B cardinality=10
+|  in pipelines: 02(GETNEXT)
+|
+F01:PLAN FRAGMENT [HASH(bigint_col)] hosts=3 instances=9
+Per-Instance Resources: mem-estimate=128.18MB mem-reservation=34.00MB thread-reservation=1
+02:TOP-N [LIMIT=10]
+|  order by: count(int_col) ASC, bigint_col ASC
+|  mem-estimate=160B mem-reservation=0B thread-reservation=0
+|  tuple-ids=2 row-size=16B cardinality=10
+|  in pipelines: 02(GETNEXT), 04(OPEN)
+|
+04:AGGREGATE [FINALIZE]
+|  output: count:merge(int_col)
+|  group by: bigint_col
+|  mem-estimate=128.00MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=1 row-size=16B cardinality=unavailable
+|  in pipelines: 04(GETNEXT), 00(OPEN)
+|
+03:EXCHANGE [HASH(bigint_col)]
+|  mem-estimate=180.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=16B cardinality=unavailable
+|  in pipelines: 00(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=9
+Per-Instance Resources: mem-estimate=144.00MB mem-reservation=34.02MB thread-reservation=1
+01:AGGREGATE [STREAMING]
+|  output: count(int_col)
+|  group by: bigint_col
+|  mem-estimate=128.00MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=1 row-size=16B cardinality=unavailable
+|  in pipelines: 00(GETNEXT)
+|
+00:SCAN HDFS [functional_parquet.alltypes, RANDOM]
+   HDFS partitions=24/24 files=24 size=202.34KB
+   predicates: id < CAST(10 AS INT)
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/24 rows=unavailable
+     columns: unavailable
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   parquet statistics predicates: id < CAST(10 AS INT)
+   parquet dictionary predicates: id < CAST(10 AS INT)
+   mem-estimate=16.00MB mem-reservation=24.00KB thread-reservation=0
+   tuple-ids=0 row-size=16B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+====
+# Single-table scan/filter/analytic should work.
+select row_number() over(partition by int_col order by id)
+from functional_parquet.alltypes
+where id < 10
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=148.00MB mem-reservation=10.02MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: row_number()
+|  mem-estimate=10.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+02:ANALYTIC
+|  functions: row_number()
+|  partition by: int_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=4,3 row-size=16B cardinality=unavailable
+|  in pipelines: 01(GETNEXT)
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, id ASC
+|  mem-estimate=128.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=4 row-size=8B cardinality=unavailable
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [functional_parquet.alltypes]
+   HDFS partitions=24/24 files=24 size=202.34KB
+   predicates: id < CAST(10 AS INT)
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/24 rows=unavailable
+     columns: unavailable
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   parquet statistics predicates: id < CAST(10 AS INT)
+   parquet dictionary predicates: id < CAST(10 AS INT)
+   mem-estimate=16.00MB mem-reservation=16.00KB thread-reservation=0
+   tuple-ids=0 row-size=8B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F02:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=216.00KB mem-reservation=0B thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: row_number()
+|  mem-estimate=10.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+04:EXCHANGE [UNPARTITIONED]
+|  mem-estimate=216.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=4,3 row-size=16B cardinality=unavailable
+|  in pipelines: 01(GETNEXT)
+|
+F01:PLAN FRAGMENT [HASH(int_col)] hosts=3 instances=9
+Per-Instance Resources: mem-estimate=132.11MB mem-reservation=10.00MB thread-reservation=1
+02:ANALYTIC
+|  functions: row_number()
+|  partition by: int_col
+|  order by: id ASC
+|  window: ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=4,3 row-size=16B cardinality=unavailable
+|  in pipelines: 01(GETNEXT)
+|
+01:SORT
+|  order by: int_col ASC NULLS LAST, id ASC
+|  mem-estimate=128.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=4 row-size=8B cardinality=unavailable
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+03:EXCHANGE [HASH(int_col)]
+|  mem-estimate=108.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=0 row-size=8B cardinality=unavailable
+|  in pipelines: 00(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=9
+Per-Instance Resources: mem-estimate=16.00MB mem-reservation=16.00KB thread-reservation=1
+00:SCAN HDFS [functional_parquet.alltypes, RANDOM]
+   HDFS partitions=24/24 files=24 size=202.34KB
+   predicates: id < CAST(10 AS INT)
+   stored statistics:
+     table: rows=unavailable size=unavailable
+     partitions: 0/24 rows=unavailable
+     columns: unavailable
+   extrapolated-rows=disabled max-scan-range-rows=unavailable
+   parquet statistics predicates: id < CAST(10 AS INT)
+   parquet dictionary predicates: id < CAST(10 AS INT)
+   mem-estimate=16.00MB mem-reservation=16.00KB thread-reservation=0
+   tuple-ids=0 row-size=8B cardinality=unavailable
+   in pipelines: 00(GETNEXT)
+====
+# Nested-loop join in a subplan should work.
+select *
+from tpch_nested_parquet.customer c, c.c_orders o, o.o_lineitems
+where c_custkey < 10 and o_orderkey < 5 and l_linenumber < 3
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=104.00MB mem-reservation=104.00MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: c.c_custkey, c.c_name, c.c_address, c.c_nationkey, c.c_phone, c.c_acctbal, c.c_mktsegment, c.c_comment, o.item.o_orderkey, o.item.o_orderstatus, o.item.o_totalprice, o.item.o_orderdate, o.item.o_orderpriority, o.item.o_clerk, o.item.o_shippriority, o.item.o_comment, o.o_lineitems.item.l_partkey, o.o_lineitems.item.l_suppkey, o.o_lineitems.item.l_linenumber, o.o_lineitems.item.l_quantity, o.o_lineitems.item.l_extendedprice, o.o_lineitems.item.l_discount, o.o_lineitems.item.l_tax, o.o_lineitems.item.l_returnflag, o.o_lineitems.item.l_linestatus, o.o_lineitems.item.l_shipdate, o.o_lineitems.item.l_commitdate, o.o_lineitems.item.l_receiptdate, o.o_lineitems.item.l_shipinstruct, o.o_lineitems.item.l_shipmode, o.o_lineitems.item.l_comment
+|  mem-estimate=100.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+01:SUBPLAN
+|  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  tuple-ids=2,1,0 row-size=482B cardinality=1.50M
+|  in pipelines: 00(GETNEXT)
+|
+|--08:NESTED LOOP JOIN [CROSS JOIN]
+|  |  mem-estimate=230B mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=2,1,0 row-size=482B cardinality=100
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     parent-subplan=01
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=0 row-size=230B cardinality=1
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  04:SUBPLAN
+|  |  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=2,1 row-size=252B cardinality=100
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--07:NESTED LOOP JOIN [CROSS JOIN]
+|  |  |  mem-estimate=100B mem-reservation=0B thread-reservation=0
+|  |  |  tuple-ids=2,1 row-size=252B cardinality=10
+|  |  |  in pipelines: 00(GETNEXT)
+|  |  |
+|  |  |--05:SINGULAR ROW SRC
+|  |  |     parent-subplan=04
+|  |  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |  |     tuple-ids=1 row-size=100B cardinality=1
+|  |  |     in pipelines: 00(GETNEXT)
+|  |  |
+|  |  06:UNNEST [o.o_lineitems]
+|  |     parent-subplan=04
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=2 row-size=0B cardinality=10
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  03:UNNEST [c.c_orders o]
+|     parent-subplan=01
+|     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|     tuple-ids=1 row-size=0B cardinality=10
+|     in pipelines: 00(GETNEXT)
+|
+00:SCAN HDFS [tpch_nested_parquet.customer c]
+   HDFS partitions=1/1 files=4 size=289.05MB
+   predicates: c_custkey < CAST(10 AS BIGINT), !empty(c.c_orders)
+   predicates on o: !empty(o.o_lineitems), o_orderkey < CAST(5 AS BIGINT)
+   predicates on o.o_lineitems: l_linenumber < CAST(3 AS INT)
+   stored statistics:
+     table: rows=150.00K size=289.05MB
+     columns missing stats: c_orders
+   extrapolated-rows=disabled max-scan-range-rows=50.72K
+   parquet statistics predicates: c_custkey < CAST(10 AS BIGINT)
+   parquet statistics predicates on o: o_orderkey < CAST(5 AS BIGINT)
+   parquet statistics predicates on o.o_lineitems: l_linenumber < CAST(3 AS INT)
+   parquet dictionary predicates: c_custkey < CAST(10 AS BIGINT)
+   parquet dictionary predicates on o: o_orderkey < CAST(5 AS BIGINT)
+   parquet dictionary predicates on o.o_lineitems: l_linenumber < CAST(3 AS INT)
+   mem-estimate=104.00MB mem-reservation=104.00MB thread-reservation=0
+   tuple-ids=0 row-size=230B cardinality=15.00K
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F01:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=11.93MB mem-reservation=0B thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: c.c_custkey, c.c_name, c.c_address, c.c_nationkey, c.c_phone, c.c_acctbal, c.c_mktsegment, c.c_comment, o.item.o_orderkey, o.item.o_orderstatus, o.item.o_totalprice, o.item.o_orderdate, o.item.o_orderpriority, o.item.o_clerk, o.item.o_shippriority, o.item.o_comment, o.o_lineitems.item.l_partkey, o.o_lineitems.item.l_suppkey, o.o_lineitems.item.l_linenumber, o.o_lineitems.item.l_quantity, o.o_lineitems.item.l_extendedprice, o.o_lineitems.item.l_discount, o.o_lineitems.item.l_tax, o.o_lineitems.item.l_returnflag, o.o_lineitems.item.l_linestatus, o.o_lineitems.item.l_shipdate, o.o_lineitems.item.l_commitdate, o.o_lineitems.item.l_receiptdate, o.o_lineitems.item.l_shipinstruct, o.o_lineitems.item.l_shipmode, o.o_lineitems.item.l_comment
+|  mem-estimate=100.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+09:EXCHANGE [UNPARTITIONED]
+|  mem-estimate=11.93MB mem-reservation=0B thread-reservation=0
+|  tuple-ids=2,1,0 row-size=482B cardinality=1.50M
+|  in pipelines: 00(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+Per-Instance Resources: mem-estimate=104.00MB mem-reservation=104.00MB thread-reservation=1
+01:SUBPLAN
+|  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  tuple-ids=2,1,0 row-size=482B cardinality=1.50M
+|  in pipelines: 00(GETNEXT)
+|
+|--08:NESTED LOOP JOIN [CROSS JOIN]
+|  |  mem-estimate=230B mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=2,1,0 row-size=482B cardinality=100
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     parent-subplan=01
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=0 row-size=230B cardinality=1
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  04:SUBPLAN
+|  |  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=2,1 row-size=252B cardinality=100
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--07:NESTED LOOP JOIN [CROSS JOIN]
+|  |  |  mem-estimate=100B mem-reservation=0B thread-reservation=0
+|  |  |  tuple-ids=2,1 row-size=252B cardinality=10
+|  |  |  in pipelines: 00(GETNEXT)
+|  |  |
+|  |  |--05:SINGULAR ROW SRC
+|  |  |     parent-subplan=04
+|  |  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |  |     tuple-ids=1 row-size=100B cardinality=1
+|  |  |     in pipelines: 00(GETNEXT)
+|  |  |
+|  |  06:UNNEST [o.o_lineitems]
+|  |     parent-subplan=04
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=2 row-size=0B cardinality=10
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  03:UNNEST [c.c_orders o]
+|     parent-subplan=01
+|     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|     tuple-ids=1 row-size=0B cardinality=10
+|     in pipelines: 00(GETNEXT)
+|
+00:SCAN HDFS [tpch_nested_parquet.customer c, RANDOM]
+   HDFS partitions=1/1 files=4 size=289.05MB
+   predicates: c_custkey < CAST(10 AS BIGINT), !empty(c.c_orders)
+   predicates on o: !empty(o.o_lineitems), o_orderkey < CAST(5 AS BIGINT)
+   predicates on o.o_lineitems: l_linenumber < CAST(3 AS INT)
+   stored statistics:
+     table: rows=150.00K size=289.05MB
+     columns missing stats: c_orders
+   extrapolated-rows=disabled max-scan-range-rows=50.72K
+   parquet statistics predicates: c_custkey < CAST(10 AS BIGINT)
+   parquet statistics predicates on o: o_orderkey < CAST(5 AS BIGINT)
+   parquet statistics predicates on o.o_lineitems: l_linenumber < CAST(3 AS INT)
+   parquet dictionary predicates: c_custkey < CAST(10 AS BIGINT)
+   parquet dictionary predicates on o: o_orderkey < CAST(5 AS BIGINT)
+   parquet dictionary predicates on o.o_lineitems: l_linenumber < CAST(3 AS INT)
+   mem-estimate=104.00MB mem-reservation=104.00MB thread-reservation=0
+   tuple-ids=0 row-size=230B cardinality=15.00K
+   in pipelines: 00(GETNEXT)
+====
+# Hash-join in a subplan should work.
+select c.*
+from tpch_nested_parquet.customer c, c.c_orders o1, c.c_orders o2
+where o1.o_orderkey = o2.o_orderkey + 2 and o1.o_orderkey < 5
+---- PLAN
+F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=89.94MB mem-reservation=17.94MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: c.c_custkey, c.c_name, c.c_address, c.c_nationkey, c.c_phone, c.c_acctbal, c.c_mktsegment, c.c_comment
+|  mem-estimate=100.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+01:SUBPLAN
+|  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  tuple-ids=1,0,2 row-size=258B cardinality=1.50M
+|  in pipelines: 00(GETNEXT)
+|
+|--06:HASH JOIN [INNER JOIN]
+|  |  hash predicates: o1.o_orderkey = o2.o_orderkey + 2
+|  |  fk/pk conjuncts: assumed fk/pk
+|  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
+|  |  tuple-ids=1,0,2 row-size=258B cardinality=10
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--04:UNNEST [c.c_orders o2]
+|  |     parent-subplan=01
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=2 row-size=0B cardinality=10
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  05:NESTED LOOP JOIN [CROSS JOIN]
+|  |  mem-estimate=242B mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=1,0 row-size=250B cardinality=10
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     parent-subplan=01
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=0 row-size=242B cardinality=1
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  03:UNNEST [c.c_orders o1]
+|     parent-subplan=01
+|     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|     tuple-ids=1 row-size=0B cardinality=10
+|     in pipelines: 00(GETNEXT)
+|
+00:SCAN HDFS [tpch_nested_parquet.customer c]
+   HDFS partitions=1/1 files=4 size=289.05MB
+   predicates: !empty(c.c_orders), !empty(c.c_orders)
+   predicates on o1: o1.o_orderkey < CAST(5 AS BIGINT)
+   stored statistics:
+     table: rows=150.00K size=289.05MB
+     columns missing stats: c_orders, c_orders
+   extrapolated-rows=disabled max-scan-range-rows=50.72K
+   parquet statistics predicates on o1: o1.o_orderkey < CAST(5 AS BIGINT)
+   parquet dictionary predicates on o1: o1.o_orderkey < CAST(5 AS BIGINT)
+   mem-estimate=88.00MB mem-reservation=16.00MB thread-reservation=0
+   tuple-ids=0 row-size=242B cardinality=150.00K
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+F01:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=11.05MB mem-reservation=0B thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: c.c_custkey, c.c_name, c.c_address, c.c_nationkey, c.c_phone, c.c_acctbal, c.c_mktsegment, c.c_comment
+|  mem-estimate=100.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+07:EXCHANGE [UNPARTITIONED]
+|  mem-estimate=11.05MB mem-reservation=0B thread-reservation=0
+|  tuple-ids=1,0,2 row-size=258B cardinality=1.50M
+|  in pipelines: 00(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=4
+Per-Instance Resources: mem-estimate=89.94MB mem-reservation=17.94MB thread-reservation=1
+01:SUBPLAN
+|  mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  tuple-ids=1,0,2 row-size=258B cardinality=1.50M
+|  in pipelines: 00(GETNEXT)
+|
+|--06:HASH JOIN [INNER JOIN]
+|  |  hash predicates: o1.o_orderkey = o2.o_orderkey + 2
+|  |  fk/pk conjuncts: assumed fk/pk
+|  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
+|  |  tuple-ids=1,0,2 row-size=258B cardinality=10
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--04:UNNEST [c.c_orders o2]
+|  |     parent-subplan=01
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=2 row-size=0B cardinality=10
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  05:NESTED LOOP JOIN [CROSS JOIN]
+|  |  mem-estimate=242B mem-reservation=0B thread-reservation=0
+|  |  tuple-ids=1,0 row-size=250B cardinality=10
+|  |  in pipelines: 00(GETNEXT)
+|  |
+|  |--02:SINGULAR ROW SRC
+|  |     parent-subplan=01
+|  |     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|  |     tuple-ids=0 row-size=242B cardinality=1
+|  |     in pipelines: 00(GETNEXT)
+|  |
+|  03:UNNEST [c.c_orders o1]
+|     parent-subplan=01
+|     mem-estimate=0B mem-reservation=0B thread-reservation=0
+|     tuple-ids=1 row-size=0B cardinality=10
+|     in pipelines: 00(GETNEXT)
+|
+00:SCAN HDFS [tpch_nested_parquet.customer c, RANDOM]
+   HDFS partitions=1/1 files=4 size=289.05MB
+   predicates: !empty(c.c_orders), !empty(c.c_orders)
+   predicates on o1: o1.o_orderkey < CAST(5 AS BIGINT)
+   stored statistics:
+     table: rows=150.00K size=289.05MB
+     columns missing stats: c_orders, c_orders
+   extrapolated-rows=disabled max-scan-range-rows=50.72K
+   parquet statistics predicates on o1: o1.o_orderkey < CAST(5 AS BIGINT)
+   parquet dictionary predicates on o1: o1.o_orderkey < CAST(5 AS BIGINT)
+   mem-estimate=88.00MB mem-reservation=16.00MB thread-reservation=0
+   tuple-ids=0 row-size=242B cardinality=150.00K
+   in pipelines: 00(GETNEXT)
+====

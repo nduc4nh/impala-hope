@@ -1,0 +1,32 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<h3>Query <tt>{{query_id}}</tt></h3>
+{{?status}}<h4><em>Status:</em> <span id="status">{{status}}</span></h4>{{/status}}
+
+<ul class="nav nav-tabs">
+  <li class="nav-item" role="presentation"><a class="nav-link" id="plan-tab" href="{{ __common__.host-url }}/query_plan?query_id={{query_id}}">Plan</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="stmt-tab" href="{{ __common__.host-url }}/query_stmt?query_id={{query_id}}">Query</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="plan-text-tab" href="{{ __common__.host-url }}/query_plan_text?query_id={{query_id}}">Text plan</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="summary-tab" href="{{ __common__.host-url }}/query_summary?query_id={{query_id}}">Summary</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="profile-tab" href="{{ __common__.host-url }}/query_profile?query_id={{query_id}}">Profile</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="memory-tab" href="{{ __common__.host-url }}/query_memory?query_id={{query_id}}">Memory</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="backends-tab" href="{{ __common__.host-url }}/query_backends?query_id={{query_id}}">Backends</a></li>
+  <li class="nav-item" role="presentation"><a class="nav-link" id="finstances-tab" href="{{ __common__.host-url }}/query_finstances?query_id={{query_id}}">Fragment Instances</a></li>
+</ul>

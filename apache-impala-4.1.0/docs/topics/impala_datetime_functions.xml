@@ -1,0 +1,2967 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="datetime_functions">
+
+  <title>Impala Date and Time Functions</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>Date and Time Functions</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="Impala Functions"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="Data Analysts"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Dates and Times"/>
+      <data name="Category" value="Querying"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      The underlying Impala data types for date and time data are <codeph>TIMESTAMP</codeph> and
+      <codeph>DATE</codeph>.
+    </p>
+
+    <p rev="2.2.0">
+      Some of the date/time functions are affected by the setting of the
+      <codeph>&#8209;&#8209;use_local_tz_for_unix_timestamp_conversions</codeph> startup flag
+      for the <cmdname>impalad</cmdname> daemon:
+      <ul>
+        <li>
+          The setting is off by default, meaning that functions such as
+          <codeph>FROM_UNIXTIME()</codeph> and <codeph>UNIX_TIMESTAMP()</codeph> consider the
+          input values to always represent the UTC time zone.
+        </li>
+
+        <li>
+          The setting also applies when you <codeph>CAST()</codeph> a <codeph>BIGINT</codeph>
+          value to <codeph>TIMESTAMP</codeph>, or a <codeph>TIMESTAMP</codeph> value to
+          <codeph>BIGINT</codeph>. When this setting is enabled, these functions and operations
+          convert to and from values representing the local time zone. See
+          <xref
+            href="impala_timestamp.xml#timestamp"/> for details about how Impala
+          handles time zone considerations for the <codeph>TIMESTAMP</codeph> data type.
+        </li>
+      </ul>
+    </p>
+
+    <p>
+      <b>Function reference:</b>
+    </p>
+
+    <p>
+      Impala supports the following date and time functions:
+    </p>
+
+    <ul>
+      <li>
+        <xref href="#datetime_functions/add_months">ADD_MONTHS</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/adddate">ADDDATE</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/current_date">CURRENT_DATE</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/current_timestamp"
+          >CURRENT_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/date_add">DATE_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/date_part">DATE_PART</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/date_sub">DATE_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/date_trunc">DATE_TRUNC</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/datediff">DATEDIFF</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/day">DAY</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/dayname">DAYNAME</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/dayofweek">DAYOFWEEK</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/dayofyear">DAYOFYEAR</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/days_add">DAYS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/days_sub">DAYS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/extract">EXTRACT</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/from_timestamp">FROM_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/from_unixtime">FROM_UNIXTIME</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/from_utc_timestamp"
+          >FROM_UTC_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/hour">HOUR</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/hours_add">HOURS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/hours_sub">HOURS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/int_months_between"
+          >INT_MONTHS_BETWEEN</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/microseconds_add"
+          >MICROSECONDS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/microseconds_sub"
+          >MICROSECONDS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/millisecond">MILLISECOND</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/milliseconds_add"
+          >MILLISECONDS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/milliseconds_sub"
+          >MILLISECONDS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/minute">MINUTE</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/minutes_add">MINUTES_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/minutes_sub">MINUTES_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/month">MONTH</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/month">MONTHNAME</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/monthname">MONTHS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/months_between">MONTHS_BETWEEN</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/months_sub">MONTHS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/nanoseconds_add">NANOSECONDS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/nanoseconds_sub">NANOSECONDS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/next_day">NEXT_DAY</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/now">NOW</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/quarter">QUARTER</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/second">SECOND</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/seconds_add">SECONDS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/seconds_sub">SECONDS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/subdate">SUBDATE</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/timeofday">TIMEOFDAY</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/timestamp_cmp">TIMESTAMP_CMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/to_date">TO_DATE</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/to_timestamp">TO_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/to_utc_timestamp"
+          >TO_UTC_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/trunc">TRUNC</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/unix_timestamp">UNIX_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/utc_timestamp">UTC_TIMESTAMP</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/weekofyear">WEEKOFYEAR</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/weeks_add">WEEKS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/weeks_sub">WEEKS_SUB</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/year">YEAR</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/years_add">YEARS_ADD</xref>
+      </li>
+
+      <li>
+        <xref href="#datetime_functions/years_sub">YEARS_SUB</xref>
+      </li>
+    </ul>
+
+    <dl>
+      <dlentry rev="1.4.0" id="add_months">
+
+        <dt>
+          ADD_MONTHS(TIMESTAMP / DATE date, INT months), ADD_MONTHS(TIMESTAMP / DATE date,
+          BIGINT months)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Adds <varname>months</varname> to <varname>date</varname> and returns
+          the new date value.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Same as
+            <codeph><xref href="#datetime_functions/months_add"
+                >MONTHS_ADD()</xref></codeph>.
+            Available in Impala 1.4 and higher. For compatibility when porting code with vendor
+            extensions.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="adddate">
+
+        <dt>
+          ADDDATE(TIMESTAMP / DATE date, INT / BIGINT days)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Adds <varname>days</varname> to <varname>date</varname> and returns
+          the new date value.
+          <p>
+            The <varname>days</varname> value can be negative, which gives the same result as
+            the <codeph>SUBDATE()</codeph> function.
+          </p>
+
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="current_date">
+
+        <dt>
+          CURRENT_DATE()
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the current date.
+          <p>
+            Any references to the <codeph>CURRENT_DATE()</codeph> function are evaluated at the
+            start of a query. All calls to <codeph>CURRENT_DATE()</codeph> within the same query
+            return the same value, and the value does not depend on how long the query takes.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>DATE</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="current_timestamp">
+
+        <dt>
+          CURRENT_TIMESTAMP()
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Alias for the <codeph>NOW()</codeph> function.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="date_add">
+
+        <dt>
+          DATE_ADD(TIMESTAMP / DATE date, INT / BIGINT days), DATE_ADD(TIMESTAMP / DATE date,
+          interval_expression)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Adds a specified number of days to the <varname>date</varname>
+          argument.
+        </dd>
+
+        <dd>
+          With an <codeph>INTERVAL</codeph> expression as the second argument, you can calculate
+          a delta value using other units such as weeks, years, hours, seconds, and so on; see
+          <xref
+            href="impala_timestamp.xml#timestamp"/> for details.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            The following examples show the shorthand notation of an <codeph>INTERVAL</codeph>
+            expression, instead of specifying the precise number of days. The
+            <codeph>INTERVAL</codeph> notation also lets you work with units smaller than a
+            single day.
+          </p>
+<codeblock>
+select now() as right_now, date_add(now(), interval 3 weeks) as in_3_weeks;
++-------------------------------+-------------------------------+
+| right_now                     | in_3_weeks                    |
++-------------------------------+-------------------------------+
+| 2016-05-20 11:05:39.173331000 | 2016-06-10 11:05:39.173331000 |
++-------------------------------+-------------------------------+
+
+select now() as right_now, date_add(now(), interval 6 hours) as in_6_hours;
++-------------------------------+-------------------------------+
+| right_now                     | in_6_hours                    |
++-------------------------------+-------------------------------+
+| 2016-05-20 11:13:51.492536000 | 2016-05-20 17:13:51.492536000 |
++-------------------------------+-------------------------------+
+</codeblock>
+          <p>
+            Like all date/time functions that deal with months, <codeph>date_add()</codeph>
+            handles nonexistent dates past the end of a month by setting the date to the last
+            day of the month. The following example shows how the nonexistent date April 31st is
+            normalized to April 30th:
+          </p>
+<codeblock>
+select date_add(cast('2016-01-31' as timestamp), interval 3 months) as 'april_31st';
++---------------------+
+| april_31st          |
++---------------------+
+| 2016-04-30 00:00:00 |
++---------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry>
+
+        <dt>
+          DATE_CMP(DATE date1, DATE date2)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Compares <varname>date1</varname> and <varname>date2</varname> and
+          returns:
+          <ul>
+            <li>
+              <codeph>0</codeph> if the dates are identical.
+            </li>
+
+            <li>
+              1 if <varname>date1</varname> > <varname>date2</varname>.
+            </li>
+
+            <li>
+              -1 if <varname>date1</varname> &lt; <varname>date2</varname>.
+            </li>
+
+            <li>
+              <codeph>NULL</codeph> if <varname>date1</varname> or <varname>date2</varname> is
+              <codeph>NULL</codeph>.
+            </li>
+          </ul>
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.0.0" id="date_part">
+
+        <dt>
+          DATE_PART(STRING part, TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Similar to
+          <xref
+            href="impala_datetime_functions.xml#datetime_functions/extract"
+              ><codeph>EXTRACT()</codeph></xref>,
+          with the argument order reversed. Supports the same date and time units as
+          <codeph>EXTRACT()</codeph>. For compatibility with SQL code containing vendor
+          extensions.
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="date_sub">
+
+        <dt>
+          DATE_SUB(TIMESTAMP startdate, INT days), DATE_SUB(TIMESTAMP startdate,
+          interval_expression)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Subtracts a specified number of days from a <codeph>TIMESTAMP</codeph>
+          value. With an <codeph>INTERVAL</codeph> expression as the second argument, you can
+          calculate a delta value using other units such as weeks, years, hours, seconds, and so
+          on; see <xref href="impala_timestamp.xml#timestamp"/> for details.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following example shows the simplest usage, of subtracting a specified number of
+            days from a <codeph>TIMESTAMP</codeph> value:
+          </p>
+<codeblock>
+select now() as right_now, date_sub(now(), 7) as last_week;
++-------------------------------+-------------------------------+
+| right_now                     | last_week                     |
++-------------------------------+-------------------------------+
+| 2016-05-20 11:21:30.491011000 | 2016-05-13 11:21:30.491011000 |
++-------------------------------+-------------------------------+
+</codeblock>
+          <p>
+            The following examples show the shorthand notation of an <codeph>INTERVAL</codeph>
+            expression, instead of specifying the precise number of days. The
+            <codeph>INTERVAL</codeph> notation also lets you work with units smaller than a
+            single day.
+          </p>
+<codeblock>
+select now() as right_now, date_sub(now(), interval 3 weeks) as 3_weeks_ago;
++-------------------------------+-------------------------------+
+| right_now                     | 3_weeks_ago                   |
++-------------------------------+-------------------------------+
+| 2016-05-20 11:23:05.176953000 | 2016-04-29 11:23:05.176953000 |
++-------------------------------+-------------------------------+
+
+select now() as right_now, date_sub(now(), interval 6 hours) as 6_hours_ago;
++-------------------------------+-------------------------------+
+| right_now                     | 6_hours_ago                   |
++-------------------------------+-------------------------------+
+| 2016-05-20 11:23:35.439631000 | 2016-05-20 05:23:35.439631000 |
++-------------------------------+-------------------------------+
+</codeblock>
+          <p>
+            Like all date/time functions that deal with months, <codeph>date_add()</codeph>
+            handles nonexistent dates past the end of a month by setting the date to the last
+            day of the month. The following example shows how the nonexistent date April 31st is
+            normalized to April 30th:
+          </p>
+<codeblock>
+select date_sub(cast('2016-05-31' as timestamp), interval 1 months) as 'april_31st';
++---------------------+
+| april_31st          |
++---------------------+
+| 2016-04-30 00:00:00 |
++---------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.11.0 IMPALA-5317" id="date_trunc">
+
+        <dt>
+          DATE_TRUNC(STRING unit, TIMESTAMP / DATE ts)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the <varname>ts</varname> value truncated to the specified
+          <varname>unit</varname>.
+          <p>
+            <b>Argument:</b> The <codeph>unit</codeph> argument is not case-sensitive. This
+            argument string can be one of:
+          </p>
+          <table frame="all" rowsep="1" colsep="1" id="table_ucy_trp_p3b">
+            <tgroup cols="3" align="left">
+              <colspec colname="c1" colnum="1" colwidth="1*"/>
+              <colspec colname="c2" colnum="2" colwidth="1.28*"/>
+              <colspec colname="c3" colnum="3" colwidth="1.66*"/>
+              <thead>
+                <row>
+                  <entry>
+                    Unit
+                  </entry>
+                  <entry>
+                    Supported for TIMESTAMP
+                  </entry>
+                  <entry>
+                    Supported for DATE
+                  </entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>
+                    <codeph>'MICROSECONDS'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    No
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'MILLISECONDS'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    No
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'SECOND'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    No
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'MINUTE'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    No
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'HOUR'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    No
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'DAY'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'WEEK'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'MONTH'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'YEAR'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'DECADE'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'CENTURY'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>'MILLENNIUM'</codeph>
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                  <entry>
+                    Yes
+                  </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+          <p conref="../shared/impala_common.xml#common/added_in_2110"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Although this function is similar to calling <codeph>TRUNC()</codeph> with a
+            <codeph>TIMESTAMP</codeph> or <codeph>DATE</codeph> argument, the order of arguments
+            and the recognized units are different between <codeph>TRUNC()</codeph> and
+            <codeph>DATE_TRUNC()</codeph>. Therefore, these functions are not interchangeable.
+          </p>
+
+          <p>
+            This function is typically used in <codeph>GROUP BY</codeph> queries to aggregate
+            results from the same hour, day, week, month, quarter, and so on. You can also use
+            this function in an <codeph>INSERT ... SELECT</codeph> into a partitioned table to
+            divide <codeph>TIMESTAMP</codeph> or <codeph>DATE</codeph> values into the correct
+            partition.
+          </p>
+
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                <codeph>TIMESTAMP</codeph> if the second argument, <varname>ts</varname>, is
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                <codeph>DATE</codeph> if the second argument, <varname>ts</varname>, is
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Examples:</b>
+          </p>
+
+          <p>
+            <codeph>DATE_TRUNC('HOUR', NOW())</codeph> returns <codeph>2017-12-05
+            13:00:00</codeph>.
+          </p>
+
+          <p>
+            <codeph>DATE_TRUNC('MILLENNIUM', DATE'2019-08-02')</codeph> returns
+            <codeph>2001-01-01</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="datediff">
+
+        <dt>
+          DATEDIFF(TIMESTAMP / DATE enddate, TIMESTAMP / DATE startdate)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the number of days from <varname>startdate</varname> to
+          <varname>enddate</varname>.
+          <p>
+            If <varname>enddate</varname> > <varname>startdate</varname>, the return value is
+            positive.
+          </p>
+
+          <p>
+            If <varname>enddate</varname> &lt; <varname>startdate</varname>, the return value is
+            negative.
+          </p>
+
+          <p>
+            If <varname>enddate</varname> = <varname>startdate</varname>, the return value is
+            zero.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            The time portions of the <varname>enddate</varname> and <varname>startdate</varname>
+            values are ignored. For example, 11:59 PM on one day and 12:01 AM on the next day
+            represent a <codeph>DATEDIFF()</codeph> of -1 because the date/time values represent
+            different days, even though the <codeph>TIMESTAMP</codeph> values differ by only 2
+            minutes.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="day">
+
+        <dt>
+          DAY(TIMESTAMP / DATE date), DAYOFMONTH(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the day value from the <varname>date</varname> argument. The
+          value represents the day of the month, therefore is in the range 1-31, or less for
+          months without 31 days.
+          <p>
+            Returns <codeph>NULL</codeph> for nonexistent dates, e.g. <codeph>Feb 30</codeph>,
+            or misformatted date strings, e.g. <codeph>'1999-02-013'</codeph>.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.2" id="dayname">
+
+        <dt>
+          DAYNAME(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the day name of the <varname>date</varname> argument. The
+          range of return values is <codeph>'Sunday'</codeph> to <codeph>'Saturday'</codeph>.
+          Used in report-generating queries, as an alternative to calling
+          <codeph>DAYOFWEEK()</codeph> and turning that numeric return value into a string using
+          a <codeph>CASE</codeph> expression.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.1" id="dayofweek">
+
+        <dt>
+          DAYOFWEEK(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the day field of the <varname>date</varname> arguement,
+          corresponding to the day of the week. The range of return values is 1 (Sunday) to 7
+          (Saturday).
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="dayofyear">
+
+        <dt>
+          DAYOFYEAR(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the day field from the <varname>date</varname> argument,
+          corresponding to the day of the year. The range of return values is 1 (January 1) to
+          366 (December 31 of a leap year).
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="days_add">
+
+        <dt>
+          DAYS_ADD(TIMESTAMP / DATE date, INT / BIGINT days)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>days</varname> added to
+          <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="days_sub">
+
+        <dt>
+          DAYS_SUB(TIMESTAMP / DATE date, INT / BIGINT days)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>days</varname>
+          subtracted from <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="extract">
+
+        <dt>
+          EXTRACT(TIMESTAMP / DATE ts, STRING unit), EXTRACT(unit FROM TIMESTAMP / DATE ts)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns one of the numeric date or time fields, specified by
+          <varname>unit</varname>, from <varname>ts</varname>.
+          <p>
+            <b>Argument:</b> The <codeph>unit</codeph> argument value is not case-sensitive. The
+            <codeph>unit</codeph> string can be one of:
+          </p>
+
+          <p>
+            <table frame="all" rowsep="1" colsep="1" id="table_itt_ktp_p3b">
+              <tgroup cols="3" align="left">
+                <colspec colname="c1" colnum="1" colwidth="1*"/>
+                <colspec colname="c2" colnum="2" colwidth="1.28*"/>
+                <colspec colname="c3" colnum="3" colwidth="1.66*"/>
+                <thead>
+                  <row>
+                    <entry>
+                      Unit
+                    </entry>
+                    <entry>
+                      Supported for TIMESTAMP ts
+                    </entry>
+                    <entry>
+                      Supported for DATE ts
+                    </entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry>
+                      <codeph>'EPOCH'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'MILLISECOND'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'SECOND'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'MINUTE'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'HOUR'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'DAY'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'MONTH'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'QUARTER'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'YEAR'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Typically used in <codeph>GROUP BY</codeph> queries to arrange results by hour, day,
+            month, and so on. You can also use this function in an <codeph>INSERT ...
+            SELECT</codeph> statement to insert into a partitioned table to split up
+            <codeph>TIMESTAMP</codeph> values into individual parts, if the partitioned table
+            has separate partition key columns representing year, month, day, and so on. If you
+            need to divide by more complex units of time, such as by week or by quarter, use the
+            <codeph>TRUNC()</codeph> function instead.
+          </p>
+
+          <p>
+            <b>Return type:</b> <codeph>BIGINT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+          <codeph>EXTRACT(DAY FROM DATE'2019-08-17')</codeph> returns <codeph>17</codeph>.
+          <p>
+            If you specify <codeph>'MILLISECOND'</codeph> for the <varname>unit</varname>
+            argument, the function returns the seconds component and the milliseconds component.
+          </p>
+
+          <p>
+            <codeph>EXTRACT(CAST('2006-05-12 18:27:28.123456789' AS TIMESTAMP),
+            'MILLISECOND')</codeph> returns <codeph>28123</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="from_timestamp" rev="2.3.0 IMPALA-2190">
+
+        <dt>
+          FROM_TIMESTAMP(TIMESTAMP datetime, STRING pattern), FROM_TIMESTAMP(STRING datetime,
+          STRING pattern)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts a <codeph>TIMESTAMP</codeph> value into a string representing
+          the same value.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            The <codeph>FROM_TIMESTAMP()</codeph> function provides a flexible way to convert
+            <codeph>TIMESTAMP</codeph> values into arbitrary string formats for reporting
+            purposes.
+          </p>
+
+          <p>
+            Because Impala implicitly converts string values into <codeph>TIMESTAMP</codeph>,
+            you can pass date/time values represented as strings (in the standard
+            <codeph>yyyy-MM-dd HH:mm:ss.SSS</codeph> format) to this function. The result is a
+            string using different separator characters, order of fields, spelled-out month
+            names, or other variation of the date/time string representation.
+          </p>
+
+          <p>
+            The allowed tokens for the pattern string are the same as for the
+            <codeph>FROM_UNIXTIME()</codeph> function.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="from_unixtime">
+
+        <dt>
+          FROM_UNIXTIME(BIGINT unixtime [, STRING pattern])
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts the number of seconds from the Unix epoch to the specified time
+          into a string in the local time zone. <p>
+            <b>Return type:</b>
+            <codeph>STRING</codeph>
+          </p>
+          <p rev="1.3.0"> The <varname>pattern</varname> string supports the following subset of
+            Java SimpleDateFormat. </p>
+          <table frame="all" rowsep="1" colsep="1" id="table_dzg_zpm_1jb">
+            <tgroup cols="2" align="left">
+              <thead>
+                <row>
+                  <entry> Pattern </entry>
+                  <entry> Description </entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>
+                    <codeph>y</codeph>
+                  </entry>
+                  <entry> Year </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>M</codeph>
+                  </entry>
+                  <entry> Month </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>d</codeph>
+                  </entry>
+                  <entry> Day </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>H</codeph>
+                  </entry>
+                  <entry> Hour </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>m</codeph>
+                  </entry>
+                  <entry> Minute </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>s</codeph>
+                  </entry>
+                  <entry> Second </entry>
+                </row>
+                <row>
+                  <entry>
+                    <codeph>S</codeph>
+                  </entry>
+                  <entry> Fractional second </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+          <p> The following rules apply to the <varname>pattern</varname> string: </p>
+          <ul>
+            <li> The <varname>pattern</varname> string is case-sensitive. </li>
+            <li> All fields are variable length, and thus must use separators to specify the
+              boundaries of the fields, with the exception of the time zone values.</li>
+            <li>Time zone offsets will be disregarded. The FROM_UNIXTIME() function accepts a bigint
+              number as input (seconds from Unix epoch) but will not hold the timezone related
+              information and will be excluded in the output.</li>
+            <li> Formatting character groups can appear in any order along with any separators. For
+              example: <ul>
+                <li>
+                  <codeph>yyyy/MM/dd</codeph>
+                </li>
+                <li>
+                  <codeph>dd-MMM-yy</codeph>
+                </li>
+                <li>
+                  <codeph>(dd)(MM)(yyyy) HH:mm:ss</codeph>
+                </li>
+                <li>
+                  <codeph>yyyy-MM-dd HH:mm:ss</codeph>
+                </li>
+              </ul>
+            </li>
+          </ul>
+          <p rev="1.3.0"> In Impala 1.3 and later, you can switch the order of elements, use
+            alternative separator characters, and use a different number of placeholders for each
+            unit. Adding more instances of <codeph>y</codeph>, <codeph>d</codeph>,
+              <codeph>H</codeph>, and so on produces output strings zero-padded to the requested
+            number of characters. The exception is <codeph>M</codeph> for months, where
+              <codeph>M</codeph> produces a non-padded value such as <codeph>3</codeph>,
+              <codeph>MM</codeph> produces a zero-padded value such as <codeph>03</codeph>,
+              <codeph>MMM</codeph> produces an abbreviated month name such as <codeph>Mar</codeph>,
+            and sequences of 4 or more <codeph>M</codeph> are not allowed. </p>
+          <p rev="1.3.0"> A date string including all fields could be <codeph>'yyyy-MM-dd
+              HH:mm:ss.SSSSSS'</codeph>, <codeph>'dd/MM/yyyy HH:mm:ss.SSSSSS'</codeph>, <codeph>'MMM
+              dd, yyyy HH.mm.ss (SSSSSS)'</codeph> or other combinations of placeholders and
+            separator characters. </p>
+          <p conref="../shared/impala_common.xml#common/y2k38"/>
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+          <p conref="../shared/impala_common.xml#common/timezone_conversion_caveat"/>
+        </dd>
+
+      </dlentry>
+      
+
+      <dlentry id="from_utc_timestamp">
+
+        <dt>
+          FROM_UTC_TIMESTAMP(TIMESTAMP ts, STRING timezone)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts a specified UTC timestamp value into the appropriate value
+          for a specified time zone.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p>
+            <b>Usage notes:</b> Often used to translate UTC time zone data stored in a table
+            back to the local date and time for reporting. The opposite of the
+            <codeph>TO_UTC_TIMESTAMP()</codeph> function.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/current_timezone_tip"
+            />
+
+          <p>
+            See discussion of time zones in
+            <xref
+              href="impala_timestamp.xml#timestamp"/> for information about
+            using this function for conversions between the local time zone and UTC.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="hour">
+
+        <dt>
+          HOUR(TIMESTAMP ts)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the hour field from a <codeph>TIMESTAMP</codeph> field.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="hours_add">
+
+        <dt>
+          HOURS_ADD(TIMESTAMP date, INT hours), HOURS_ADD(TIMESTAMP date, BIGINT hours)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time plus some number of hours.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="hours_sub">
+
+        <dt>
+          HOURS_SUB(TIMESTAMP date, INT hours), HOURS_SUB(TIMESTAMP date, BIGINT hours)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time minus some number of hours.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="int_months_between">
+
+        <dt>
+          INT_MONTHS_BETWEEN(TIMESTAMP / DATE enddate, TIMESTAMP / DATE startdate)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the number of months from <varname>startdate</varname> to
+          <varname>enddate</varname>, representing only the full months that passed.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Typically used in business contexts, for example to determine whether a specified
+            number of months have passed or whether some end-of-month deadline was reached.
+          </p>
+
+          <p>
+            The method of determining the number of elapsed months includes some special
+            handling of months with different numbers of days that creates edge cases for dates
+            between the 28th and 31st days of certain months. See
+            <codeph>MONTHS_BETWEEN()</codeph> for details. The
+            <codeph>INT_MONTHS_BETWEEN()</codeph> result is essentially the
+            <codeph>FLOOR()</codeph> of the <codeph>MONTHS_BETWEEN()</codeph> result.
+          </p>
+
+          <p>
+            If either value is <codeph>NULL</codeph>, which could happen for example when
+            converting a nonexistent date string such as <codeph>'2015-02-29'</codeph> to a
+            <codeph>TIMESTAMP</codeph>, the result is also <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            If the first argument represents an earlier time than the second argument, the
+            result is negative.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="last_day" rev="2.9.0 IMPALA-5316">
+
+        <dt>
+          LAST_DAY(TIMESTAMP / DATE ts)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the beginning of the last calendar day in the same month of
+          <varname>ts</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                Returns <codeph>TIMESTAMP</codeph> if <varname>ts</varname> is of the
+                <codeph>TIMESTAMP</codeph> type.
+              </li>
+
+              <li>
+                Returns <codeph>DATE</codeph> if <varname>ts</varname> is of the
+                <codeph>DATE</codeph> type.
+              </li>
+            </ul>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_290"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            If the input argument does not represent a valid Impala <codeph>TIMESTAMP</codeph>
+            including both date and time portions, the function returns <codeph>NULL</codeph>.
+            For example, if the input argument is a string that cannot be implicitly cast to
+            <codeph>TIMESTAMP</codeph>, does not include a date portion, or is out of the
+            allowed range for Impala <codeph>TIMESTAMP</codeph> values, the function returns
+            <codeph>NULL</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="microseconds_add">
+
+        <dt>
+          MICROSECONDS_ADD(TIMESTAMP date, INT microseconds), MICROSECONDS_ADD(TIMESTAMP date,
+          BIGINT microseconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time plus some number of microseconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="microseconds_sub">
+
+        <dt>
+          MICROSECONDS_SUB(TIMESTAMP date, INT microseconds), MICROSECONDS_SUB(TIMESTAMP date,
+          BIGINT microseconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time minus some number of microseconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="IMPALA-1772 2.6.0" id="millisecond">
+
+        <dt>
+          MILLISECOND(TIMESTAMP ts)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the millisecond portion of a <codeph>TIMESTAMP</codeph> value.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_250"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            The millisecond value is truncated, not rounded, if the <codeph>TIMESTAMP</codeph>
+            value contains more than 3 significant digits to the right of the decimal point.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="milliseconds_add">
+
+        <dt>
+          MILLISECONDS_ADD(TIMESTAMP date, INT milliseconds), MILLISECONDS_ADD(TIMESTAMP date,
+          BIGINT milliseconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time plus some number of milliseconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="milliseconds_sub">
+
+        <dt>
+          MILLISECONDS_SUB(TIMESTAMP date, INT milliseconds), MILLISECONDS_SUB(TIMESTAMP date,
+          BIGINT milliseconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time minus some number of milliseconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="minute">
+
+        <dt>
+          MINUTE(TIMESTAMP date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the minute field from a <codeph>TIMESTAMP</codeph> value.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="minutes_add">
+
+        <dt>
+          MINUTES_ADD(TIMESTAMP date, INT minutes), MINUTES_ADD(TIMESTAMP date, BIGINT minutes)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time plus some number of minutes.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="minutes_sub">
+
+        <dt>
+          MINUTES_SUB(TIMESTAMP date, INT minutes), MINUTES_SUB(TIMESTAMP date, BIGINT minutes)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time minus some number of minutes.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="month">
+
+        <dt>
+          MONTH(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the month field, represented as an integer, from the
+          <varname>date</varname> argument.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="monthname">
+
+        <dt>
+          MONTHNAME(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the month name of the <varname>date</varname> argument.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="months_add">
+
+        <dt>
+          MONTHS_ADD(TIMESTAMP / DATE date, INT / BIGINT months)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>months</varname> added
+          to <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If <varname>date</varname> is the last day of a month, the return date will fall on
+            the last day of the target month, e.g. <codeph>MONTHS_ADD(DATE'2019-01-31',
+            1)</codeph> returns <codeph>DATE'2019-02-28'</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="months_between">
+
+        <dt>
+          MONTHS_BETWEEN(TIMESTAMP / DATE enddate, TIMESTAMP / DATE startdate)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the number of months from <varname>startdate</varname> to
+          <varname>enddate</varname>.
+        </dd>
+
+        <dd>
+          This result can include a fractional part representing extra days in addition to the
+          full months between the dates. The fractional component is computed by dividing the
+          difference in days by 31 (regardless of the month).
+          <p>
+            <b>Return type:</b> <codeph>DOUBLE</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Typically used in business contexts, for example to determine whether a specified
+            number of months have passed or whether some end-of-month deadline was reached.
+          </p>
+
+          <p>
+            If the only consideration is the number of full months and any fractional value is
+            not significant, use <codeph>INT_MONTHS_BETWEEN()</codeph> instead.
+          </p>
+
+          <p>
+            The method of determining the number of elapsed months includes some special
+            handling of months with different numbers of days that creates edge cases for dates
+            between the 28th and 31st days of certain months.
+          </p>
+
+          <p>
+            If either value is <codeph>NULL</codeph>, which could happen for example when
+            converting a nonexistent date string such as <codeph>'2015-02-29'</codeph> to a
+            <codeph>TIMESTAMP</codeph>, the result is also <codeph>NULL</codeph>.
+          </p>
+
+          <p>
+            If the first argument represents an earlier time than the second argument, the
+            result is negative.
+          </p>
+
+          <p>
+            The time portion of the input arguements are ignored.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="months_sub">
+
+        <dt>
+          MONTHS_SUB(TIMESTAMP / DATE date, INT / BIGINT months)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>months</varname>
+          subtracted from <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If <varname>date</varname> is the last day of a month, the return date will fall on
+            the last day of the target month, e.g. <codeph>MONTHS_SUB(DATE'2019-02-28',
+            1)</codeph> returns <codeph>DATE'2019-01-31'</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="nanoseconds_add">
+
+        <dt>
+          NANOSECONDS_ADD(TIMESTAMP date, INT nanoseconds), NANOSECONDS_ADD(TIMESTAMP date,
+          BIGINT nanoseconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time plus some number of nanoseconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/kudu_blurb"/>
+
+          <p
+            conref="../shared/impala_common.xml#common/kudu_timestamp_nanoseconds_caveat"
+          />
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="nanoseconds_sub">
+
+        <dt>
+          NANOSECONDS_SUB(TIMESTAMP date, INT nanoseconds), NANOSECONDS_SUB(TIMESTAMP date,
+          BIGINT nanoseconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time minus some number of nanoseconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/kudu_blurb"/>
+
+          <p
+            conref="../shared/impala_common.xml#common/kudu_timestamp_nanoseconds_caveat"
+          />
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="next_day">
+
+        <dt>
+          NEXT_DAY(TIMESTAMP / DATE date, STRING weekday)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the date of the <varname>weekday</varname> that follows the
+          specified <varname>date</varname>.
+          <p>
+            <b>Argument:</b> The <varname>weekday</varname> is not case-sensitive.
+          </p>
+
+          <p>
+            The following values are accepted for <varname>weekday</varname>:
+            <codeph>"Sunday"</codeph>/<codeph>"Sun"</codeph>,
+            <codeph>"Monday"</codeph>/<codeph>"Mon"</codeph>,
+            <codeph>"Tuesday"</codeph>/<codeph>"Tue"</codeph>,
+            <codeph>"Wednesday"</codeph>/<codeph>"Wed"</codeph>,
+            <codeph>"Thursday"</codeph>/<codeph>"Thu"</codeph>,
+            <codeph>"Friday"</codeph>/<codeph>"Fri"</codeph>,
+            <codeph>"Saturday"</codeph>/<codeph>"Sat"</codeph>
+          </p>
+
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                Returns <codeph>TIMESTAMP</codeph> if <varname>date</varname> is of the
+                <codeph>TIMESTAMP</codeph> type.
+              </li>
+
+              <li>
+                Returns <codeph>DATE</codeph> if <varname>date</varname> is of the
+                <codeph>DATE</codeph> type.
+              </li>
+            </ul>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            <codeph>NEXT_DAY('2013-12-25','Saturday')</codeph> returns <codeph>'2013-12-28
+            00:00:00'</codeph> which is the first Saturday after December 25, 2013.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="now">
+
+        <dt>
+          NOW()
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the current date and time (in the local time zone) as a
+          <codeph>TIMESTAMP</codeph> value.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            To find a date/time value in the future or the past relative to the current date and
+            time, add or subtract an <codeph>INTERVAL</codeph> expression to the return value of
+            <codeph>NOW()</codeph>. See
+            <xref
+              href="impala_timestamp.xml#timestamp"/> for examples.
+          </p>
+
+          <p>
+            To produce a <codeph>TIMESTAMP</codeph> representing the current date and time that
+            can be shared or stored without interoperability problems due to time zone
+            differences, use the <codeph>TO_UTC_TIMESTAMP()</codeph> function and specify the
+            time zone of the server. When <codeph>TIMESTAMP</codeph> data is stored in UTC form,
+            any application that queries those values can convert them to the appropriate local
+            time zone by calling the inverse function, <codeph>FROM_UTC_TIMESTAMP()</codeph>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/current_timezone_tip"/>
+
+          <p>
+            Any references to the <codeph>NOW()</codeph> function are evaluated at the start of
+            a query. All calls to <codeph>NOW()</codeph> within the same query return the same
+            value, and the value does not depend on how long the query takes.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="quarter">
+
+        <dt>
+          QUARTER(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the quarter in the input <varname>date</varname> argument as
+          an integer value, 1, 2, 3, or 4, where 1 represents January 1 through March 31.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="second">
+
+        <dt>
+          SECOND(TIMESTAMP date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the second field from a <codeph>TIMESTAMP</codeph> value.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="seconds_add">
+
+        <dt>
+          SECONDS_ADD(TIMESTAMP date, INT seconds), SECONDS_ADD(TIMESTAMP date, BIGINT seconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time plus some number of seconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="seconds_sub">
+
+        <dt>
+          SECONDS_SUB(TIMESTAMP date, INT seconds), SECONDS_SUB(TIMESTAMP date, BIGINT seconds)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the specified date and time minus some number of seconds.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="subdate">
+
+        <dt>
+          SUBDATE(TIMESTAMP / DATE date, INT / BIGINT days)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Subtracts <varname>days</varname> from <varname>date</varname> and
+          returns the new date value.
+          <p>
+            The <varname>days</varname> value can be negative, which gives the same result as
+            the <codeph>ADDDATE()</codeph> function.
+          </p>
+
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="timeofday">
+
+        <dt>
+          TIMEOFDAY()
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a string representation of the current date and time,
+          according to the time of the local system, including any time zone designation.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p>
+            <b>Usage notes:</b> The result value represents similar information as the
+            <codeph>now()</codeph> function, only as a <codeph>STRING</codeph> type and with
+            somewhat different formatting. For example, the day of the week and the time zone
+            identifier are included. This function is intended primarily for compatibility with
+            SQL code from other systems that also have a <codeph>timeofday()</codeph> function.
+            Prefer to use <codeph>now()</codeph> if practical for any new Impala code.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="2.3.0" id="timestamp_cmp">
+
+        <dt>
+          TIMESTAMP_CMP(TIMESTAMP t1, TIMESTAMP t2)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Tests if one <codeph>TIMESTAMP</codeph> value is newer than, older
+          than, or identical to another <codeph>TIMESTAMP</codeph>
+          <ul>
+            <li>
+              <p>
+                If the first argument represents a later point in time than the second argument,
+                the result is 1.
+              </p>
+            </li>
+
+            <li>
+              <p>
+                If the first argument represents an earlier point in time than the second
+                argument, the result is -1.
+              </p>
+            </li>
+
+            <li>
+              <p>
+                If the first and second arguments represent identical points in time, the result
+                is 0.
+              </p>
+            </li>
+
+            <li>
+              <p>
+                If either argument is <codeph>NULL</codeph>, the result is
+                <codeph>NULL</codeph>.
+              </p>
+            </li>
+          </ul>
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph> (either -1, 0, 1, or <codeph>NULL</codeph>)
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            <b>Usage notes:</b> A comparison function for <codeph>TIMESTAMP</codeph> values that
+            only tests whether the date and time increases, decreases, or stays the same.
+            Similar to the <codeph>SIGN()</codeph> function for numeric values.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="to_date">
+
+        <dt>
+          TO_DATE(TIMESTAMP ts)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a string representation of the date field from the
+          <varname>ts</varname> argument.
+          <p>
+            <b>Return type:</b> <codeph>STRING</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="to_timestamp" rev="2.3.0 IMPALA-2190">
+
+        <dt>
+          TO_TIMESTAMP(BIGINT unixtime), TO_TIMESTAMP(STRING date, STRING pattern)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts an integer or string representing a date/time value into the
+          corresponding <codeph>TIMESTAMP</codeph> value.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_230"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            An integer argument represents the number of seconds past the epoch (midnight on
+            January 1, 1970). It is the converse of the <codeph>UNIX_TIMESTAMP()</codeph>
+            function, which produces a <codeph>BIGINT</codeph> representing the number of
+            seconds past the epoch.
+          </p>
+
+          <p>
+            A string argument, plus another string argument representing the pattern, turns an
+            arbitrary string representation of a date and time into a true
+            <codeph>TIMESTAMP</codeph> value. The ability to parse many kinds of date and time
+            formats allows you to deal with temporal data from diverse sources, and if desired
+            to convert to efficient <codeph>TIMESTAMP</codeph> values during your ETL process.
+            Using <codeph>TIMESTAMP</codeph> directly in queries and expressions lets you
+            perform date and time calculations without the overhead of extra function calls and
+            conversions each time you reference the applicable columns.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples demonstrate how to convert an arbitrary string representation
+            to <codeph>TIMESTAMP</codeph> based on a pattern string:
+          </p>
+<codeblock>
+select to_timestamp('Sep 25, 1984', 'MMM dd, yyyy');
++----------------------------------------------+
+| to_timestamp('sep 25, 1984', 'mmm dd, yyyy') |
++----------------------------------------------+
+| 1984-09-25 00:00:00                          |
++----------------------------------------------+
+
+select to_timestamp('1984/09/25', 'yyyy/MM/dd');
++------------------------------------------+
+| to_timestamp('1984/09/25', 'yyyy/mm/dd') |
++------------------------------------------+
+| 1984-09-25 00:00:00                      |
++------------------------------------------+
+</codeblock>
+          <p>
+            The following examples show how to convert a <codeph>BIGINT</codeph> representing
+            seconds past epoch into a <codeph>TIMESTAMP</codeph> value:
+          </p>
+<codeblock>
+-- One day past the epoch.
+select to_timestamp(24 * 60 * 60);
++----------------------------+
+| to_timestamp(24 * 60 * 60) |
++----------------------------+
+| 1970-01-02 00:00:00        |
++----------------------------+
+
+-- 60 seconds in the past.
+select now() as 'current date/time',
+  unix_timestamp(now()) 'now in seconds',
+  to_timestamp(unix_timestamp(now()) - 60) as '60 seconds ago';
++-------------------------------+----------------+---------------------+
+| current date/time             | now in seconds | 60 seconds ago      |
++-------------------------------+----------------+---------------------+
+| 2017-10-01 22:03:46.885624000 | 1506895426     | 2017-10-01 22:02:46 |
++-------------------------------+----------------+---------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="to_utc_timestamp">
+
+        <dt>
+          TO_UTC_TIMESTAMP(TIMESTAMP ts, STRING timezone)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Converts a specified timestamp value in a specified time zone into the
+          corresponding value for the UTC time zone.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Often used in combination with the <codeph>now()</codeph> function, to translate
+            local date and time values to the UTC time zone for consistent representation on
+            disk. The opposite of the <codeph>FROM_UTC_TIMESTAMP()</codeph> function.
+          </p>
+
+          <p>
+            See discussion of time zones in
+            <xref
+              href="impala_timestamp.xml#timestamp"/> for information about
+            using this function for conversions between the local time zone and UTC.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The simplest use of this function is to turn a local date/time value to one with the
+            standardized UTC time zone. Because the time zone specifier is not saved as part of
+            the Impala <codeph>TIMESTAMP</codeph> value, all applications that refer to such
+            data must agree in advance which time zone the values represent. If different parts
+            of the ETL cycle, or different instances of the application, occur in different time
+            zones, the ideal reference point is to convert all <codeph>TIMESTAMP</codeph> values
+            to UTC for storage.
+          </p>
+<codeblock>
+select now() as 'Current time in California USA',
+  to_utc_timestamp(now(), 'PDT') as 'Current time in Greenwich UK';
++--------------------------------+-------------------------------+
+| current time in california usa | current time in greenwich uk  |
++--------------------------------+-------------------------------+
+| 2016-06-01 15:52:08.980072000  | 2016-06-01 22:52:08.980072000 |
++--------------------------------+-------------------------------+
+</codeblock>
+          <p>
+            Once a value is converted to the UTC time zone by
+            <codeph>TO_UTC_TIMESTAMP()</codeph>, it can be converted back to the local time zone
+            with <codeph>FROM_UTC_TIMESTAMP()</codeph>. You can combine these functions using
+            different time zone identifiers to convert a <codeph>TIMESTAMP</codeph> between any
+            two time zones. This example starts with a <codeph>TIMESTAMP</codeph> value
+            representing Pacific Daylight Time, converts it to UTC, and converts it to the
+            equivalent value in Eastern Daylight Time.
+          </p>
+<codeblock>
+select now() as 'Current time in California USA',
+  from_utc_timestamp
+  (
+    to_utc_timestamp(now(), 'PDT'),
+    'EDT'
+  ) as 'Current time in New York, USA';
++--------------------------------+-------------------------------+
+| current time in california usa | current time in new york, usa |
++--------------------------------+-------------------------------+
+| 2016-06-01 18:14:12.743658000  | 2016-06-01 21:14:12.743658000 |
++--------------------------------+-------------------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.4.0" id="trunc">
+
+        <dt id="trunc_timestamp">
+          TRUNC(TIMESTAMP / DATE ts, STRING unit)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the <varname>ts</varname> truncated to the
+          <varname>unit</varname> specified.
+          <p>
+            <b>Argument:</b> The <varname>unit</varname> argument is not case-sensitive. This
+            argument string can be one of:
+          </p>
+
+          <p>
+            <table frame="all" rowsep="1" colsep="1" id="table_evg_bhp_p3b">
+              <tgroup cols="4" align="left">
+                <colspec colname="c1" colnum="1" colwidth="1*"/>
+                <colspec colname="c2" colnum="2" colwidth="1*"/>
+                <colspec colname="c3" colnum="3" colwidth="1*"/>
+                <colspec colname="newCol4" colnum="4" colwidth="1*"/>
+                <thead>
+                  <row>
+                    <entry>
+                      Unit
+                    </entry>
+                    <entry>
+                      Supported for TIMESTAMP ts
+                    </entry>
+                    <entry>
+                      Supported for DATE ts
+                    </entry>
+                    <entry>
+                      Description
+                    </entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'SYYYY'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'YYYY'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'YEAR'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'SYEAR'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'YYY'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'YY'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'Y'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Year
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'Q'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Quarter
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'MONTH'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'MON'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'MM'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'RM'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Month
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'WW'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      The most recent date that is the same day of the week as the first day of
+                      the year
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'W'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      The most recent date that is the same day of the week as the first day of
+                      the month
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'DDD'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'DD'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'J'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Day
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'DAY'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'DY'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'D'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      Starting day of the week (Monday)
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <p>
+                        <codeph>'HH'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'HH12'</codeph>
+                      </p>
+
+
+
+                      <p>
+                        <codeph>'HH24'</codeph>
+                      </p>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                    <entry>
+                      Hour. A <codeph>TIMESTAMP</codeph> value truncated to the hour is always
+                      represented in 24-hour notation, even for the <codeph>HH12</codeph>
+                      argument string.
+                    </entry>
+                  </row>
+                  <row>
+                    <entry>
+                      <codeph>'MI'</codeph>
+                    </entry>
+                    <entry>
+                      Yes
+                    </entry>
+                    <entry>
+                      No
+                    </entry>
+                    <entry>
+                      Minute
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+          </p>
+
+          <p>
+            <b>Added in:</b> The ability to truncate numeric values is new starting in
+            <keyword keyref="impala210_full"/>.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            The <codeph>TIMESTAMP</codeph> form is typically used in <codeph>GROUP BY</codeph>
+            queries to aggregate results from the same hour, day, week, month, quarter, and so
+            on. You can also use this function in an <codeph>INSERT ... SELECT</codeph> into a
+            partitioned table to divide <codeph>TIMESTAMP</codeph> values into the correct
+            partition.
+          </p>
+
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                <codeph>TIMESTAMP</codeph> if the first argument, <varname>ts</varname>, is
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                <codeph>DATE</codeph> if the first argument, <varname>ts</varname>, is
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Example:</b>
+          </p>
+
+          <p>
+            <codeph>TRUNC(DATE'2019-05-08','YEAR')</codeph> returns <codeph>2019-01-01</codeph>.
+          </p>
+
+          <p>
+            <codeph>TRUNC(DATE'2019-05-08', 'QUARTER')</codeph> returns
+            <codeph>2019-04-01</codeph>.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="unix_timestamp">
+
+        <dt>
+          UNIX_TIMESTAMP(), UNIX_TIMESTAMP(STRING datetime), UNIX_TIMESTAMP(STRING datetime,
+          STRING pattern), UNIX_TIMESTAMP(TIMESTAMP datetime)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a Unix time, which is a number of seconds elapsed since
+          '1970-01-01 00:00:00' UTC. If called with no argument, the current date and time is
+          converted to its Unix time. If called with arguments, the first argument represented
+          as the <codeph>TIMESTAMP</codeph> or <codeph>STRING</codeph> is converted to its Unix
+          time.
+          <p>
+            <b>Return type:</b> <codeph rev="2.2.0">BIGINT</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p rev="1.3.0">
+            See <codeph>FROM_UNIXTIME()</codeph> for details about the patterns you can use in
+            the <varname>pattern</varname> string to represent the position of year, month, day,
+            and so on in the <codeph>date</codeph> string. In Impala 1.3 and higher, you have
+            more flexibility to switch the positions of elements and use different separator
+            characters.
+          </p>
+
+          <p rev="2.2.3">
+            In <keyword keyref="impala223"/> and higher, you can include a trailing uppercase
+            <codeph>Z</codeph> qualifier to indicate <q>Zulu</q> time, a synonym for UTC.
+          </p>
+
+          <p rev="2.3.0">
+            In <keyword keyref="impala23_full"/> and higher, you can include a timezone offset
+            specified as minutes and hours, provided you also specify the details in the
+            <varname>pattern</varname> string argument. The offset is specified in the
+            <varname>pattern</varname> string as a plus or minus sign followed by
+            <codeph>hh:mm</codeph>, <codeph>hhmm</codeph>, or <codeph>hh</codeph>. The
+            <codeph>hh</codeph> must be lowercase, to distinguish it from the
+            <codeph>HH</codeph> represent hours in the actual time value. Currently, only
+            numeric timezone offsets are allowed, not symbolic names.
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/y2k38"/>
+
+          <p
+            conref="../shared/impala_common.xml#common/datetime_function_chaining"/>
+
+          <p
+            conref="../shared/impala_common.xml#common/timezone_conversion_caveat"/>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following examples show different ways of turning the same date and time into an
+            integer value. A <varname>pattern</varname> string that Impala recognizes by default
+            is interpreted as a UTC date and time. The trailing <codeph>Z</codeph> is a
+            confirmation that the timezone is UTC. If the date and time string is formatted
+            differently, a second argument specifies the position and units for each of the date
+            and time values.
+          </p>
+
+          <p>
+            The final two examples show how to specify a timezone offset of Pacific Daylight
+            Saving Time, which is 7 hours earlier than UTC. You can use the numeric offset
+            <codeph>-07:00</codeph> and the equivalent suffix of <codeph>-hh:mm</codeph> in the
+            pattern string, or specify the mnemonic name for the time zone in a call to
+            <codeph>TO_UTC_TIMESTAMP()</codeph>. This particular date and time expressed in PDT
+            translates to a different number than the same date and time expressed in UTC.
+          </p>
+<codeblock rev="2.3.0">
+-- 3 ways of expressing the same date/time in UTC and converting to an integer.
+
+select unix_timestamp('2015-05-15 12:00:00');
++---------------------------------------+
+| unix_timestamp('2015-05-15 12:00:00') |
++---------------------------------------+
+| 1431691200                            |
++---------------------------------------+
+
+select unix_timestamp('2015-05-15 12:00:00Z');
++----------------------------------------+
+| unix_timestamp('2015-05-15 12:00:00z') |
++----------------------------------------+
+| 1431691200                             |
++----------------------------------------+
+
+select unix_timestamp
+(
+  'May 15, 2015 12:00:00',
+  'MMM dd, yyyy HH:mm:ss'
+) as may_15_month_day_year;
++-----------------------+
+| may_15_month_day_year |
++-----------------------+
+| 1431691200            |
++-----------------------+
+
+-- 2 ways of expressing the same date and time but in a different timezone.
+-- The resulting integer is different from the previous examples.
+
+select unix_timestamp
+(
+  '2015-05-15 12:00:00-07:00',
+  'yyyy-MM-dd HH:mm:ss-hh:mm'
+) as may_15_year_month_day;
++-----------------------+
+| may_15_year_month_day |
++-----------------------+
+| 1431716400            |
++-----------------------+
+
+select unix_timestamp
+  (to_utc_timestamp(
+    '2015-05-15 12:00:00',
+    'PDT')
+  ) as may_15_pdt;
++------------+
+| may_15_pdt |
++------------+
+| 1431716400 |
++------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="utc_timestamp" rev="2.10.0 IMPALA-3504">
+
+        <dt>
+          UTC_TIMESTAMP()
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns a <codeph>TIMESTAMP</codeph> corresponding to the current date
+          and time in the UTC time zone.
+          <p>
+            <b>Return type:</b> <codeph>TIMESTAMP</codeph>
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/added_in_210"/>
+
+          <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+          <p>
+            Similar to the <codeph>NOW()</codeph> or <codeph>CURRENT_TIMESTAMP()</codeph>
+            functions, but does not use the local time zone as those functions do. Use
+            <codeph>UTC_TIMESTAMP()</codeph> to record <codeph>TIMESTAMP</codeph> values that
+            are interoperable with servers around the world, in arbitrary time zones, without
+            the need for additional conversion functions to standardize the time zone of each
+            value representing a date/time.
+          </p>
+
+          <p>
+            For working with date/time values represented as integer values, you can convert
+            back and forth between <codeph>TIMESTAMP</codeph> and <codeph>BIGINT</codeph> with
+            the <codeph>UNIX_MICROS_TO_UTC_TIMESTAMP()</codeph> and
+            <codeph>UTC_TO_UNIX_MICROS()</codeph> functions. The integer values represent the
+            number of microseconds since the Unix epoch (midnight on January 1, 1970).
+          </p>
+
+          <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+          <p>
+            The following example shows how <codeph>NOW()</codeph> and
+            <codeph>CURRENT_TIMESTAMP()</codeph> represent the current date/time in the local
+            time zone (in this case, UTC-7), while <codeph>utc_timestamp()</codeph> represents
+            the same date/time in the standardized UTC time zone:
+          </p>
+<codeblock>
+select now(), utc_timestamp();
++-------------------------------+-------------------------------+
+| now()                         | utc_timestamp()               |
++-------------------------------+-------------------------------+
+| 2017-10-01 23:33:58.919688000 | 2017-10-02 06:33:58.919688000 |
++-------------------------------+-------------------------------+
+
+select current_timestamp(), utc_timestamp();
++-------------------------------+-------------------------------+
+| current_timestamp()           | utc_timestamp()               |
++-------------------------------+-------------------------------+
+| 2017-10-01 23:34:07.400642000 | 2017-10-02 06:34:07.400642000 |
++-------------------------------+-------------------------------+
+</codeblock>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="weekofyear">
+
+        <dt>
+          WEEK(TIMESTAMP / DATE date), WEEKOFYEAR(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the corresponding week (1-53) from the <varname>date</varname>
+          argument.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="weeks_add">
+
+        <dt>
+          WEEKS_ADD(TIMESTAMP / DATE date, INT / BIGINT weeks)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>weeks</varname> added to
+          <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="weeks_sub">
+
+        <dt>
+          WEEKS_SUB(TIMESTAMP / DATE date, INT / BIGINT weeks)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>weeks</varname>
+          subtracted from <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry id="year">
+
+        <dt>
+          YEAR(TIMESTAMP / DATE date)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the year field from the <varname>date</varname> argument.
+          <p>
+            <b>Return type:</b> <codeph>INT</codeph>
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="years_add">
+
+        <dt>
+          YEARS_ADD(TIMESTAMP / DATE date, INT / BIGINT years)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>years</varname> added to
+          <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If the equivalent date does not exist in the year of the result due to a leap year,
+            the date is changed to the last day of the appropriate month.
+          </p>
+        </dd>
+
+      </dlentry>
+
+      <dlentry rev="1.3.0" id="years_sub">
+
+        <dt>
+          YEARS_SUB(TIMESTAMP / DATE date, INT / BIGINT years)
+        </dt>
+
+        <dd>
+          <b>Purpose:</b> Returns the value with the number of <varname>years</varname>
+          subtracted from <varname>date</varname>.
+          <p>
+            <b>Return type:</b>
+            <ul>
+              <li>
+                If <varname>date</varname> is <codeph>TIMESTAMP</codeph>, returns
+                <codeph>TIMESTAMP</codeph>.
+              </li>
+
+              <li>
+                If <varname>date</varname> is <codeph>DATE</codeph>, returns
+                <codeph>DATE</codeph>.
+              </li>
+            </ul>
+          </p>
+
+          <p>
+            <b>Usage notes:</b>
+          </p>
+
+          <p>
+            If the equivalent date does not exist in the year of the result due to a leap year,
+            the date is changed to the last day of the appropriate month.
+          </p>
+
+          <p/>
+        </dd>
+
+      </dlentry>
+    </dl>
+
+  </conbody>
+
+</concept>

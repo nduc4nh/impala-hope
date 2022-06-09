@@ -1,0 +1,607 @@
+====
+---- QUERY
+# Check that ds_kll_quantile returns error for strings that are not serialized sketches.
+select ds_kll_quantile(date_string_col, 0.5) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Error while getting quantile from DataSketches KLL. Message: Possible corruption: M must be 8: 48
+====
+---- QUERY
+select ds_kll_quantile(ds_kll_sketch(float_col), -0.1) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Rank parameter should be in the range of [0,1]
+====
+---- QUERY
+select ds_kll_quantile(ds_kll_sketch(float_col), 1.1) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Rank parameter should be in the range of [0,1]
+====
+---- QUERY
+select
+    ds_kll_quantile(ds_kll_sketch(id), 0),
+    ds_kll_quantile(ds_kll_sketch(tinyint_col), 0),
+    ds_kll_quantile(ds_kll_sketch(smallint_col), 0),
+    ds_kll_quantile(ds_kll_sketch(int_col), 0),
+    ds_kll_quantile(ds_kll_sketch(bigint_col), 0),
+    ds_kll_quantile(ds_kll_sketch(float_col), 0)
+from functional_parquet.alltypestiny;
+---- RESULTS
+0,0,0,0,0,0
+---- TYPES
+FLOAT,FLOAT,FLOAT,FLOAT,FLOAT,FLOAT
+====
+---- QUERY
+select
+    ds_kll_quantile(ds_kll_sketch(id), 0.5),
+    ds_kll_quantile(ds_kll_sketch(tinyint_col), 0.5),
+    ds_kll_quantile(ds_kll_sketch(smallint_col), 0.5),
+    ds_kll_quantile(ds_kll_sketch(int_col), 0.5),
+    ds_kll_quantile(ds_kll_sketch(bigint_col), 0.5),
+    ds_kll_quantile(ds_kll_sketch(float_col), 0.5)
+from functional_parquet.alltypestiny;
+---- RESULTS
+4,1,1,1,10,1.100000023841858
+---- TYPES
+FLOAT,FLOAT,FLOAT,FLOAT,FLOAT,FLOAT
+====
+---- QUERY
+select
+    ds_kll_quantile(ds_kll_sketch(id), 1),
+    ds_kll_quantile(ds_kll_sketch(tinyint_col), 1),
+    ds_kll_quantile(ds_kll_sketch(smallint_col), 1),
+    ds_kll_quantile(ds_kll_sketch(int_col), 1),
+    ds_kll_quantile(ds_kll_sketch(bigint_col), 1),
+    ds_kll_quantile(ds_kll_sketch(float_col), 1)
+from functional_parquet.alltypestiny;
+---- RESULTS
+7,1,1,1,10,1.100000023841858
+---- TYPES
+FLOAT,FLOAT,FLOAT,FLOAT,FLOAT,FLOAT
+====
+---- QUERY
+select ds_kll_sketch(double_col) from functional_parquet.alltypestiny;
+---- CATCH
+AnalysisException: No matching function with signature: ds_kll_sketch(DOUBLE)
+====
+---- QUERY
+select ds_kll_sketch(string_col) from functional_parquet.alltypestiny;
+---- CATCH
+AnalysisException: No matching function with signature: ds_kll_sketch(STRING)
+====
+---- QUERY
+select ds_kll_sketch(timestamp_col) from functional_parquet.alltypestiny;
+---- CATCH
+AnalysisException: No matching function with signature: ds_kll_sketch(TIMESTAMP)
+====
+---- QUERY
+select ds_kll_sketch(cast(date_string_col as date format 'MM/DD/YYYY'))
+from functional_parquet.alltypestiny;
+---- CATCH
+AnalysisException: No matching function with signature: ds_kll_sketch(DATE)
+====
+---- QUERY
+# Check that ds_kll_quantile() returns null for null inputs.
+select ds_kll_quantile(c, 0.5) from functional_parquet.nulltable;
+---- RESULTS
+NULL
+---- TYPES
+FLOAT
+====
+---- QUERY
+# Check that ds_kll_sketch() returns null for null inputs.
+select ds_kll_sketch(d) from functional_parquet.nulltable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that ds_kll_sketch() returns null for empty input.
+select ds_kll_sketch(f2) from functional_parquet.emptytable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Write sketches to a table as string and get an estimate from the written sketch.
+# Note, the plan is to write sketches as binary instead of strings. For this we have to
+# wait for the binary support (IMPALA-9482).
+create table sketch_store
+    (year int, month int, id_sketch string, float_sketch string)
+stored as parquet;
+insert into sketch_store
+    select
+        year,
+        month,
+        ds_kll_sketch(id),
+        ds_kll_sketch(float_col)
+    from functional_parquet.alltypessmall
+    group by year, month;
+select
+    year,
+    month,
+    ds_kll_quantile(id_sketch, 0.5),
+    ds_kll_quantile(float_sketch, 0.5)
+from sketch_store;
+---- RESULTS
+2009,1,12,4.400000095367432
+2009,2,37,4.400000095367432
+2009,3,62,4.400000095367432
+2009,4,87,4.400000095367432
+---- TYPES
+INT,INT,FLOAT,FLOAT
+====
+---- QUERY
+# Check that sketches made by Hive can be read and used for estimating by Impala.
+select
+    ds_kll_quantile(f, 0.5) as f,
+    ds_kll_quantile(repetitions, 0.5) as r,
+    ds_kll_quantile(some_nulls, 0.5) as sn,
+    ds_kll_quantile(all_nulls, 0.5) as an,
+    ds_kll_quantile(some_nans, 0.5) as snan,
+    ds_kll_quantile(all_nans, 0.5) as anan
+from kll_sketches_from_hive;
+---- TYPES
+FLOAT,FLOAT,FLOAT,FLOAT,FLOAT,FLOAT
+---- RESULTS
+100.1999969482422,25000.099609375,50.90000152587891,NULL,50.5,NULL
+====
+---- QUERY
+# Check that ds_kll_n() returns null for an empty sketch.
+select ds_kll_n(ds_kll_sketch(cast(f2 as float))) from functional_parquet.emptytable;
+---- RESULTS
+NULL
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Check that ds_kll_n() returns null for a null input.
+select ds_kll_n(c) from functional_parquet.nulltable;
+---- RESULTS
+NULL
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Check that ds_kll_n() returns error for strings that are not serialized sketches.
+select ds_kll_n(date_string_col) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Unable to deserialize sketch
+====
+---- QUERY
+select ds_kll_n(float_sketch) from sketch_store where year=2009 and month=1;
+---- RESULTS
+25
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Check that ds_kll_n() works on sketches created by Hive.
+select ds_kll_n(f) from kll_sketches_from_hive;
+---- RESULTS
+6
+---- TYPES
+BIGINT
+====
+---- QUERY
+select
+    ds_kll_rank(ds_kll_sketch(int_col), 0),
+    ds_kll_rank(ds_kll_sketch(int_col), 1.5),
+    ds_kll_rank(ds_kll_sketch(int_col), 5),
+    ds_kll_rank(ds_kll_sketch(int_col), 7.5),
+    ds_kll_rank(ds_kll_sketch(int_col), 10)
+from functional_parquet.alltypessmall;
+---- RESULTS
+0,0.24,0.6,0.84,1
+---- TYPES
+DOUBLE,DOUBLE,DOUBLE,DOUBLE,DOUBLE
+====
+---- QUERY
+# Check that ds_kll_rank() returns null for an empty sketch.
+select ds_kll_rank(ds_kll_sketch(cast(f2 as float)), 10.0) from functional_parquet.emptytable;
+---- RESULTS
+NULL
+---- TYPES
+DOUBLE
+====
+---- QUERY
+# Check that ds_kll_rank() returns null for a null input.
+select ds_kll_rank(c, 10.0) from functional_parquet.nulltable;
+---- RESULTS
+NULL
+---- TYPES
+DOUBLE
+====
+---- QUERY
+# Check that ds_kll_rank() returns error for strings that are not serialized sketches.
+select ds_kll_rank(date_string_col, 10.0) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Unable to deserialize sketch
+====
+---- QUERY
+# Check that ds_kll_rank() works on sketches created by Hive.
+select
+    ds_kll_rank(f, 0.0),
+    ds_kll_rank(f, 10.0),
+    ds_kll_rank(f, 20.5),
+    ds_kll_rank(f, 50.6),
+    ds_kll_rank(f, 100.2001),
+    ds_kll_rank(f, 123.33),
+    ds_kll_rank(f, 200.46)
+from kll_sketches_from_hive;
+---- RESULTS
+0,0.1666666666666667,0.3333333333333333,0.5,0.6666666666666666,0.8333333333333334,1
+---- TYPES
+DOUBLE,DOUBLE,DOUBLE,DOUBLE,DOUBLE,DOUBLE,DOUBLE
+====
+---- QUERY
+# Unions the sketches from sketch_store and checks if the union produces the same result
+# as if the whole data was sketched together into a single sketch.
+select
+    ds_kll_quantile(ds_kll_union(id_sketch), 0.5),
+    ds_kll_quantile(ds_kll_union(float_sketch), 0.5)
+from sketch_store;
+---- TYPES
+FLOAT,FLOAT
+---- RESULTS
+50,4.400000095367432
+====
+---- QUERY
+# Checks that ds_kll_union() produces NULL for an empty dataset.
+select ds_kll_union(field) from functional_parquet.emptytable;
+---- TYPES
+STRING
+---- RESULTS
+'NULL'
+====
+---- QUERY
+# Checks that ds_kll_union() produces NULL for NULL inputs.
+select ds_kll_union(null_str) from functional_parquet.nullrows;
+---- TYPES
+STRING
+---- RESULTS
+'NULL'
+====
+---- QUERY
+# ds_kll_union() returns an error if it receives an invalid serialized sketch.
+select ds_kll_union(date_string_col) from functional_parquet.alltypestiny where id=1;
+---- CATCH
+UDF ERROR: Error while merging DataSketches KLL sketches. Message: Possible corruption: M must be 8: 48
+====
+---- QUERY
+# Get the same sketches from Impala and Hive and put them into the same table. When we
+# get the estimates from the unions of these sketches the expectation is to get the same
+# results as if these sketches were used separately to get the estimates.
+create table kll_sketches_impala_hive like kll_sketches_from_impala stored as parquet;
+insert into kll_sketches_impala_hive select * from kll_sketches_from_hive;
+insert into kll_sketches_impala_hive select * from kll_sketches_from_impala;
+select
+    ds_kll_quantile(ds_kll_union(f), 0.5),
+    ds_kll_quantile(ds_kll_union(repetitions), 0.5),
+    ds_kll_quantile(ds_kll_union(some_nulls), 0.5),
+    ds_kll_quantile(ds_kll_union(all_nulls), 0.5),
+    ds_kll_quantile(ds_kll_union(some_nans), 0.5),
+    ds_kll_quantile(ds_kll_union(all_nans), 0.5)
+from kll_sketches_impala_hive;
+---- TYPES
+FLOAT,FLOAT,FLOAT,FLOAT,FLOAT,FLOAT
+---- RESULTS
+100.1999969482422,25000.099609375,50.90000152587891,NULL,50.5,NULL
+====
+---- QUERY
+# Checks that ds_kll_quantiles_as_string() produces NULL for an empty dataset.
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(cast(f2 as float)), 0.5)
+from functional_parquet.emptytable;
+---- TYPES
+STRING
+---- RESULTS
+'NULL'
+====
+---- QUERY
+# Check that ds_kll_quantiles_as_string() returns null for a null input.
+select ds_kll_quantiles_as_string(c, 0.5) from functional_parquet.nulltable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that ds_kll_quantiles_as_string() returns error for strings that are not
+# serialized sketches.
+select
+    ds_kll_quantiles_as_string(date_string_col, 0.5)
+from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Error while getting quantiles from DataSketches KLL. Message: Possible corruption: M must be 8: 48
+====
+---- QUERY
+# Check error when rank is out of range
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, -1, 1, 0.5)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: Error while getting quantiles from DataSketches KLL. Message: Fraction cannot be less than zero or greater than 1.0
+====
+---- QUERY
+# Check error when rank is out of range
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, 1.1, 1, 0.5)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: Error while getting quantiles from DataSketches KLL. Message: Fraction cannot be less than zero or greater than 1.0
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, 0.2, 0.5, 0.8, 1)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'0,1.1,4.4,7.7,9.9'
+---- TYPES
+STRING
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0.5, 1, 0, 0.2, 0.8)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'4.4,9.9,0,1.1,7.7'
+---- TYPES
+STRING
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0.5)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'4.4'
+---- TYPES
+STRING
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, 0.2, NULL, 0.8, 1)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, 0.2, 0.5, 0.8, NULL)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), NULL)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, 0.5, cast('nan' as float), 1)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), 0, 0.5, 1, cast('nan' as float))
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col), cast('nan' as float))
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_quantiles_as_string(ds_kll_sketch(float_col))
+from functional_parquet.alltypessmall;
+---- CATCH
+AnalysisException: No matching function with signature: ds_kll_quantiles_as_string(STRING)
+====
+---- QUERY
+# Checks that ds_kll_pmf_as_string() produces NULL for an empty dataset.
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(cast(f2 as float)), 0.5)
+from functional_parquet.emptytable;
+---- TYPES
+STRING
+---- RESULTS
+'NULL'
+====
+---- QUERY
+# Check that ds_kll_pmf_as_string() returns null for a null input.
+select ds_kll_pmf_as_string(c, 0.5) from functional_parquet.nulltable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that ds_kll_pmf_as_string() returns error for strings that are not serialized
+# sketches.
+select ds_kll_pmf_as_string(date_string_col, 0.5) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Error while running DataSketches KLL function. Message: Possible corruption: M must be 8: 48
+====
+---- QUERY
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(float_col), 0, 0.5, cast('nan' as float), 1)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(float_col), 0, 0.5, 1, cast('nan' as float))
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(float_col), cast('nan' as float))
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(float_col), 5)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'0.6,0.4'
+---- TYPES
+STRING
+====
+---- QUERY
+select ds_kll_pmf_as_string(ds_kll_sketch(float_col), 1, 5, 8, 9)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'0.12,0.48,0.24,0.08,0.08'
+---- TYPES
+STRING
+====
+---- QUERY
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(float_col), 1, 5, 3)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: Error while running DataSketches KLL function. Message: Values must be unique and monotonically increasing
+====
+---- QUERY
+select
+    ds_kll_pmf_as_string(ds_kll_sketch(float_col), 1, 5, 5)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: Error while running DataSketches KLL function. Message: Values must be unique and monotonically increasing
+====
+---- QUERY
+# Checks that ds_kll_cdf_as_string() produces NULL for an empty dataset.
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(cast(f2 as float)), 0.5)
+from functional_parquet.emptytable;
+---- TYPES
+STRING
+---- RESULTS
+'NULL'
+====
+---- QUERY
+# Check that ds_kll_cdf_as_string() returns null for a null input.
+select ds_kll_cdf_as_string(c, 0.5) from functional_parquet.nulltable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that ds_kll_cdf_as_string() returns error for strings that are not serialized
+# sketches.
+select ds_kll_cdf_as_string(date_string_col, 0.5) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Error while running DataSketches KLL function. Message: Possible corruption: M must be 8: 48
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), 0, 0.5, cast('nan' as float), 1)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), 0, 0.5, 1, cast('nan' as float))
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), cast('nan' as float))
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), 0, 0.5, NULL, 1)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: NULL or NaN provided in the input list.
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), 5)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'0.6,1'
+---- TYPES
+STRING
+====
+---- QUERY
+select ds_kll_cdf_as_string(ds_kll_sketch(float_col), 1, 5, 8, 9)
+from functional_parquet.alltypessmall;
+---- RESULTS
+'0.12,0.6,0.84,0.92,1'
+---- TYPES
+STRING
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), 1, 5, 3)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: Error while running DataSketches KLL function. Message: Values must be unique and monotonically increasing
+====
+---- QUERY
+select
+    ds_kll_cdf_as_string(ds_kll_sketch(float_col), 1, 5, 5)
+from functional_parquet.alltypessmall;
+---- CATCH
+UDF ERROR: Error while running DataSketches KLL function. Message: Values must be unique and monotonically increasing
+====
+---- QUERY
+# Check that ds_kll_stringify() returns null for an empty sketch.
+select ds_kll_stringify(ds_kll_sketch(cast(f2 as float))) from functional_parquet.emptytable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that ds_kll_stringify() returns null for a null input.
+select ds_kll_stringify(c) from functional_parquet.nulltable;
+---- RESULTS
+'NULL'
+---- TYPES
+STRING
+====
+---- QUERY
+# Check that ds_kll_stringify() returns error for strings that are not serialized sketches.
+select ds_kll_stringify(date_string_col) from functional_parquet.alltypestiny;
+---- CATCH
+UDF ERROR: Unable to deserialize sketch
+====
+---- QUERY
+# Check that ds_kll_stringify() works on sketches created by Hive.
+select ds_kll_stringify(f) from kll_sketches_from_hive;
+---- RESULTS
+row_regex: .*### KLL sketch summary:.*Epsilon.*Epsilon PMF.*Empty.*Estimation mode.*Levels.*### End sketch summary.*
+---- TYPES
+STRING
+====
+---- QUERY
+select ds_kll_stringify(ds_kll_sketch(float_col)) from functional_parquet.alltypestiny;
+---- RESULTS
+row_regex: .*### KLL sketch summary:.*Epsilon.*Epsilon PMF.*Empty.*Estimation mode.*Levels.*### End sketch summary.*
+---- TYPES
+STRING
+====

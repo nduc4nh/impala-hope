@@ -1,0 +1,138 @@
+====
+---- HIVE_QUERY
+# Create a table with Hive and run insert, select, and drop from Impala on it.
+use $DATABASE;
+create table tt (x int) tblproperties (
+  'transactional'='true',
+  'transactional_properties'='insert_only');
+
+insert into tt values (1);
+====
+---- QUERY
+invalidate metadata tt;
+select * from tt
+---- RESULTS
+1
+====
+---- HIVE_QUERY
+# Insert from Hive to test refresh table from Impala in the below test.
+use $DATABASE;
+insert into tt values (2);
+====
+---- QUERY
+refresh tt;
+select * from tt order by x;
+---- RESULTS
+1
+2
+====
+---- QUERY
+# Do a second refresh on an already refreshed ACID table.
+refresh tt;
+select * from tt order by x;
+---- RESULTS
+1
+2
+====
+---- QUERY
+insert overwrite table tt values (3);
+insert into tt values (4);
+====
+---- QUERY
+refresh tt;
+select * from tt order by x;
+---- RESULTS
+3
+4
+====
+---- QUERY
+create table upgraded_table (x int);
+insert into upgraded_table values (1);
+====
+---- HIVE_QUERY
+use $DATABASE;
+# Upgrade to the table to insert only acid when there are already values in it.
+alter table upgraded_table set tblproperties
+ ('transactional' = 'true', 'transactional_properties' = 'insert_only',
+    'EXTERNAL' = 'FALSE');
+====
+---- QUERY
+refresh upgraded_table;
+insert into upgraded_table values (2);
+insert into upgraded_table values (3);
+====
+---- QUERY
+select * from upgraded_table;
+---- RESULTS
+1
+2
+3
+====
+---- QUERY
+drop table tt;
+show tables;
+---- RESULTS
+'upgraded_table'
+====
+---- QUERY
+# After dropping the table I re-create and drop it again to check that all the locks
+# are released properly from HMS.
+create table tt (x int) tblproperties (
+  'transactional'='true',
+  'transactional_properties'='insert_only');
+====
+---- QUERY
+show tables;
+---- RESULTS
+'upgraded_table'
+'tt'
+====
+---- QUERY
+drop table tt;
+show tables;
+---- RESULTS
+'upgraded_table'
+====
+---- QUERY
+create table full_acid (i int) stored as orc
+tblproperties('transactional'='true');
+show tables;
+---- RESULTS
+'full_acid'
+'upgraded_table'
+====
+---- QUERY
+drop table full_acid;
+---- RESULTS
+'Table has been dropped.'
+====
+---- QUERY
+show tables;
+---- RESULTS
+'upgraded_table'
+====
+---- QUERY
+# Test reading minor-compacted table.
+show files in functional_orc_def.complextypestbl_minor_compacted;
+---- LABELS
+Path,Size,Partition
+---- RESULTS
+row_regex:'$NAMENODE/test-warehouse/managed/functional_orc_def.db/complextypestbl_minor_compacted_orc_def/delta_0000001_0000008_v\d+/bucket_00000','.+KB',''
+---- TYPES
+STRING,STRING,STRING
+====
+---- QUERY
+select row__id.originaltransaction, id
+from functional_orc_def.complextypestbl_minor_compacted;
+---- RESULTS
+1,1
+2,2
+3,3
+4,4
+5,5
+6,6
+7,7
+8,8
+---- TYPES
+BIGINT,BIGINT
+====

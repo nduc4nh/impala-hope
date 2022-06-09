@@ -1,0 +1,41 @@
+====
+---- QUERY
+# Check that data from mixed format partitions can be read
+# transparently. Compute sum in order to force deserialisation
+select count(*), sum(int_col) from functional.alltypesmixedformat
+---- TYPES
+bigint, bigint
+---- RESULTS
+1200,5400
+====
+---- QUERY
+# Restrict set of partitions (still multi-format)
+select count(*), sum(int_col) from functional.alltypesmixedformat where month = 1 or month = 3
+---- TYPES
+bigint, bigint
+---- RESULTS
+620,2790
+====
+---- QUERY
+# Read single partition alone
+select count(*), sum(int_col) from functional.alltypesmixedformat where month = 2
+---- TYPES
+bigint, bigint
+---- RESULTS
+280,1260
+====
+---- QUERY
+# IMPALA-11123: IMPALA-5861 add this test to verify that 'RowRead' counter is not double
+# counted for zero slot scan. IMPALA-11123 remove incerement of 'RowRead' counter
+# in case of optimized count(star) and zero slot scan query. This cause reduction of
+# 'RowsRead' value from 1200 to 900 since the other 300 are served through
+# zero slot scan. We do not verify 'NumFileMetadataRead' since it does not stay the same
+# over different test vector permutation.
+select count(*) from functional.alltypesmixedformat
+---- TYPES
+bigint
+---- RESULTS
+1200
+---- RUNTIME_PROFILE
+aggregation(SUM, RowsRead): 900
+====

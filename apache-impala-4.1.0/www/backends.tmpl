@@ -1,0 +1,173 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+{{> www/common-header.tmpl }}
+
+<h2>Active backend(s): {{num_active_backends}}</h2>
+
+<table id="backends" class='table table-hover table-bordered'>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Address</th>
+      <th>Krpc Address</th>
+      <th>Backend Id</th>
+      <th>Coordinator</th>
+      <th>Executor</th>
+      <th>Memory Limit for Admission</th>
+      <th>Memory Reserved</th>
+      <th>Memory Admitted by Queries Submitted to this Coordinator</th>
+      <th>Admission Control Slots In Use</th>
+      <th>Num. Queries Admitted by this Coordinator</th>
+      <th>Executor Groups</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#backends}}
+    {{?is_active}}
+    <tr>
+      <td><a href='{{webserver_url}}'>Web UI</a></td>
+      <td>{{address}}</td>
+      <td>{{krpc_address}}</td>
+      <td>{{backend_id}}</td>
+      <td>{{is_coordinator}}</td>
+      <td>{{is_executor}}</td>
+      <td>{{admit_mem_limit}}</td>
+      <td>{{mem_reserved}}</td>
+      <td>{{mem_admitted}}</td>
+      <td>{{admission_slots_in_use}}/{{admission_slots}}</td>
+      <td>{{num_admitted}}</td>
+      <td>{{executor_groups}}</td>
+    </tr>
+    {{/is_active}}
+    {{/backends}}
+  </tbody>
+</table>
+
+{{#num_quiescing_backends}}
+<h2>Quiescing backend(s)<sup><a href='#' data-toggle="tooltip" title="{{> www/quiescing_tooltip.txt }}">[?]</a></sup>: {{num_quiescing_backends}}</h2>
+
+<table id="quiescing_backends" class='table table-hover table-bordered'>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Address</th>
+      <th>Krpc Address</th>
+      <th>Backend Id</th>
+      <th>Coordinator</th>
+      <th>Executor</th>
+      <th>Memory Limit for Admission</th>
+      <th>Memory Reserved</th>
+      <th>Memory Admitted by Queries Submitted to this Coordinator</th>
+      <th>Admission Control Slots In Use</th>
+      <th>Num. Queries Admitted by this Coordinator</th>
+      <th>Executor Groups</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#backends}}
+    {{?is_quiescing}}
+    <tr>
+      <td><a href='{{webserver_url}}'>Web UI</a></td>
+      <td>{{address}}</td>
+      <td>{{krpc_address}}</td>
+      <td>{{backend_id}}</td>
+      <td>{{is_coordinator}}</td>
+      <td>{{is_executor}}</td>
+      <td>{{admit_mem_limit}}</td>
+      <td>{{mem_reserved}}</td>
+      <td>{{mem_admitted}}</td>
+      <td>{{admission_slots_in_use}}/{{admission_slots}}</td>
+      <td>{{num_admitted}}</td>
+      <td>{{executor_groups}}</td>
+    </tr>
+    {{/is_quiescing}}
+    {{/backends}}
+  </tbody>
+</table>
+{{/num_quiescing_backends}}
+
+{{#num_blacklisted_backends}}
+<h2>Blacklisted backend(s)<sup><a href='#' data-toggle="tooltip" title="{{> www/blacklisted_tooltip.txt }}">[?]</a></sup>: {{num_blacklisted_backends}}</h2>
+
+<table id="blacklisted_backends" class='table table-hover table-bordered'>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Address</th>
+      <th>Krpc Address</th>
+      <th>Backend Id</th>
+      <th>Blacklisting Cause</th>
+      <th>Time remaining on blacklist</th>
+      <th>Coordinator</th>
+      <th>Executor</th>
+      <th>Memory Limit for Admission</th>
+      <th>Memory Reserved</th>
+      <th>Memory Admitted by Queries Submitted to this Coordinator</th>
+      <th>Admission Control Slots In Use</th>
+      <th>Num. Queries Admitted by this Coordinator</th>
+      <th>Executor Groups</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#backends}}
+    {{?is_blacklisted}}
+    <tr>
+      <td><a href='{{webserver_url}}'>Web UI</a></td>
+      <td>{{address}}</td>
+      <td>{{krpc_address}}</td>
+      <td>{{backend_id}}</td>
+      <td>{{blacklist_cause}}</td>
+      <td>{{blacklist_time_remaining}}</td>
+      <td>{{is_coordinator}}</td>
+      <td>{{is_executor}}</td>
+      <td>{{admit_mem_limit}}</td>
+      <td>{{mem_reserved}}</td>
+      <td>{{mem_admitted}}</td>
+      <td>{{admission_slots_in_use}}/{{admission_slots}}</td>
+      <td>{{num_admitted}}</td>
+      <td>{{executor_groups}}</td>
+    </tr>
+    {{/is_blacklisted}}
+    {{/backends}}
+  </tbody>
+</table>
+{{/num_blacklisted_backends}}
+
+<script>
+    $(document).ready(function() {
+        $('#backends').DataTable({
+            "order": [[ 0, "desc" ]],
+            "pageLength": 100
+        });
+    });
+    $(document).ready(function() {
+        $('#quiescing_backends').DataTable({
+            "order": [[ 0, "desc" ]],
+            "pageLength": 100
+        });
+    });
+    $(document).ready(function() {
+        $('#blacklisted_backends').DataTable({
+            "order": [[ 0, "desc" ]],
+            "pageLength": 100
+        });
+    });
+</script>
+
+{{> www/common-footer.tmpl}}

@@ -1,0 +1,2666 @@
+# subquery with aggregation and order by/limit, as left-hand side of join;
+# having clause in subquery is transfered to merge agg step in distrib plan
+select *
+from (
+  select int_col, count(*)
+  from functional.alltypessmall
+  where month = 1
+  group by int_col
+  having count(*) > 1
+  order by count(*) desc limit 5
+  ) t1
+join functional.alltypes t2 on (t1.int_col = t2.int_col)
+where month = 1
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: t2.int_col = int_col
+|  runtime filters: RF000 <- int_col
+|  row-size=101B cardinality=620
+|
+|--02:TOP-N [LIMIT=5]
+|  |  order by: count(*) DESC
+|  |  row-size=12B cardinality=1
+|  |
+|  01:AGGREGATE [FINALIZE]
+|  |  output: count(*)
+|  |  group by: int_col
+|  |  having: count(*) > 1
+|  |  row-size=12B cardinality=1
+|  |
+|  00:SCAN HDFS [functional.alltypessmall]
+|     partition predicates: `month` = 1
+|     partitions=1/4 files=1 size=1.57KB
+|     row-size=4B cardinality=25
+|
+03:SCAN HDFS [functional.alltypes t2]
+   partition predicates: `month` = 1
+   partitions=2/24 files=2 size=40.32KB
+   runtime filters: RF000 -> t2.int_col
+   row-size=89B cardinality=620
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+09:EXCHANGE [UNPARTITIONED]
+|
+04:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: t2.int_col = int_col
+|  runtime filters: RF000 <- int_col
+|  row-size=101B cardinality=620
+|
+|--08:EXCHANGE [BROADCAST]
+|  |
+|  07:MERGING-EXCHANGE [UNPARTITIONED]
+|  |  order by: count(*) DESC
+|  |  limit: 5
+|  |
+|  02:TOP-N [LIMIT=5]
+|  |  order by: count(*) DESC
+|  |  row-size=12B cardinality=1
+|  |
+|  06:AGGREGATE [FINALIZE]
+|  |  output: count:merge(*)
+|  |  group by: int_col
+|  |  having: count(*) > 1
+|  |  row-size=12B cardinality=1
+|  |
+|  05:EXCHANGE [HASH(int_col)]
+|  |
+|  01:AGGREGATE [STREAMING]
+|  |  output: count(*)
+|  |  group by: int_col
+|  |  row-size=12B cardinality=10
+|  |
+|  00:SCAN HDFS [functional.alltypessmall]
+|     partition predicates: `month` = 1
+|     partitions=1/4 files=1 size=1.57KB
+|     row-size=4B cardinality=25
+|
+03:SCAN HDFS [functional.alltypes t2]
+   partition predicates: `month` = 1
+   partitions=2/24 files=2 size=40.32KB
+   runtime filters: RF000 -> t2.int_col
+   row-size=89B cardinality=620
+====
+# simple full scan subquery
+select * from (select y x from (select id y from functional_hbase.alltypessmall) a) b
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN HBASE [functional_hbase.alltypessmall]
+   row-size=4B cardinality=50
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HBASE [functional_hbase.alltypessmall]
+   row-size=4B cardinality=50
+====
+# subquery doing join
+select * from (select t2.*
+from functional.testtbl t1 join functional.testtbl t2 using(id)
+where t1.zip = 94611) x
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: t1.id = t2.id
+|  runtime filters: RF000 <- t2.id
+|  row-size=36B cardinality=0
+|
+|--01:SCAN HDFS [functional.testtbl t2]
+|     partitions=1/1 files=0 size=0B
+|     row-size=24B cardinality=0
+|
+00:SCAN HDFS [functional.testtbl t1]
+   partitions=1/1 files=0 size=0B
+   predicates: t1.zip = 94611
+   runtime filters: RF000 -> t1.id
+   row-size=12B cardinality=0
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+02:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: t1.id = t2.id
+|  runtime filters: RF000 <- t2.id
+|  row-size=36B cardinality=0
+|
+|--03:EXCHANGE [BROADCAST]
+|  |
+|  01:SCAN HDFS [functional.testtbl t2]
+|     partitions=1/1 files=0 size=0B
+|     row-size=24B cardinality=0
+|
+00:SCAN HDFS [functional.testtbl t1]
+   partitions=1/1 files=0 size=0B
+   predicates: t1.zip = 94611
+   runtime filters: RF000 -> t1.id
+   row-size=12B cardinality=0
+====
+# subquery doing join
+# multiple join predicates;
+# scan predicates get propagated correctly;
+# non-eq join predicates are evaluated as extra conjuncts by the join node
+select *
+from
+  (select a.*
+   from functional.alltypesagg a
+     right outer join functional.alltypessmall b using (id, int_col)
+   where a.day >= 6
+     and b.month > 2
+     and a.tinyint_col = 15
+     and b.string_col = '15'
+     and a.tinyint_col + b.tinyint_col < 15) x
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: a.id = b.id, a.int_col = b.int_col
+|  other predicates: a.tinyint_col = 15, a.`day` >= 6, a.tinyint_col + b.tinyint_col < 15
+|  runtime filters: RF000 <- b.id, RF001 <- b.int_col
+|  row-size=117B cardinality=5
+|
+|--01:SCAN HDFS [functional.alltypessmall b]
+|     partition predicates: b.`month` > 2
+|     partitions=2/4 files=2 size=3.17KB
+|     predicates: b.string_col = '15'
+|     row-size=22B cardinality=5
+|
+00:SCAN HDFS [functional.alltypesagg a]
+   partition predicates: a.`day` >= 6
+   partitions=5/11 files=5 size=372.38KB
+   predicates: a.tinyint_col = 15
+   runtime filters: RF000 -> a.id, RF001 -> a.int_col
+   row-size=95B cardinality=556
+---- SCANRANGELOCATIONS
+NODE 0:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=10/100110.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=6/100106.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=7/100107.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=8/100108.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=9/100109.txt 0:76263
+NODE 1:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=3/090301.txt 0:1620
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=4/090401.txt 0:1621
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]
+|  hash predicates: a.id = b.id, a.int_col = b.int_col
+|  other predicates: a.tinyint_col = 15, a.`day` >= 6, a.tinyint_col + b.tinyint_col < 15
+|  runtime filters: RF000 <- b.id, RF001 <- b.int_col
+|  row-size=117B cardinality=5
+|
+|--04:EXCHANGE [HASH(b.id,b.int_col)]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall b]
+|     partition predicates: b.`month` > 2
+|     partitions=2/4 files=2 size=3.17KB
+|     predicates: b.string_col = '15'
+|     row-size=22B cardinality=5
+|
+03:EXCHANGE [HASH(a.id,a.int_col)]
+|
+00:SCAN HDFS [functional.alltypesagg a]
+   partition predicates: a.`day` >= 6
+   partitions=5/11 files=5 size=372.38KB
+   predicates: a.tinyint_col = 15
+   runtime filters: RF000 -> a.id, RF001 -> a.int_col
+   row-size=95B cardinality=556
+====
+# predicate pushdown
+select * from (select * from functional_hbase.alltypessmall) a where id < 5
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN HBASE [functional_hbase.alltypessmall]
+   predicates: functional_hbase.alltypessmall.id < 5
+   row-size=89B cardinality=5
+====
+# subquery join
+# multiple join predicates;
+# scan predicates get propagated correctly;
+# non-eq join predicates are evaluated as extra conjuncts by the join node
+select *
+from
+  (select id, int_col, day, tinyint_col from functional.alltypesagg) a
+  right outer join
+  (select id, int_col, month, string_col, tinyint_col
+   from functional.alltypessmall) b using (id, int_col)
+where a.day >= 6
+and b.month > 2
+and a.tinyint_col = 15
+and b.string_col = '15'
+and a.tinyint_col + b.tinyint_col < 15
+and b.id + 15 = 27
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = id, int_col = int_col
+|  other predicates: tinyint_col = 15, `day` >= 6, tinyint_col + tinyint_col < 15
+|  runtime filters: RF000 <- id, RF001 <- int_col
+|  row-size=39B cardinality=2
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partition predicates: functional.alltypessmall.month > 2
+|     partitions=2/4 files=2 size=3.17KB
+|     predicates: functional.alltypessmall.string_col = '15', functional.alltypessmall.id + 15 = 27
+|     row-size=26B cardinality=2
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partition predicates: functional.alltypesagg.day >= 6
+   partitions=5/11 files=5 size=372.38KB
+   predicates: functional.alltypesagg.tinyint_col = 15, functional.alltypesagg.id + 15 = 27
+   runtime filters: RF000 -> id, RF001 -> int_col
+   row-size=13B cardinality=167
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]
+|  hash predicates: id = id, int_col = int_col
+|  other predicates: tinyint_col = 15, `day` >= 6, tinyint_col + tinyint_col < 15
+|  runtime filters: RF000 <- id, RF001 <- int_col
+|  row-size=39B cardinality=2
+|
+|--04:EXCHANGE [HASH(id,int_col)]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partition predicates: functional.alltypessmall.month > 2
+|     partitions=2/4 files=2 size=3.17KB
+|     predicates: functional.alltypessmall.string_col = '15', functional.alltypessmall.id + 15 = 27
+|     row-size=26B cardinality=2
+|
+03:EXCHANGE [HASH(id,int_col)]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partition predicates: functional.alltypesagg.day >= 6
+   partitions=5/11 files=5 size=372.38KB
+   predicates: functional.alltypesagg.tinyint_col = 15, functional.alltypesagg.id + 15 = 27
+   runtime filters: RF000 -> id, RF001 -> int_col
+   row-size=13B cardinality=167
+====
+# subquery join
+# multiple join predicates;
+# scan predicates get propagated correctly;
+# non-eq join predicates are evaluated as extra conjuncts by the join node
+select *
+from
+  (select id, int_col, day, tinyint_col
+   from
+     (select id, int_col, day, tinyint_col from functional.alltypesagg) a0
+   where a0.day >= 6) a
+  right outer join
+  (select id, int_col, month, string_col, tinyint_col from functional.alltypessmall) b
+  using (id, int_col)
+where b.month > 2
+and a.tinyint_col = 15
+and b.string_col = '15'
+and a.tinyint_col + b.tinyint_col < 15
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = id, int_col = int_col
+|  other predicates: tinyint_col = 15, tinyint_col + tinyint_col < 15
+|  runtime filters: RF000 <- id, RF001 <- int_col
+|  row-size=39B cardinality=5
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partition predicates: functional.alltypessmall.month > 2
+|     partitions=2/4 files=2 size=3.17KB
+|     predicates: functional.alltypessmall.string_col = '15'
+|     row-size=26B cardinality=5
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partition predicates: functional.alltypesagg.day >= 6
+   partitions=5/11 files=5 size=372.38KB
+   predicates: functional.alltypesagg.tinyint_col = 15
+   runtime filters: RF000 -> id, RF001 -> int_col
+   row-size=13B cardinality=556
+---- SCANRANGELOCATIONS
+NODE 0:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=10/100110.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=6/100106.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=7/100107.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=8/100108.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=9/100109.txt 0:76263
+NODE 1:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=3/090301.txt 0:1620
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=4/090401.txt 0:1621
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]
+|  hash predicates: id = id, int_col = int_col
+|  other predicates: tinyint_col = 15, tinyint_col + tinyint_col < 15
+|  runtime filters: RF000 <- id, RF001 <- int_col
+|  row-size=39B cardinality=5
+|
+|--04:EXCHANGE [HASH(id,int_col)]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partition predicates: functional.alltypessmall.month > 2
+|     partitions=2/4 files=2 size=3.17KB
+|     predicates: functional.alltypessmall.string_col = '15'
+|     row-size=26B cardinality=5
+|
+03:EXCHANGE [HASH(id,int_col)]
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partition predicates: functional.alltypesagg.day >= 6
+   partitions=5/11 files=5 size=372.38KB
+   predicates: functional.alltypesagg.tinyint_col = 15
+   runtime filters: RF000 -> id, RF001 -> int_col
+   row-size=13B cardinality=556
+====
+# complex join, having joined subquery on the rhs, and predicate
+# at multiple subquery level. This tests that both sides of a join
+# that is itself on the build side of another join get compacted.
+select x.smallint_col, x.id, x.tinyint_col, c.id, x.int_col, x.float_col, c.string_col
+from functional.alltypessmall c
+join (
+   select a.smallint_col smallint_col, a.tinyint_col tinyint_col, a.day day,
+           a.int_col int_col, a.month month, b.float_col float_col, b.id id
+   from ( select * from functional.alltypesagg a where month=1 ) a
+   join functional.alltypessmall b on (a.smallint_col = b.id)
+ ) x on (x.tinyint_col = c.id)
+where x.day=1
+and x.int_col > 899
+and x.float_col > 4.5
+and c.string_col < '7'
+and x.int_col + x.float_col + cast(c.string_col as float) < 1000
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: c.id = a.tinyint_col
+|  other predicates: a.int_col + b.float_col + CAST(c.string_col AS FLOAT) < 1000
+|  runtime filters: RF000 <- a.tinyint_col
+|  row-size=32B cardinality=11
+|
+|--03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: a.smallint_col = b.id
+|  |  runtime filters: RF002 <- b.id
+|  |  row-size=15B cardinality=11
+|  |
+|  |--02:SCAN HDFS [functional.alltypessmall b]
+|  |     partitions=4/4 files=4 size=6.32KB
+|  |     predicates: b.float_col > 4.5
+|  |     row-size=8B cardinality=10
+|  |
+|  01:SCAN HDFS [functional.alltypesagg a]
+|     partition predicates: `month` = 1, a.day = 1
+|     partitions=1/11 files=1 size=73.39KB
+|     predicates: a.int_col > 899
+|     runtime filters: RF002 -> a.smallint_col
+|     row-size=7B cardinality=100
+|
+00:SCAN HDFS [functional.alltypessmall c]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: c.string_col < '7'
+   runtime filters: RF000 -> c.id
+   row-size=17B cardinality=10
+---- SCANRANGELOCATIONS
+NODE 0:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=1/090101.txt 0:1610
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=2/090201.txt 0:1621
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=3/090301.txt 0:1620
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=4/090401.txt 0:1621
+NODE 1:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=1/100101.txt 0:75153
+NODE 2:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=1/090101.txt 0:1610
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=2/090201.txt 0:1621
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=3/090301.txt 0:1620
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypessmall/year=2009/month=4/090401.txt 0:1621
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+09:EXCHANGE [UNPARTITIONED]
+|
+04:HASH JOIN [INNER JOIN, PARTITIONED]
+|  hash predicates: c.id = a.tinyint_col
+|  other predicates: a.int_col + b.float_col + CAST(c.string_col AS FLOAT) < 1000
+|  runtime filters: RF000 <- a.tinyint_col
+|  row-size=32B cardinality=11
+|
+|--08:EXCHANGE [HASH(a.tinyint_col)]
+|  |
+|  03:HASH JOIN [INNER JOIN, PARTITIONED]
+|  |  hash predicates: b.id = a.smallint_col
+|  |  runtime filters: RF002 <- a.smallint_col
+|  |  row-size=15B cardinality=11
+|  |
+|  |--06:EXCHANGE [HASH(a.smallint_col)]
+|  |  |
+|  |  01:SCAN HDFS [functional.alltypesagg a]
+|  |     partition predicates: `month` = 1, a.day = 1
+|  |     partitions=1/11 files=1 size=73.39KB
+|  |     predicates: a.int_col > 899
+|  |     row-size=7B cardinality=100
+|  |
+|  05:EXCHANGE [HASH(b.id)]
+|  |
+|  02:SCAN HDFS [functional.alltypessmall b]
+|     partitions=4/4 files=4 size=6.32KB
+|     predicates: b.float_col > 4.5
+|     runtime filters: RF002 -> b.id
+|     row-size=8B cardinality=10
+|
+07:EXCHANGE [HASH(c.id)]
+|
+00:SCAN HDFS [functional.alltypessmall c]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: c.string_col < '7'
+   runtime filters: RF000 -> c.id
+   row-size=17B cardinality=10
+====
+# with grouping
+select tinyint_col, count(*), min(tinyint_col), max(tinyint_col), sum(tinyint_col),
+avg(tinyint_col)
+from (select * from functional.alltypesagg) a
+group by 1
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(*), min(functional.alltypesagg.tinyint_col), max(functional.alltypesagg.tinyint_col), sum(functional.alltypesagg.tinyint_col), avg(functional.alltypesagg.tinyint_col)
+|  group by: functional.alltypesagg.tinyint_col
+|  row-size=27B cardinality=9
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+---- SCANRANGELOCATIONS
+NODE 0:
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=1/100101.txt 0:75153
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=10/100110.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=2/100102.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=3/100103.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=4/100104.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=5/100105.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=6/100106.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=7/100107.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=8/100108.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=9/100109.txt 0:76263
+  HDFS SPLIT hdfs://localhost:20500/test-warehouse/alltypesagg/year=2010/month=1/day=__HIVE_DEFAULT_PARTITION__/000000_0 0:72759
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+03:AGGREGATE [FINALIZE]
+|  output: count:merge(*), min:merge(tinyint_col), max:merge(tinyint_col), sum:merge(tinyint_col), avg:merge(tinyint_col)
+|  group by: tinyint_col
+|  row-size=27B cardinality=9
+|
+02:EXCHANGE [HASH(tinyint_col)]
+|
+01:AGGREGATE [STREAMING]
+|  output: count(*), min(functional.alltypesagg.tinyint_col), max(functional.alltypesagg.tinyint_col), sum(functional.alltypesagg.tinyint_col), avg(functional.alltypesagg.tinyint_col)
+|  group by: functional.alltypesagg.tinyint_col
+|  row-size=27B cardinality=9
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+====
+# with grouping
+select * from (
+select tinyint_col, count(*), min(tinyint_col), max(tinyint_col), sum(tinyint_col),
+avg(tinyint_col)
+from functional.alltypesagg
+group by 1
+) a
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(*), min(tinyint_col), max(tinyint_col), sum(tinyint_col), avg(tinyint_col)
+|  group by: tinyint_col
+|  row-size=27B cardinality=9
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+03:AGGREGATE [FINALIZE]
+|  output: count:merge(*), min:merge(tinyint_col), max:merge(tinyint_col), sum:merge(tinyint_col), avg:merge(tinyint_col)
+|  group by: tinyint_col
+|  row-size=27B cardinality=9
+|
+02:EXCHANGE [HASH(tinyint_col)]
+|
+01:AGGREGATE [STREAMING]
+|  output: count(*), min(tinyint_col), max(tinyint_col), sum(tinyint_col), avg(tinyint_col)
+|  group by: tinyint_col
+|  row-size=27B cardinality=9
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+====
+select c1, c2, c3
+from
+  (select c1, c2, c3
+   from
+     (select int_col c1, sum(float_col) c2, min(float_col) c3
+      from functional_hbase.alltypessmall
+      group by 1) x
+    order by 2,3 desc
+    limit 5
+) y
+---- PLAN
+PLAN-ROOT SINK
+|
+02:TOP-N [LIMIT=5]
+|  order by: c2 ASC, c3 DESC
+|  row-size=16B cardinality=5
+|
+01:AGGREGATE [FINALIZE]
+|  output: sum(float_col), min(float_col)
+|  group by: int_col
+|  row-size=16B cardinality=10
+|
+00:SCAN HBASE [functional_hbase.alltypessmall]
+   row-size=8B cardinality=50
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: c2 ASC, c3 DESC
+|  limit: 5
+|
+02:TOP-N [LIMIT=5]
+|  order by: c2 ASC, c3 DESC
+|  row-size=16B cardinality=5
+|
+04:AGGREGATE [FINALIZE]
+|  output: sum:merge(float_col), min:merge(float_col)
+|  group by: int_col
+|  row-size=16B cardinality=10
+|
+03:EXCHANGE [HASH(int_col)]
+|
+01:AGGREGATE [STREAMING]
+|  output: sum(float_col), min(float_col)
+|  group by: int_col
+|  row-size=16B cardinality=10
+|
+00:SCAN HBASE [functional_hbase.alltypessmall]
+   row-size=8B cardinality=50
+====
+select c1, x2
+from (
+  select c1, min(c2) x2
+  from (
+    select c1, c2, c3
+    from (
+      select int_col c1, tinyint_col c2, min(float_col) c3
+      from functional_hbase.alltypessmall
+      group by 1, 2
+      order by 1,2
+      limit 1
+    ) x
+  ) x2
+  group by c1
+) y
+order by 2,1 desc
+limit 0
+---- PLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+00:EMPTYSET
+====
+# distinct *
+select distinct *
+from (select distinct * from functional.testtbl) x
+---- PLAN
+PLAN-ROOT SINK
+|
+02:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+01:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+00:SCAN HDFS [functional.testtbl]
+   partitions=1/1 files=0 size=0B
+   row-size=24B cardinality=0
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+04:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+03:EXCHANGE [HASH(functional.testtbl.id,functional.testtbl.name,functional.testtbl.zip)]
+|
+01:AGGREGATE [STREAMING]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+00:SCAN HDFS [functional.testtbl]
+   partitions=1/1 files=0 size=0B
+   row-size=24B cardinality=0
+====
+# distinct w/ explicit select list
+select distinct id, zip
+from (select distinct * from functional.testtbl) x
+---- PLAN
+PLAN-ROOT SINK
+|
+02:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.zip
+|  row-size=12B cardinality=0
+|
+01:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+00:SCAN HDFS [functional.testtbl]
+   partitions=1/1 files=0 size=0B
+   row-size=24B cardinality=0
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+07:EXCHANGE [UNPARTITIONED]
+|
+06:AGGREGATE [FINALIZE]
+|  group by: id, zip
+|  row-size=12B cardinality=0
+|
+05:EXCHANGE [HASH(id,zip)]
+|
+02:AGGREGATE [STREAMING]
+|  group by: functional.testtbl.id, functional.testtbl.zip
+|  row-size=12B cardinality=0
+|
+04:AGGREGATE [FINALIZE]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+03:EXCHANGE [HASH(functional.testtbl.id,functional.testtbl.name,functional.testtbl.zip)]
+|
+01:AGGREGATE [STREAMING]
+|  group by: functional.testtbl.id, functional.testtbl.name, functional.testtbl.zip
+|  row-size=24B cardinality=0
+|
+00:SCAN HDFS [functional.testtbl]
+   partitions=1/1 files=0 size=0B
+   row-size=24B cardinality=0
+====
+# aggregate with group-by, having
+select *
+from (
+       select int_col % 7 c1, count(*) c2, avg(int_col) c3
+       from (
+              select * from functional.alltypesagg
+            ) a
+       group by 1
+       having avg(int_col) > 500 or count(*) = 10
+     ) b
+where c1 is not null
+and   c2 > 10
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(*), avg(functional.alltypesagg.int_col)
+|  group by: functional.alltypesagg.int_col % 7
+|  having: int_col % 7 IS NOT NULL, count(*) > 10, avg(int_col) > 500 OR count(*) = 10
+|  row-size=20B cardinality=96
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:EXCHANGE [UNPARTITIONED]
+|
+03:AGGREGATE [FINALIZE]
+|  output: count:merge(*), avg:merge(int_col)
+|  group by: int_col % 7
+|  having: int_col % 7 IS NOT NULL, count(*) > 10, avg(int_col) > 500 OR count(*) = 10
+|  row-size=20B cardinality=96
+|
+02:EXCHANGE [HASH(int_col % 7)]
+|
+01:AGGREGATE [STREAMING]
+|  output: count(*), avg(functional.alltypesagg.int_col)
+|  group by: functional.alltypesagg.int_col % 7
+|  row-size=20B cardinality=957
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+====
+# subquery with left outer join
+select j.*, d.*
+from (
+       select *
+       from functional.JoinTbl a
+     ) j
+     left outer join
+     (
+       select *
+       from functional.DimTbl b
+     ) d
+     on (j.test_name = d.name)
+where j.test_id <= 1006
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: b.name = a.test_name
+|  runtime filters: RF000 <- a.test_name
+|  row-size=63B cardinality=2
+|
+|--00:SCAN HDFS [functional.jointbl a]
+|     partitions=1/1 files=1 size=433B
+|     predicates: a.test_id <= 1006
+|     row-size=33B cardinality=2
+|
+01:SCAN HDFS [functional.dimtbl b]
+   partitions=1/1 files=1 size=171B
+   runtime filters: RF000 -> b.name
+   row-size=29B cardinality=10
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]
+|  hash predicates: b.name = a.test_name
+|  runtime filters: RF000 <- a.test_name
+|  row-size=63B cardinality=2
+|
+|--04:EXCHANGE [HASH(a.test_name)]
+|  |
+|  00:SCAN HDFS [functional.jointbl a]
+|     partitions=1/1 files=1 size=433B
+|     predicates: a.test_id <= 1006
+|     row-size=33B cardinality=2
+|
+03:EXCHANGE [HASH(b.name)]
+|
+01:SCAN HDFS [functional.dimtbl b]
+   partitions=1/1 files=1 size=171B
+   runtime filters: RF000 -> b.name
+   row-size=29B cardinality=10
+====
+# complex join, having joined subquery on the rhs, and predicate
+# at multiple subquery level
+select x.smallint_col, count(x.id)
+from functional.alltypessmall c
+     left outer join
+     (
+       select a.smallint_col smallint_col, a.tinyint_col tinyint_col, a.day day,
+               a.int_col int_col, a.month month, b.float_col float_col, b.id id
+        from (
+                select *
+                from functional.alltypesagg a
+             ) a
+             join
+             functional.alltypessmall b
+             on (a.smallint_col = b.id)
+     ) x
+     on (x.tinyint_col = c.id)
+group by x.smallint_col
+---- PLAN
+PLAN-ROOT SINK
+|
+05:AGGREGATE [FINALIZE]
+|  output: count(b.id)
+|  group by: a.smallint_col
+|  row-size=10B cardinality=97
+|
+04:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: a.tinyint_col = c.id
+|  runtime filters: RF000 <- c.id
+|  row-size=11B cardinality=11.11K
+|
+|--00:SCAN HDFS [functional.alltypessmall c]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+03:HASH JOIN [INNER JOIN]
+|  hash predicates: a.smallint_col = b.id
+|  runtime filters: RF002 <- b.id
+|  row-size=7B cardinality=11.00K
+|
+|--02:SCAN HDFS [functional.alltypessmall b]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+01:SCAN HDFS [functional.alltypesagg a]
+   partitions=11/11 files=11 size=814.73KB
+   runtime filters: RF000 -> a.tinyint_col, RF002 -> a.smallint_col
+   row-size=3B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+11:EXCHANGE [UNPARTITIONED]
+|
+10:AGGREGATE [FINALIZE]
+|  output: count:merge(x.id)
+|  group by: x.smallint_col
+|  row-size=10B cardinality=97
+|
+09:EXCHANGE [HASH(x.smallint_col)]
+|
+05:AGGREGATE [STREAMING]
+|  output: count(b.id)
+|  group by: a.smallint_col
+|  row-size=10B cardinality=97
+|
+04:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]
+|  hash predicates: a.tinyint_col = c.id
+|  runtime filters: RF000 <- c.id
+|  row-size=11B cardinality=11.11K
+|
+|--08:EXCHANGE [HASH(c.id)]
+|  |
+|  00:SCAN HDFS [functional.alltypessmall c]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+07:EXCHANGE [HASH(a.tinyint_col)]
+|
+03:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: a.smallint_col = b.id
+|  runtime filters: RF002 <- b.id
+|  row-size=7B cardinality=11.00K
+|
+|--06:EXCHANGE [BROADCAST]
+|  |
+|  02:SCAN HDFS [functional.alltypessmall b]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+01:SCAN HDFS [functional.alltypesagg a]
+   partitions=11/11 files=11 size=814.73KB
+   runtime filters: RF000 -> a.tinyint_col, RF002 -> a.smallint_col
+   row-size=3B cardinality=11.00K
+====
+# complex join, having joined subquery on the lhs, and predicate
+# at multiple subquery level
+select x.smallint_col, x.id, x.tinyint_col, c.id, x.int_col, x.float_col, c.string_col
+from
+     (
+       select a.smallint_col smallint_col, a.tinyint_col tinyint_col, a.day day,
+               a.int_col int_col, a.month month, b.float_col float_col, b.id id
+        from (
+                select *
+                from functional.alltypesagg a
+                where month=1
+             ) a
+             join
+             functional.alltypessmall b
+             on (a.smallint_col = b.id)
+     ) x
+     join
+      functional.alltypessmall c
+     on (x.tinyint_col = c.id)
+where x.day=1
+and x.int_col > 899
+and x.float_col > 4.5
+and c.string_col < '7'
+and x.int_col + x.float_col + CAST(c.string_col AS FLOAT) < 1000
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: c.id = a.tinyint_col
+|  other predicates: a.int_col + b.float_col + CAST(c.string_col AS FLOAT) < 1000
+|  runtime filters: RF000 <- a.tinyint_col
+|  row-size=32B cardinality=11
+|
+|--02:HASH JOIN [INNER JOIN]
+|  |  hash predicates: a.smallint_col = b.id
+|  |  runtime filters: RF002 <- b.id
+|  |  row-size=15B cardinality=11
+|  |
+|  |--01:SCAN HDFS [functional.alltypessmall b]
+|  |     partitions=4/4 files=4 size=6.32KB
+|  |     predicates: b.float_col > 4.5
+|  |     row-size=8B cardinality=10
+|  |
+|  00:SCAN HDFS [functional.alltypesagg a]
+|     partition predicates: `month` = 1, a.day = 1
+|     partitions=1/11 files=1 size=73.39KB
+|     predicates: a.int_col > 899
+|     runtime filters: RF002 -> a.smallint_col
+|     row-size=7B cardinality=100
+|
+03:SCAN HDFS [functional.alltypessmall c]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: c.string_col < '7'
+   runtime filters: RF000 -> c.id
+   row-size=17B cardinality=10
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+09:EXCHANGE [UNPARTITIONED]
+|
+04:HASH JOIN [INNER JOIN, PARTITIONED]
+|  hash predicates: c.id = a.tinyint_col
+|  other predicates: a.int_col + b.float_col + CAST(c.string_col AS FLOAT) < 1000
+|  runtime filters: RF000 <- a.tinyint_col
+|  row-size=32B cardinality=11
+|
+|--08:EXCHANGE [HASH(a.tinyint_col)]
+|  |
+|  02:HASH JOIN [INNER JOIN, PARTITIONED]
+|  |  hash predicates: b.id = a.smallint_col
+|  |  runtime filters: RF002 <- a.smallint_col
+|  |  row-size=15B cardinality=11
+|  |
+|  |--06:EXCHANGE [HASH(a.smallint_col)]
+|  |  |
+|  |  00:SCAN HDFS [functional.alltypesagg a]
+|  |     partition predicates: `month` = 1, a.day = 1
+|  |     partitions=1/11 files=1 size=73.39KB
+|  |     predicates: a.int_col > 899
+|  |     row-size=7B cardinality=100
+|  |
+|  05:EXCHANGE [HASH(b.id)]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall b]
+|     partitions=4/4 files=4 size=6.32KB
+|     predicates: b.float_col > 4.5
+|     runtime filters: RF002 -> b.id
+|     row-size=8B cardinality=10
+|
+07:EXCHANGE [HASH(c.id)]
+|
+03:SCAN HDFS [functional.alltypessmall c]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: c.string_col < '7'
+   runtime filters: RF000 -> c.id
+   row-size=17B cardinality=10
+====
+# complex join, having joined aggregate subquery on the rhs, and predicate
+# at multiple subquery level
+select x.smallint_col, sum(x.cnt)
+from functional.alltypessmall c
+  join (
+    select count(a.id) cnt, b.smallint_col smallint_col
+    from ( select * from functional.alltypesagg a ) a
+      join functional.alltypessmall b on (a.smallint_col = b.id)
+    group by b.smallint_col
+  ) x on (x.smallint_col = c.id)
+group by x.smallint_col
+---- PLAN
+PLAN-ROOT SINK
+|
+06:AGGREGATE [FINALIZE]
+|  output: sum(count(a.id))
+|  group by: b.smallint_col
+|  row-size=10B cardinality=10
+|
+05:HASH JOIN [INNER JOIN]
+|  hash predicates: c.id = b.smallint_col
+|  runtime filters: RF000 <- b.smallint_col
+|  row-size=14B cardinality=10
+|
+|--04:AGGREGATE [FINALIZE]
+|  |  output: count(a.id)
+|  |  group by: b.smallint_col
+|  |  row-size=10B cardinality=10
+|  |
+|  03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: a.smallint_col = b.id
+|  |  runtime filters: RF002 <- b.id
+|  |  row-size=12B cardinality=11.00K
+|  |
+|  |--02:SCAN HDFS [functional.alltypessmall b]
+|  |     partitions=4/4 files=4 size=6.32KB
+|  |     row-size=6B cardinality=100
+|  |
+|  01:SCAN HDFS [functional.alltypesagg a]
+|     partitions=11/11 files=11 size=814.73KB
+|     runtime filters: RF002 -> a.smallint_col
+|     row-size=6B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypessmall c]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> c.id
+   row-size=4B cardinality=100
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+13:EXCHANGE [UNPARTITIONED]
+|
+12:AGGREGATE [FINALIZE]
+|  output: sum:merge(x.cnt)
+|  group by: x.smallint_col
+|  row-size=10B cardinality=10
+|
+11:EXCHANGE [HASH(x.smallint_col)]
+|
+06:AGGREGATE [STREAMING]
+|  output: sum(count(a.id))
+|  group by: b.smallint_col
+|  row-size=10B cardinality=10
+|
+05:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: c.id = b.smallint_col
+|  runtime filters: RF000 <- b.smallint_col
+|  row-size=14B cardinality=10
+|
+|--10:EXCHANGE [BROADCAST]
+|  |
+|  09:AGGREGATE [FINALIZE]
+|  |  output: count:merge(a.id)
+|  |  group by: b.smallint_col
+|  |  row-size=10B cardinality=10
+|  |
+|  08:EXCHANGE [HASH(b.smallint_col)]
+|  |
+|  04:AGGREGATE [STREAMING]
+|  |  output: count(a.id)
+|  |  group by: b.smallint_col
+|  |  row-size=10B cardinality=10
+|  |
+|  03:HASH JOIN [INNER JOIN, BROADCAST]
+|  |  hash predicates: a.smallint_col = b.id
+|  |  runtime filters: RF002 <- b.id
+|  |  row-size=12B cardinality=11.00K
+|  |
+|  |--07:EXCHANGE [BROADCAST]
+|  |  |
+|  |  02:SCAN HDFS [functional.alltypessmall b]
+|  |     partitions=4/4 files=4 size=6.32KB
+|  |     row-size=6B cardinality=100
+|  |
+|  01:SCAN HDFS [functional.alltypesagg a]
+|     partitions=11/11 files=11 size=814.73KB
+|     runtime filters: RF002 -> a.smallint_col
+|     row-size=6B cardinality=11.00K
+|
+00:SCAN HDFS [functional.alltypessmall c]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> c.id
+   row-size=4B cardinality=100
+====
+# Values statement in subqueries with predicate
+select * from (select y from (values((1 as y),(11))) a where y < 10) b
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+   constant-operands=1
+   row-size=1B cardinality=1
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+00:UNION
+   constant-operands=1
+   row-size=1B cardinality=1
+====
+# Mixed constant and non-constant select; the predicate is evaluated directly
+# by the non-const select
+select * from
+  (select y from
+    ((select 1 as y)
+     union all
+     (select tinyint_col from functional.alltypes)) a
+   where y < 10) b
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  pass-through-operands: all
+|  row-size=1B cardinality=731
+|
+01:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.tinyint_col < 10
+   row-size=1B cardinality=730
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+02:EXCHANGE [UNPARTITIONED]
+|
+00:UNION
+|  constant-operands=1
+|  pass-through-operands: all
+|  row-size=1B cardinality=731
+|
+01:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.tinyint_col < 10
+   row-size=1B cardinality=730
+====
+# Union of constant selects in subquery
+select * from (select 1 as y union all select 2 union all select * from (select 11) a) b
+where y < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+   constant-operands=2
+   row-size=1B cardinality=2
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+00:UNION
+   constant-operands=2
+   row-size=1B cardinality=2
+====
+# Union of values statements in subquery
+# TODO: We could combine the merge nodes below.
+select * from (values(1 as y) union all values(2) union all select * from (values(11)) a) b
+where y < 10
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=2
+|  row-size=1B cardinality=2
+|
+01:UNION
+   row-size=1B cardinality=0
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=2
+|  row-size=1B cardinality=2
+|
+01:UNION
+   row-size=1B cardinality=0
+====
+# Inner join on inline views made up of unions of constant selects
+select * from
+(select 1 a, 2 b union all select 1 a, 2 b) x
+inner join
+(select 1 a, 3 b union all select 1 a, 2 b) y on x.a = y.a
+inner join
+(select 1 a, 3 b union all select 1 a, 3 b) z on z.b = y.b
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: b = b
+|  row-size=6B cardinality=2
+|
+|--02:UNION
+|     constant-operands=2
+|     row-size=2B cardinality=2
+|
+03:HASH JOIN [INNER JOIN]
+|  hash predicates: a = a
+|  row-size=4B cardinality=2
+|
+|--01:UNION
+|     constant-operands=2
+|     row-size=2B cardinality=2
+|
+00:UNION
+   constant-operands=2
+   row-size=2B cardinality=2
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: b = b
+|  row-size=6B cardinality=2
+|
+|--06:EXCHANGE [UNPARTITIONED]
+|  |
+|  02:UNION
+|     constant-operands=2
+|     row-size=2B cardinality=2
+|
+03:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: a = a
+|  row-size=4B cardinality=2
+|
+|--05:EXCHANGE [UNPARTITIONED]
+|  |
+|  01:UNION
+|     constant-operands=2
+|     row-size=2B cardinality=2
+|
+00:UNION
+   constant-operands=2
+   row-size=2B cardinality=2
+====
+# Semi and inner join on a table and on inline views made up of constant selects
+select * from functional.alltypessmall x
+left semi join
+(select 1 a, 3 b union all select 1 a, 3 b) y on y.a = x.id
+inner join
+(select 1 a, 3 b union all select 1 a, 3 b) z on z.b = x.id + 2
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: x.id + 2 = b
+|  runtime filters: RF000 <- b
+|  row-size=91B cardinality=2
+|
+|--02:UNION
+|     constant-operands=2
+|     row-size=2B cardinality=2
+|
+03:HASH JOIN [LEFT SEMI JOIN]
+|  hash predicates: x.id = a
+|  runtime filters: RF002 <- a
+|  row-size=89B cardinality=2
+|
+|--01:UNION
+|     constant-operands=2
+|     row-size=1B cardinality=2
+|
+00:SCAN HDFS [functional.alltypessmall x]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> x.id + 2, RF002 -> x.id
+   row-size=89B cardinality=100
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+07:EXCHANGE [UNPARTITIONED]
+|
+04:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: x.id + 2 = b
+|  runtime filters: RF000 <- b
+|  row-size=91B cardinality=2
+|
+|--06:EXCHANGE [BROADCAST]
+|  |
+|  02:UNION
+|     constant-operands=2
+|     row-size=2B cardinality=2
+|
+03:HASH JOIN [LEFT SEMI JOIN, BROADCAST]
+|  hash predicates: x.id = a
+|  runtime filters: RF002 <- a
+|  row-size=89B cardinality=2
+|
+|--05:EXCHANGE [BROADCAST]
+|  |
+|  01:UNION
+|     constant-operands=2
+|     row-size=1B cardinality=2
+|
+00:SCAN HDFS [functional.alltypessmall x]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> x.id + 2, RF002 -> x.id
+   row-size=89B cardinality=100
+====
+# Tests that views correctly reanalyze cloned exprs. (IMPALA-984)
+select b.* from functional.decimal_tbl a left outer join
+  (select d1, d1 + NULL IS NULL x from functional.decimal_tbl) b
+on (a.d1 = b.d1)
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.d1 = d1
+|  row-size=8B cardinality=unavailable
+|
+|--01:SCAN HDFS [functional.decimal_tbl]
+|     partitions=1/1 files=1 size=195B
+|     row-size=4B cardinality=unavailable
+|
+00:SCAN HDFS [functional.decimal_tbl a]
+   partitions=1/1 files=1 size=195B
+   row-size=4B cardinality=unavailable
+====
+# Test predicate assignment through inline view when the query contains
+# group by and distinct (IMPALA-1165)
+select foo, sum(distinct foo)
+from (select int_col + int_col as foo from functional.alltypesagg) t
+where foo = 10
+group by foo
+limit 10
+---- PLAN
+PLAN-ROOT SINK
+|
+02:AGGREGATE [FINALIZE]
+|  output: sum(foo)
+|  group by: foo
+|  limit: 10
+|  row-size=16B cardinality=10
+|
+01:AGGREGATE
+|  group by: int_col + int_col, int_col + int_col
+|  row-size=16B cardinality=11
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   predicates: int_col + int_col = 10
+   row-size=4B cardinality=11
+====
+# Test enforcement of inline-view slot equivalences when the inline-view
+# contains an outer join (IMPALA-1441)
+select * from
+  (select t1.int_col, t1.tinyint_col, t2.int_col as int_col2, t2.tinyint_col as tinyint_col2
+   from functional.alltypestiny t1 left outer join functional.alltypes t2
+   on t1.int_col = t2.int_col and t1.tinyint_col = t2.tinyint_col) t
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: t2.int_col = t1.int_col, t2.tinyint_col = t1.tinyint_col
+|  runtime filters: RF000 <- t1.int_col, RF001 <- t1.tinyint_col
+|  row-size=10B cardinality=5.84K
+|
+|--00:SCAN HDFS [functional.alltypestiny t1]
+|     partitions=4/4 files=4 size=460B
+|     row-size=5B cardinality=8
+|
+01:SCAN HDFS [functional.alltypes t2]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> t2.int_col, RF001 -> t2.tinyint_col
+   row-size=5B cardinality=7.30K
+====
+# IMPALA-1459: Test correct assignment of On-clause predicate from an enclosing block
+# inside an inline view with an outer join.
+select 1 from
+  (select a.id aid, b.id bid from
+   functional.alltypes a inner join functional.alltypes b
+   on a.id = b.id
+   full outer join functional.alltypessmall c on a.id = c.id) v
+inner join functional.alltypestiny c
+on (aid < bid and aid = c.id)
+---- PLAN
+PLAN-ROOT SINK
+|
+06:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = c.id
+|  runtime filters: RF000 <- c.id
+|  row-size=16B cardinality=9
+|
+|--05:SCAN HDFS [functional.alltypestiny c]
+|     partitions=4/4 files=4 size=460B
+|     row-size=4B cardinality=8
+|
+04:HASH JOIN [FULL OUTER JOIN]
+|  hash predicates: a.id = c.id
+|  other predicates: a.id < b.id
+|  row-size=12B cardinality=7.40K
+|
+|--02:SCAN HDFS [functional.alltypessmall c]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+03:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = b.id
+|  runtime filters: RF002 <- b.id
+|  row-size=8B cardinality=7.30K
+|
+|--01:SCAN HDFS [functional.alltypes b]
+|     partitions=24/24 files=24 size=478.45KB
+|     runtime filters: RF000 -> b.id
+|     row-size=4B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes a]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> a.id, RF002 -> a.id
+   row-size=4B cardinality=7.30K
+====
+# IMPALA-2665: Test correct assignment of On-clause predicate from an enclosing block
+# inside an inline view with an outer join.
+select 1 from functional.alltypes t1
+inner join
+  (select a.id, b.int_col
+   from functional.alltypes a left outer join functional.alltypes b
+   on a.id = b.int_col) v
+on (t1.id = v.id and v.int_col is null and v.int_col < 10 and v.id < 10)
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = t1.id
+|  runtime filters: RF000 <- t1.id
+|  row-size=12B cardinality=73
+|
+|--00:SCAN HDFS [functional.alltypes t1]
+|     partitions=24/24 files=24 size=478.45KB
+|     predicates: t1.id < 10
+|     row-size=4B cardinality=730
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = b.int_col
+|  other predicates: b.int_col IS NULL, b.int_col < 10
+|  row-size=8B cardinality=730
+|
+|--02:SCAN HDFS [functional.alltypes b]
+|     partitions=24/24 files=24 size=478.45KB
+|     predicates: b.int_col < 10
+|     runtime filters: RF000 -> b.int_col
+|     row-size=4B cardinality=730
+|
+01:SCAN HDFS [functional.alltypes a]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: a.id < 10
+   runtime filters: RF000 -> a.id
+   row-size=4B cardinality=730
+====
+# IMPALA-2643: Test inline views with duplicate exprs in their select list.
+# Inferred predicate referencing the same expr gets filtered out.
+select * from
+  (select * from
+    (select bigint_col, bigint_col as bigint_col2
+     from functional.alltypestiny) iv
+  ) ivv
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN HDFS [functional.alltypestiny]
+   partitions=4/4 files=4 size=460B
+   row-size=8B cardinality=8
+====
+# IMPALA-2643: Explicit predicates remain unafftected.
+select * from
+  (select * from
+    (select bigint_col, bigint_col as bigint_col2
+     from functional.alltypestiny) iv
+  ) ivv where bigint_col = bigint_col2
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN HDFS [functional.alltypestiny]
+   partitions=4/4 files=4 size=460B
+   predicates: bigint_col = bigint_col
+   row-size=8B cardinality=1
+====
+# IMPALA-2643: Test aggregation.
+# Inferred predicate referencing the same expr gets filtered out.
+select * from
+  (select * from
+    (select sum(bigint_col) as s1, sum(bigint_col) as s2
+     from functional.alltypestiny) iv
+  ) ivv
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: sum(bigint_col)
+|  row-size=8B cardinality=1
+|
+00:SCAN HDFS [functional.alltypestiny]
+   partitions=4/4 files=4 size=460B
+   row-size=8B cardinality=8
+====
+# IMPALA-2643: Explicit predicates remain unafftected.
+select * from
+  (select * from
+    (select sum(bigint_col) as s1, sum(bigint_col) as s2
+     from functional.alltypestiny) iv
+  ) ivv where s1 = s2
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: sum(bigint_col)
+|  having: sum(bigint_col) = sum(bigint_col)
+|  row-size=8B cardinality=0
+|
+00:SCAN HDFS [functional.alltypestiny]
+   partitions=4/4 files=4 size=460B
+   row-size=8B cardinality=8
+====
+# IMPALA-8386: Predicates generated from slot equivalences won't be identities.
+# Without this patch, there will be a predicate "sum(c.int_col) = sum(c.int_col)"
+# in node 05, which may incorrectly reject rows with nulls.
+select count(1) from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypes a
+    left outer join (
+        select c.bigint_col, sum(c.int_col) as amount1, sum(c.int_col) as amount2
+        from functional.alltypessmall b
+        join functional.alltypestiny c
+        on b.bigint_col = c.bigint_col
+        group by c.bigint_col
+    ) t2
+    on a.bigint_col = t2.bigint_col
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+06:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+05:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = c.bigint_col
+|  row-size=16B cardinality=7.30K
+|
+|--04:AGGREGATE [FINALIZE]
+|  |  group by: c.bigint_col
+|  |  row-size=8B cardinality=2
+|  |
+|  03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: b.bigint_col = c.bigint_col
+|  |  runtime filters: RF000 <- c.bigint_col
+|  |  row-size=16B cardinality=80
+|  |
+|  |--02:SCAN HDFS [functional.alltypestiny c]
+|  |     partitions=4/4 files=4 size=460B
+|  |     row-size=8B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypessmall b]
+|     partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF000 -> b.bigint_col
+|     row-size=8B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes a]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=8B cardinality=7.30K
+====
+# IMPALA-8386: Predicates generated from slot equivalences won't be identities.
+# Without this patch, there will be a predicate "c.int_col = c.int_col" in node 04,
+# which may incorrectly reject rows with nulls.
+select * from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypes a
+    left outer join (
+        select c.bigint_col, c.int_col as amount1, c.int_col as amount2
+        from functional.alltypessmall b
+        join functional.alltypestiny c
+        on b.bigint_col = c.bigint_col
+    ) t2
+    on a.bigint_col = t2.bigint_col
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = c.bigint_col
+|  row-size=28B cardinality=58.40K
+|
+|--03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: b.bigint_col = c.bigint_col
+|  |  runtime filters: RF000 <- c.bigint_col
+|  |  row-size=20B cardinality=80
+|  |
+|  |--02:SCAN HDFS [functional.alltypestiny c]
+|  |     partitions=4/4 files=4 size=460B
+|  |     row-size=12B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypessmall b]
+|     partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF000 -> b.bigint_col
+|     row-size=8B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes a]
+   partitions=24/24 files=24 size=478.45KB
+   row-size=8B cardinality=7.30K
+====
+# A more deeper inline view test for IMPALA-8386. No predicate "int_col = int_col" will
+# be generated.
+select * from (
+    select t2.id, t2.amount1, t2.amount2
+    from functional.alltypestiny a
+    left outer join (
+        select t3.id, t3.amount1, t3.amount2
+        from functional.alltypestiny b
+        left outer join (
+            select c.id, c.int_col as amount1, c.int_col as amount2
+            from functional.alltypestiny c
+            join functional.alltypestiny d
+            on c.id = d.id
+        ) t3
+        on b.id = t3.id
+    ) t2
+    on a.id = t2.id
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+06:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: c.id = a.id
+|  runtime filters: RF000 <- a.id
+|  row-size=20B cardinality=8
+|
+|--00:SCAN HDFS [functional.alltypestiny a]
+|     partitions=4/4 files=4 size=460B
+|     row-size=4B cardinality=8
+|
+05:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: c.id = b.id
+|  runtime filters: RF002 <- b.id
+|  row-size=16B cardinality=8
+|
+|--01:SCAN HDFS [functional.alltypestiny b]
+|     partitions=4/4 files=4 size=460B
+|     row-size=4B cardinality=8
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: c.id = d.id
+|  runtime filters: RF004 <- d.id
+|  row-size=12B cardinality=8
+|
+|--03:SCAN HDFS [functional.alltypestiny d]
+|     partitions=4/4 files=4 size=460B
+|     runtime filters: RF000 -> d.id, RF002 -> d.id
+|     row-size=4B cardinality=8
+|
+02:SCAN HDFS [functional.alltypestiny c]
+   partitions=4/4 files=4 size=460B
+   runtime filters: RF000 -> c.id, RF002 -> c.id, RF004 -> c.id
+   row-size=8B cardinality=8
+====
+# A minimal reproduce for IMPALA-8386. Though the query results are correct, without
+# this patch there's a wrong inferred predicate "int_col = int_col" assigned at the
+# Join node.
+select * from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypessmall a
+    left outer join (
+        select bigint_col, int_col as amount1, int_col as amount2
+        from functional.alltypestiny
+    ) t2
+    on a.bigint_col = t2.bigint_col
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = bigint_col
+|  row-size=20B cardinality=100
+|
+|--01:SCAN HDFS [functional.alltypestiny]
+|     partitions=4/4 files=4 size=460B
+|     row-size=12B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   partitions=4/4 files=4 size=6.32KB
+   row-size=8B cardinality=100
+====
+# IMPALA-8386: test coverage for ORDER BY/LIMIT
+select * from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypessmall a
+    left outer join (
+        select bigint_col, int_col as amount1, int_col as amount2
+        from functional.alltypestiny
+        order by bigint_col limit 10
+    ) t2
+    on a.bigint_col = t2.bigint_col
+    order by 1 limit 10
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+04:TOP-N [LIMIT=10]
+|  order by: bigint_col ASC
+|  row-size=16B cardinality=10
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = bigint_col
+|  row-size=20B cardinality=100
+|
+|--02:TOP-N [LIMIT=10]
+|  |  order by: bigint_col ASC
+|  |  row-size=12B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=12B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=8B cardinality=100
+====
+# IMPALA-8386: test coverage for analytic functions
+select * from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypessmall a
+    left outer join (
+        select bigint_col, max(int_col) over (partition by bigint_col) as amount1,
+            max(int_col) over (partition by bigint_col) as amount2
+        from functional.alltypestiny
+    ) t2
+    on a.bigint_col = t2.bigint_col
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = bigint_col
+|  row-size=24B cardinality=100
+|
+|--03:ANALYTIC
+|  |  functions: max(int_col)
+|  |  partition by: bigint_col
+|  |  row-size=16B cardinality=8
+|  |
+|  02:SORT
+|  |  order by: bigint_col ASC NULLS LAST
+|  |  row-size=12B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=12B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=8B cardinality=100
+====
+# IMPALA-8386: test coverage for unions
+select * from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypessmall a
+    left outer join (
+        select bigint_col, int_col as amount1, int_col as amount2
+        from (
+            select * from functional.alltypestiny where id < 4
+            union all
+            select * from functional.alltypestiny where id >= 4
+        ) t3
+    ) t2
+    on a.bigint_col = t2.bigint_col
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = bigint_col
+|  row-size=20B cardinality=100
+|
+|--01:UNION
+|  |  row-size=12B cardinality=2
+|  |
+|  |--03:SCAN HDFS [functional.alltypestiny]
+|  |     HDFS partitions=4/4 files=4 size=460B
+|  |     predicates: id >= 4
+|  |     row-size=16B cardinality=1
+|  |
+|  02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: id < 4
+|     row-size=16B cardinality=1
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=8B cardinality=100
+====
+# IMPALA-8386: test coverage for unions
+select * from (
+    select t2.bigint_col, t2.amount1, t2.amount2
+    from functional.alltypessmall a
+    left join (
+        select bigint_col, int_col as amount1, int_col as amount2
+        from functional.alltypestiny
+        union all values (NULL, NULL, NULL)
+    ) t2
+    on a.bigint_col = t2.bigint_col
+) t1;
+---- PLAN
+PLAN-ROOT SINK
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.bigint_col = bigint_col
+|  row-size=24B cardinality=100
+|
+|--01:UNION
+|  |  constant-operands=1
+|  |  row-size=16B cardinality=9
+|  |
+|  02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=12B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=8B cardinality=100
+====
+# IMPALA-7957: Slot equivalences should not be enforced multiple times.
+# Without this patch, the planner will incorrectly generated a SELECT node with a wrong
+# predicate "functional.alltypestiny.id = functional.alltypestiny.int_col" on top of the
+# JOIN node. So LEFT JOIN results with NULL values will be incorrectly rejects.
+SELECT t.id
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+   FROM functional.alltypestiny
+   WHERE int_col = id) t2
+ON (t.id = t2.id)
+UNION ALL
+VALUES (NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=4B cardinality=9
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  row-size=12B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id
+|     row-size=8B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# IMPALA-7957: Slot equivalences should not be enforced multiple times.
+# Coverage for UNION DISTINCT
+SELECT t.id
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+  FROM functional.alltypestiny
+  WHERE int_col = id) t2
+ON (t.id = t2.id)
+UNION DISTINCT
+VALUES (NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+04:AGGREGATE [FINALIZE]
+|  group by: id
+|  row-size=4B cardinality=9
+|
+00:UNION
+|  constant-operands=1
+|  row-size=4B cardinality=9
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  row-size=12B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id
+|     row-size=8B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# IMPALA-7957: Slot equivalences should not be enforced multiple times.
+# The WHERE predicate "t.int_col = t.id" is pushed down to the scan node of t.
+SELECT t.id, t.int_col
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+  FROM functional.alltypestiny) t2
+ON (t.id = t2.id)
+WHERE t.int_col = t.id
+UNION ALL
+VALUES (NULL, NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=8B cardinality=1
+|
+03:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = t.id
+|  runtime filters: RF000 <- t.id
+|  row-size=12B cardinality=1
+|
+|--01:SCAN HDFS [functional.alltypestiny t]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: t.int_col = t.id
+|     row-size=8B cardinality=1
+|
+02:SCAN HDFS [functional.alltypestiny]
+   HDFS partitions=4/4 files=4 size=460B
+   runtime filters: RF000 -> id
+   row-size=4B cardinality=8
+====
+# Regression test for IMPALA-7957. Comparing to the test above, this test changes the
+# WHERE clause to target on the rhs of the LEFT JOIN. The WHERE predicate is correctly
+# duplicated and pushed down to the SCAN node.
+SELECT t2.id, t2.int_col
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+  FROM functional.alltypestiny) t2
+ON (t.id = t2.id)
+WHERE t2.int_col = t2.id
+UNION ALL
+VALUES (NULL, NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=8B cardinality=9
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  other predicates: int_col = id
+|  row-size=12B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: functional.alltypestiny.int_col = functional.alltypestiny.id
+|     row-size=8B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# Regression test for IMPALA-7957. The inline view t2 has a ORDER BY LIMIT clause.
+# No behavior changes after the patch.
+SELECT t2.id, t2.int_col
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+  FROM functional.alltypestiny
+  ORDER BY id LIMIT 2) t2
+ON (t.id = t2.id)
+WHERE t2.int_col = t2.id
+UNION ALL
+VALUES (NULL, NULL);
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=8B cardinality=9
+|
+05:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  other predicates: int_col = id
+|  row-size=12B cardinality=8
+|
+|--04:SELECT
+|  |  predicates: id = int_col
+|  |  row-size=8B cardinality=0
+|  |
+|  03:TOP-N [LIMIT=2]
+|  |  order by: id ASC
+|  |  row-size=8B cardinality=2
+|  |
+|  02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=8B cardinality=8
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# Regression test for IMPALA-7957. The inline view t2 has an analytic function.
+# No behavior changes after the patch.
+SELECT t2.id, t2.int_col
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col, count(int_col) over (partition by int_col) int_sum
+  FROM functional.alltypestiny
+  ORDER BY id LIMIT 2) t2
+ON (t.id = t2.id)
+WHERE t2.int_col = t2.id
+UNION ALL
+VALUES (NULL, NULL);
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=8B cardinality=9
+|
+05:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  other predicates: int_col = id
+|  row-size=12B cardinality=8
+|
+|--04:SELECT
+|  |  predicates: id = int_col
+|  |  row-size=8B cardinality=0
+|  |
+|  03:TOP-N [LIMIT=2]
+|  |  order by: id ASC
+|  |  row-size=8B cardinality=2
+|  |
+|  02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=8B cardinality=8
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# Regression test for IMPALA-7957. The first union operand has an ORDER BY LIMIT clause.
+SELECT t.id
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+   FROM functional.alltypestiny
+   WHERE int_col = id) t2
+ON (t.id = t2.id)
+ORDER BY 1 LIMIT 3
+UNION ALL
+VALUES (NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  pass-through-operands: all
+|  row-size=4B cardinality=4
+|
+04:TOP-N [LIMIT=3]
+|  order by: id ASC
+|  row-size=4B cardinality=3
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  row-size=12B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id
+|     row-size=8B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# Regression test for IMPALA-7957. The first union operand has a GROUP BY clause.
+SELECT t.id, sum(t.int_col)
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+   FROM functional.alltypestiny
+   WHERE int_col = id) t2
+ON (t.id = t2.id)
+GROUP BY 1
+UNION ALL
+VALUES (NULL, NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  pass-through-operands: all
+|  row-size=12B cardinality=9
+|
+04:AGGREGATE [FINALIZE]
+|  output: sum(t.int_col)
+|  group by: t.id
+|  row-size=12B cardinality=8
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  row-size=16B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id
+|     row-size=8B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=8B cardinality=8
+====
+# IMPALA-7957: Add the same predicate *outside* the left join, it should still be enforced.
+SELECT t.id
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col
+  FROM functional.alltypestiny
+  WHERE int_col = id) t2
+ON (t.id = t2.id) where t2.id = t2.int_col
+UNION ALL
+VALUES (NULL);
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=4B cardinality=9
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  other predicates: id = int_col
+|  row-size=12B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id
+|     row-size=8B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# IMPALA-7957: Same thing except with a predicate on a different column (i.e. adding it
+# to the equivalence class)
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+SELECT t.id, t2.id
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col, smallint_col
+  FROM functional.alltypestiny
+  WHERE int_col = id) t2
+ON (t.id = t2.id) where t2.int_col = t2.smallint_col
+UNION ALL
+VALUES (NULL, NULL)
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=8B cardinality=9
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  other predicates: int_col = smallint_col
+|  row-size=14B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id, int_col = smallint_col
+|     row-size=10B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# IMPALA-7957: Multiple predicates that must not be placed above the join
+SELECT t.id, t2.id
+FROM functional.alltypestiny t
+LEFT JOIN
+  (SELECT id, int_col, smallint_col
+  FROM functional.alltypestiny
+  WHERE int_col = id and smallint_col = id and tinyint_col = id) t2
+ON (t.id = t2.id)
+UNION ALL
+VALUES (NULL, NULL);
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  constant-operands=1
+|  row-size=8B cardinality=9
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t.id = id
+|  row-size=15B cardinality=8
+|
+|--02:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: int_col = id, smallint_col = id, tinyint_col = id
+|     row-size=11B cardinality=1
+|
+01:SCAN HDFS [functional.alltypestiny t]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=4B cardinality=8
+====
+# IMPALA-9162: Should not add extra predicates to the WHERE part of a left outer join
+select x.* from (select v1.c2, v1.max_c2 from functional.alltypessmall t
+  left join (
+   with iv1 AS (SELECT smallint_col c1, bigint_col c2
+                 FROM functional.alltypessmall
+                group by c1, c2),
+        iv2 AS (SELECT smallint_col r_c1, max(bigint_col) max_c2
+                 FROM functional.alltypessmall
+                group by r_c1)
+    select iv1.c2, iv2.max_c2 FROM iv1, iv2 where iv1.c2 = iv2.max_c2) as v1
+  on t.smallint_col=v1.c2) as x;
+---- PLAN
+PLAN-ROOT SINK
+|
+06:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: bigint_col = t.smallint_col
+|  runtime filters: RF000 <- t.smallint_col
+|  row-size=22B cardinality=81
+|
+|--00:SCAN HDFS [functional.alltypessmall t]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=2B cardinality=81
+|
+05:HASH JOIN [INNER JOIN]
+|  hash predicates: bigint_col = max(bigint_col)
+|  runtime filters: RF002 <- max(bigint_col)
+|  row-size=20B cardinality=81
+|
+|--04:AGGREGATE [FINALIZE]
+|  |  output: max(bigint_col)
+|  |  group by: smallint_col
+|  |  row-size=10B cardinality=81
+|  |
+|  03:SCAN HDFS [functional.alltypessmall]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=10B cardinality=81
+|
+02:AGGREGATE [FINALIZE]
+|  group by: smallint_col, bigint_col
+|  row-size=10B cardinality=81
+|
+01:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> functional.alltypessmall.bigint_col, RF002 -> functional.alltypessmall.bigint_col
+   row-size=10B cardinality=81
+====
+# IMPALA-9162: Should not add extra predicates to the WHERE part of a full outer join
+select x.* from (select v1.c2, v1.max_c2 from functional.alltypessmall t
+   full outer join (
+   with iv1 AS (SELECT smallint_col c1, bigint_col c2
+                 FROM functional.alltypessmall
+                group by c1, c2),
+        iv2 AS (SELECT smallint_col r_c1, max(bigint_col) max_c2
+                 FROM functional.alltypessmall
+                group by r_c1)
+    select iv1.c2, iv2.max_c2 FROM iv1, iv2 where iv1.c2 = iv2.max_c2) as v1
+  on t.smallint_col=v1.c2) as x;
+---- PLAN
+PLAN-ROOT SINK
+|
+06:HASH JOIN [FULL OUTER JOIN]
+|  hash predicates: bigint_col = t.smallint_col
+|  row-size=22B cardinality=81
+|
+|--00:SCAN HDFS [functional.alltypessmall t]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=2B cardinality=81
+|
+05:HASH JOIN [INNER JOIN]
+|  hash predicates: bigint_col = max(bigint_col)
+|  runtime filters: RF000 <- max(bigint_col)
+|  row-size=20B cardinality=81
+|
+|--04:AGGREGATE [FINALIZE]
+|  |  output: max(bigint_col)
+|  |  group by: smallint_col
+|  |  row-size=10B cardinality=81
+|  |
+|  03:SCAN HDFS [functional.alltypessmall]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=10B cardinality=81
+|
+02:AGGREGATE [FINALIZE]
+|  group by: smallint_col, bigint_col
+|  row-size=10B cardinality=81
+|
+01:SCAN HDFS [functional.alltypessmall]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> functional.alltypessmall.bigint_col
+   row-size=10B cardinality=81
+====
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+SELECT *
+FROM functional.alltypessmall a
+    LEFT JOIN (
+        SELECT id, upper(string_col) AS upper_val
+        FROM functional.alltypestiny
+    ) b ON a.id = b.id
+WHERE b.upper_val = '1'
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = id
+|  other predicates: upper(string_col) = '1'
+|  row-size=106B cardinality=100
+|
+|--01:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: upper(string_col) = '1'
+|     row-size=17B cardinality=4
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+# For local view
+WITH b as (SELECT id, upper(string_col) AS upper_val FROM functional.alltypestiny)
+SELECT * FROM functional.alltypessmall a LEFT JOIN b ON a.id = b.id
+WHERE b.upper_val = '1';
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = id
+|  other predicates: upper(string_col) = '1'
+|  row-size=106B cardinality=100
+|
+|--01:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: upper(string_col) = '1'
+|     row-size=17B cardinality=4
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+# Outer-joined inline view is union statement
+SELECT * FROM functional.alltypestiny a
+LEFT JOIN
+(SELECT upper(a.string_col) upper_val, a.id FROM functional.alltypestiny a
+UNION SELECT b.string_col,b.id FROM functional.alltypestiny b) b
+ON a.id=b.id
+WHERE b.upper_val='123';
+---- PLAN
+PLAN-ROOT SINK
+|
+05:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = id
+|  other predicates: upper_val = '123'
+|  row-size=105B cardinality=8
+|
+|--04:AGGREGATE [FINALIZE]
+|  |  group by: upper_val, id
+|  |  row-size=16B cardinality=6
+|  |
+|  01:UNION
+|  |  pass-through-operands: 03
+|  |  row-size=16B cardinality=6
+|  |
+|  |--02:SCAN HDFS [functional.alltypestiny a]
+|  |     HDFS partitions=4/4 files=4 size=460B
+|  |     predicates: upper(a.string_col) = '123'
+|  |     row-size=17B cardinality=2
+|  |
+|  03:SCAN HDFS [functional.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: b.string_col = '123'
+|     row-size=17B cardinality=4
+|
+00:SCAN HDFS [functional.alltypestiny a]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=89B cardinality=8
+====
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+# Inline view contains outer join
+SELECT * FROM functional.alltypestiny a
+LEFT JOIN
+(SELECT upper(b.string_col) string_col, b.id FROM functional.alltypestiny a
+LEFT JOIN
+functional.alltypestiny b ON a.id=b.id) b ON a.id=b.id
+WHERE b.string_col='1';
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = b.id
+|  other predicates: upper(b.string_col) = '1'
+|  row-size=110B cardinality=8
+|
+|--03:HASH JOIN [RIGHT OUTER JOIN]
+|  |  hash predicates: b.id = a.id
+|  |  other predicates: upper(b.string_col) = '1'
+|  |  runtime filters: RF000 <- a.id
+|  |  row-size=21B cardinality=8
+|  |
+|  |--01:SCAN HDFS [functional.alltypestiny a]
+|  |     HDFS partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  02:SCAN HDFS [functional.alltypestiny b]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: upper(b.string_col) = '1'
+|     runtime filters: RF000 -> b.id
+|     row-size=17B cardinality=4
+|
+00:SCAN HDFS [functional.alltypestiny a]
+   HDFS partitions=4/4 files=4 size=460B
+   row-size=89B cardinality=8
+====
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+# More predicates
+SELECT *
+FROM functional.alltypessmall a
+    LEFT JOIN (
+        SELECT id + 1 as id, upper(string_col) AS upper_val, length(string_col) AS len
+        FROM functional.alltypestiny
+    ) b ON a.id = b.id
+WHERE b.upper_val is NULL and b.len = 0 and b.id > 0;
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = id + 1
+|  other predicates: id + 1 > 0, upper(string_col) IS NULL, length(string_col) = 0
+|  row-size=106B cardinality=100
+|
+|--01:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     predicates: id + 1 > 0, length(string_col) = 0
+|     row-size=17B cardinality=1
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# IMPALA-8361: Bound predicates optimization doesn't work for InlineView
+# Where-clause predicate that can't be propagated
+SELECT *
+FROM functional.alltypessmall a
+    LEFT JOIN (
+        SELECT id, upper(string_col) AS upper_val
+        FROM functional.alltypestiny
+    ) b ON a.id = b.id
+WHERE b.upper_val is NULL;
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: a.id = id
+|  other predicates: upper(string_col) IS NULL
+|  row-size=106B cardinality=100
+|
+|--01:SCAN HDFS [functional.alltypestiny]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=17B cardinality=8
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# IMPALA-10182: Nulls get eliminated with union-all for duplicate columns
+select c1, c2 from (select tinyint_col c1, tinyint_col c2
+  from functional.alltypesagg group by 1, 2) t1
+  group by 1, 2
+ union all
+select c1, c2 from (select tinyint_col c1, tinyint_col c2
+  from functional.alltypesagg group by 1, 2) t1
+  group by 1, 2;
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  pass-through-operands: all
+|  row-size=2B cardinality=18
+|
+|--06:AGGREGATE [FINALIZE]
+|  |  group by: tinyint_col, tinyint_col
+|  |  row-size=2B cardinality=9
+|  |
+|  05:AGGREGATE [FINALIZE]
+|  |  group by: tinyint_col
+|  |  row-size=1B cardinality=9
+|  |
+|  04:SCAN HDFS [functional.alltypesagg]
+|     HDFS partitions=11/11 files=11 size=814.73KB
+|     row-size=1B cardinality=11.00K
+|
+03:AGGREGATE [FINALIZE]
+|  group by: tinyint_col, tinyint_col
+|  row-size=2B cardinality=9
+|
+02:AGGREGATE [FINALIZE]
+|  group by: tinyint_col
+|  row-size=1B cardinality=9
+|
+01:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=1B cardinality=11.00K
+====
+# IMPALA-10182: Nulls get eliminated with union-all for duplicate columns
+# Introduce nulls from the null producing side of left outer join
+with dt1 as (select t2.int_col y from functional.alltypessmall t1
+  left outer join functional.alltypestiny t2 on t1.int_col = t2.int_col)
+select c1, c2 from (select dt1.y c1, dt1.y c2 from dt1 group by 1, 2) t1
+  group by 1, 2
+ union all
+select c1, c2 from (select dt1.y c1, dt1.y c2 from dt1 group by 1, 2) t1
+  group by 1, 2;
+---- PLAN
+PLAN-ROOT SINK
+|
+00:UNION
+|  pass-through-operands: all
+|  row-size=8B cardinality=4
+|
+|--10:AGGREGATE [FINALIZE]
+|  |  group by: dt1.y, dt1.y
+|  |  row-size=8B cardinality=2
+|  |
+|  09:AGGREGATE [FINALIZE]
+|  |  group by: t2.int_col
+|  |  row-size=4B cardinality=2
+|  |
+|  08:HASH JOIN [LEFT OUTER JOIN]
+|  |  hash predicates: t1.int_col = t2.int_col
+|  |  row-size=8B cardinality=100
+|  |
+|  |--07:SCAN HDFS [functional.alltypestiny t2]
+|  |     HDFS partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  06:SCAN HDFS [functional.alltypessmall t1]
+|     HDFS partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+05:AGGREGATE [FINALIZE]
+|  group by: dt1.y, dt1.y
+|  row-size=8B cardinality=2
+|
+04:AGGREGATE [FINALIZE]
+|  group by: t2.int_col
+|  row-size=4B cardinality=2
+|
+03:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: t1.int_col = t2.int_col
+|  row-size=8B cardinality=100
+|
+|--02:SCAN HDFS [functional.alltypestiny t2]
+|     HDFS partitions=4/4 files=4 size=460B
+|     row-size=4B cardinality=8
+|
+01:SCAN HDFS [functional.alltypessmall t1]
+   HDFS partitions=4/4 files=4 size=6.32KB
+   row-size=4B cardinality=100
+====
+# IMPALA-9694 IllegalStateException was being thrown
+# (related to the same root cause as IMPALA-10182 above)
+# Note that the analytic function does not show up in the final plan.
+# It is optimized out since the caller is only computing count(*)
+select count(*) from (select
+  lead(timestamp_col) over (partition by int_col order by timestamp_col) c1,
+  int_col c2, int_col c3 from functional.alltypesagg) v;
+---- PLAN
+PLAN-ROOT SINK
+|
+01:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+00:SCAN HDFS [functional.alltypesagg]
+   HDFS partitions=11/11 files=11 size=814.73KB
+   row-size=0B cardinality=11.00K
+====
+# IMPALA-10412: ConvertToCNFRule can be applied to view table
+# Query inline view, where-clause predicate that can be pushed down to scan node
+with t as (select t1.test_id, t1.test_zip, t1.test_name, t2.zip from functional.jointbl t1
+join functional.testtbl t2 on t1.test_id = t2.id)
+select count(*) from t where t.test_zip = 1 or (t.test_name='xyz' and t.zip=1);
+---- PLAN
+PLAN-ROOT SINK
+|
+03:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: t1.test_id = t2.id
+|  other predicates: t1.test_zip = 1 OR t2.zip = 1
+|  runtime filters: RF000 <- t2.id
+|  row-size=41B cardinality=19
+|
+|--01:SCAN HDFS [functional.testtbl t2]
+|     HDFS partitions=1/1 files=0 size=0B
+|     row-size=12B cardinality=0
+|
+00:SCAN HDFS [functional.jointbl t1]
+   HDFS partitions=1/1 files=1 size=433B
+   predicates: t1.test_zip = 1 OR t1.test_name = 'xyz'
+   runtime filters: RF000 -> t1.test_id
+   row-size=29B cardinality=19
+====
+# IMPALA-10412: ConvertToCNFRule can be applied to view table
+# Query inline view join another table, where-clause predicate that can be pushed down to scan node
+with t as (select t1.test_id, t1.test_zip, t1.test_name, t2.zip from functional.jointbl t1
+join functional.testtbl t2 on t1.test_id = t2.id)
+select count(*) from t, functional.alltypes other_table where t.test_id = other_table.id
+AND (t.test_zip = 1 or (t.test_name='xyz' and t.zip=1));
+---- PLAN
+PLAN-ROOT SINK
+|
+05:AGGREGATE [FINALIZE]
+|  output: count(*)
+|  row-size=8B cardinality=1
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: other_table.id = t1.test_id
+|  runtime filters: RF000 <- t1.test_id
+|  row-size=45B cardinality=8
+|
+|--02:HASH JOIN [INNER JOIN]
+|  |  hash predicates: t1.test_id = t2.id
+|  |  other predicates: t1.test_zip = 1 OR t2.zip = 1
+|  |  runtime filters: RF002 <- t2.id
+|  |  row-size=41B cardinality=8
+|  |
+|  |--01:SCAN HDFS [functional.testtbl t2]
+|  |     HDFS partitions=1/1 files=0 size=0B
+|  |     row-size=12B cardinality=0
+|  |
+|  00:SCAN HDFS [functional.jointbl t1]
+|     HDFS partitions=1/1 files=1 size=433B
+|     predicates: t1.test_zip = 1 OR t1.test_name = 'xyz'
+|     runtime filters: RF002 -> t1.test_id
+|     row-size=29B cardinality=8
+|
+03:SCAN HDFS [functional.alltypes other_table]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> other_table.id
+   row-size=4B cardinality=7.30K
+====

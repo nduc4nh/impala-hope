@@ -1,0 +1,795 @@
+# predicate pushdown
+select * from (select * from functional.alltypessmall) a where id < 5
+---- PLAN
+PLAN-ROOT SINK
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: functional.alltypessmall.id < 5
+   row-size=89B cardinality=10
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:EXCHANGE [UNPARTITIONED]
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: functional.alltypessmall.id < 5
+   row-size=89B cardinality=10
+====
+# predicate pushdown is prevented in presence of limit clause
+select * from (select * from functional.alltypessmall limit 10) a where id < 5 limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+01:SELECT
+|  predicates: functional.alltypessmall.id < 5
+|  limit: 5
+|  row-size=89B cardinality=1
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   limit: 10
+   row-size=89B cardinality=10
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+01:SELECT
+|  predicates: functional.alltypessmall.id < 5
+|  limit: 5
+|  row-size=89B cardinality=1
+|
+02:EXCHANGE [UNPARTITIONED]
+|  limit: 10
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   limit: 10
+   row-size=89B cardinality=10
+====
+# predicate pushdown is prevented in presence of order by/limit clause;
+# top-n is distributed
+select *
+from (select * from functional.alltypessmall order by id limit 10) a
+where id < 5 limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+02:SELECT
+|  predicates: id < 5
+|  limit: 5
+|  row-size=89B cardinality=1
+|
+01:TOP-N [LIMIT=10]
+|  order by: id ASC
+|  row-size=89B cardinality=10
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+02:SELECT
+|  predicates: id < 5
+|  limit: 5
+|  row-size=89B cardinality=1
+|
+03:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: id ASC
+|  limit: 10
+|
+01:TOP-N [LIMIT=10]
+|  order by: id ASC
+|  row-size=89B cardinality=10
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   row-size=89B cardinality=100
+====
+# top-n is not distributed because it depends on the output of the aggregation
+select *
+from functional.alltypes
+  join (
+    select id, count(*)
+    from functional.alltypes
+    group by 1 order by 2 limit 5) a using (id)
+where a.id < 5 limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  limit: 5
+|  row-size=101B cardinality=1
+|
+|--03:TOP-N [LIMIT=5]
+|  |  order by: count(*) ASC
+|  |  row-size=12B cardinality=5
+|  |
+|  02:AGGREGATE [FINALIZE]
+|  |  output: count(*)
+|  |  group by: id
+|  |  row-size=12B cardinality=7.30K
+|  |
+|  01:SCAN HDFS [functional.alltypes]
+|     partitions=24/24 files=24 size=478.45KB
+|     row-size=4B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id < 5
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=730
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+09:EXCHANGE [UNPARTITIONED]
+|  limit: 5
+|
+04:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  limit: 5
+|  row-size=101B cardinality=1
+|
+|--08:EXCHANGE [BROADCAST]
+|  |
+|  07:MERGING-EXCHANGE [UNPARTITIONED]
+|  |  order by: count(*) ASC
+|  |  limit: 5
+|  |
+|  03:TOP-N [LIMIT=5]
+|  |  order by: count(*) ASC
+|  |  row-size=12B cardinality=5
+|  |
+|  06:AGGREGATE [FINALIZE]
+|  |  output: count:merge(*)
+|  |  group by: id
+|  |  row-size=12B cardinality=7.30K
+|  |
+|  05:EXCHANGE [HASH(id)]
+|  |
+|  02:AGGREGATE [STREAMING]
+|  |  output: count(*)
+|  |  group by: id
+|  |  row-size=12B cardinality=7.30K
+|  |
+|  01:SCAN HDFS [functional.alltypes]
+|     partitions=24/24 files=24 size=478.45KB
+|     row-size=4B cardinality=7.30K
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id < 5
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=730
+====
+# predicate pushdown is prevented in presence of limit clause; variant w/ join
+select *
+from (
+  select a.*
+  from functional.alltypessmall a join functional.alltypessmall using (id)
+  limit 10) a
+where id < 5 limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+03:SELECT
+|  predicates: a.id < 5
+|  limit: 5
+|  row-size=93B cardinality=1
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = functional.alltypessmall.id
+|  runtime filters: RF000 <- functional.alltypessmall.id
+|  limit: 10
+|  row-size=93B cardinality=10
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> a.id
+   row-size=89B cardinality=100
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+03:SELECT
+|  predicates: a.id < 5
+|  limit: 5
+|  row-size=93B cardinality=1
+|
+05:EXCHANGE [UNPARTITIONED]
+|  limit: 10
+|
+02:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: a.id = functional.alltypessmall.id
+|  runtime filters: RF000 <- functional.alltypessmall.id
+|  limit: 10
+|  row-size=93B cardinality=10
+|
+|--04:EXCHANGE [BROADCAST]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> a.id
+   row-size=89B cardinality=100
+====
+# predicate pushdown is prevented in presence of order by/limit clause
+select *
+from (select * from functional.alltypessmall limit 10) a
+where id < 5
+order by id
+limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+02:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=89B cardinality=1
+|
+01:SELECT
+|  predicates: functional.alltypessmall.id < 5
+|  row-size=89B cardinality=1
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   limit: 10
+   row-size=89B cardinality=10
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+02:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=89B cardinality=1
+|
+01:SELECT
+|  predicates: functional.alltypessmall.id < 5
+|  row-size=89B cardinality=1
+|
+03:EXCHANGE [UNPARTITIONED]
+|  limit: 10
+|
+00:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   limit: 10
+   row-size=89B cardinality=10
+====
+# predicate pushdown is prevented in presence of order by/limit clause; variant w/ join
+select *
+from (
+  select a.*
+  from functional.alltypessmall a
+    join functional.alltypessmall using (id)
+  limit 10) a
+where id < 5
+order by id
+limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+04:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=89B cardinality=1
+|
+03:SELECT
+|  predicates: a.id < 5
+|  row-size=93B cardinality=1
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: a.id = functional.alltypessmall.id
+|  runtime filters: RF000 <- functional.alltypessmall.id
+|  limit: 10
+|  row-size=93B cardinality=10
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> a.id
+   row-size=89B cardinality=100
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+04:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=89B cardinality=1
+|
+03:SELECT
+|  predicates: a.id < 5
+|  row-size=93B cardinality=1
+|
+06:EXCHANGE [UNPARTITIONED]
+|  limit: 10
+|
+02:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: a.id = functional.alltypessmall.id
+|  runtime filters: RF000 <- functional.alltypessmall.id
+|  limit: 10
+|  row-size=93B cardinality=10
+|
+|--05:EXCHANGE [BROADCAST]
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypessmall a]
+   partitions=4/4 files=4 size=6.32KB
+   runtime filters: RF000 -> a.id
+   row-size=89B cardinality=100
+====
+# join against subquery with limit creates a merge fragment that applies the limit
+select *
+from functional.alltypes
+  join (select id from functional.alltypessmall limit 10) a using (id)
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [INNER JOIN]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  row-size=93B cardinality=10
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     limit: 10
+|     row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+05:EXCHANGE [UNPARTITIONED]
+|
+02:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  row-size=93B cardinality=10
+|
+|--04:EXCHANGE [BROADCAST]
+|  |
+|  03:EXCHANGE [UNPARTITIONED]
+|  |  limit: 10
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     limit: 10
+|     row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=7.30K
+====
+# join against subquery with limit creates a merge fragment that applies the limit;
+# topn is distributed
+select *
+from functional.alltypes
+  join (select id from functional.alltypessmall order by id limit 10) a using (id)
+---- PLAN
+PLAN-ROOT SINK
+|
+03:HASH JOIN [INNER JOIN]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  row-size=93B cardinality=10
+|
+|--02:TOP-N [LIMIT=10]
+|  |  order by: id ASC
+|  |  row-size=4B cardinality=10
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=7.30K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+06:EXCHANGE [UNPARTITIONED]
+|
+03:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  row-size=93B cardinality=10
+|
+|--05:EXCHANGE [BROADCAST]
+|  |
+|  04:MERGING-EXCHANGE [UNPARTITIONED]
+|  |  order by: id ASC
+|  |  limit: 10
+|  |
+|  02:TOP-N [LIMIT=10]
+|  |  order by: id ASC
+|  |  row-size=4B cardinality=10
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=7.30K
+====
+# join against subquery with limit;
+# predicate pushdown is prevented in presence of order by/limit clause; variant w/ join
+select *
+from functional.alltypes
+  join (
+    select a.id
+    from functional.alltypessmall a join functional.alltypestiny using (id)
+    limit 10) a using (id)
+where a.id < 5
+order by a.id
+limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+05:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=93B cardinality=1
+|
+04:HASH JOIN [INNER JOIN]
+|  hash predicates: functional.alltypes.id = a.id
+|  runtime filters: RF000 <- a.id
+|  row-size=97B cardinality=1
+|
+|--03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: a.id = functional.alltypestiny.id
+|  |  runtime filters: RF002 <- functional.alltypestiny.id
+|  |  limit: 10
+|  |  row-size=8B cardinality=9
+|  |
+|  |--02:SCAN HDFS [functional.alltypestiny]
+|  |     partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypessmall a]
+|     partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF002 -> a.id
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id < 5
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=730
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+09:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: id ASC
+|  limit: 5
+|
+05:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=93B cardinality=1
+|
+04:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: functional.alltypes.id = a.id
+|  runtime filters: RF000 <- a.id
+|  row-size=97B cardinality=1
+|
+|--08:EXCHANGE [BROADCAST]
+|  |
+|  07:EXCHANGE [UNPARTITIONED]
+|  |  limit: 10
+|  |
+|  03:HASH JOIN [INNER JOIN, BROADCAST]
+|  |  hash predicates: a.id = functional.alltypestiny.id
+|  |  runtime filters: RF002 <- functional.alltypestiny.id
+|  |  limit: 10
+|  |  row-size=8B cardinality=9
+|  |
+|  |--06:EXCHANGE [BROADCAST]
+|  |  |
+|  |  02:SCAN HDFS [functional.alltypestiny]
+|  |     partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypessmall a]
+|     partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF002 -> a.id
+|     row-size=4B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id < 5
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=730
+====
+# join against subquery with order by/limit;
+# predicate pushdown is prevented in presence of order by/limit clause; variant w/ join
+select *
+from functional.alltypes
+  join (
+    select a.id
+    from functional.alltypessmall a join functional.alltypestiny using (id)
+    order by a.int_col
+    limit 10) a using (id)
+where a.id < 5
+order by a.id
+limit 5
+---- PLAN
+PLAN-ROOT SINK
+|
+06:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=93B cardinality=1
+|
+05:HASH JOIN [INNER JOIN]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  row-size=97B cardinality=1
+|
+|--04:TOP-N [LIMIT=10]
+|  |  order by: int_col ASC
+|  |  row-size=8B cardinality=9
+|  |
+|  03:HASH JOIN [INNER JOIN]
+|  |  hash predicates: a.id = functional.alltypestiny.id
+|  |  runtime filters: RF002 <- functional.alltypestiny.id
+|  |  row-size=12B cardinality=9
+|  |
+|  |--02:SCAN HDFS [functional.alltypestiny]
+|  |     partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypessmall a]
+|     partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF002 -> a.id
+|     row-size=8B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id < 5
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=730
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+10:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: id ASC
+|  limit: 5
+|
+06:TOP-N [LIMIT=5]
+|  order by: id ASC
+|  row-size=93B cardinality=1
+|
+05:HASH JOIN [INNER JOIN, BROADCAST]
+|  hash predicates: functional.alltypes.id = id
+|  runtime filters: RF000 <- id
+|  row-size=97B cardinality=1
+|
+|--09:EXCHANGE [BROADCAST]
+|  |
+|  08:MERGING-EXCHANGE [UNPARTITIONED]
+|  |  order by: int_col ASC
+|  |  limit: 10
+|  |
+|  04:TOP-N [LIMIT=10]
+|  |  order by: int_col ASC
+|  |  row-size=8B cardinality=9
+|  |
+|  03:HASH JOIN [INNER JOIN, BROADCAST]
+|  |  hash predicates: a.id = functional.alltypestiny.id
+|  |  runtime filters: RF002 <- functional.alltypestiny.id
+|  |  row-size=12B cardinality=9
+|  |
+|  |--07:EXCHANGE [BROADCAST]
+|  |  |
+|  |  02:SCAN HDFS [functional.alltypestiny]
+|  |     partitions=4/4 files=4 size=460B
+|  |     row-size=4B cardinality=8
+|  |
+|  01:SCAN HDFS [functional.alltypessmall a]
+|     partitions=4/4 files=4 size=6.32KB
+|     runtime filters: RF002 -> a.id
+|     row-size=8B cardinality=100
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id < 5
+   runtime filters: RF000 -> functional.alltypes.id
+   row-size=89B cardinality=730
+====
+# Subquery containing limit and offset
+select x.id from (
+  select id from functional.alltypesagg order by id limit 5 offset 5) x
+order by x.id
+limit 100 offset 4
+---- PLAN
+PLAN-ROOT SINK
+|
+02:TOP-N [LIMIT=100 OFFSET=4]
+|  order by: id ASC
+|  row-size=4B cardinality=5
+|
+01:TOP-N [LIMIT=5 OFFSET=5]
+|  order by: id ASC
+|  row-size=4B cardinality=5
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+---- DISTRIBUTEDPLAN
+PLAN-ROOT SINK
+|
+02:TOP-N [LIMIT=100 OFFSET=4]
+|  order by: id ASC
+|  row-size=4B cardinality=5
+|
+03:MERGING-EXCHANGE [UNPARTITIONED]
+|  offset: 5
+|  order by: id ASC
+|  limit: 5
+|
+01:TOP-N [LIMIT=10]
+|  order by: id ASC
+|  row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypesagg]
+   partitions=11/11 files=11 size=814.73KB
+   row-size=4B cardinality=11.00K
+====
+# Test value transfers for outer-joined inline views with a limit.
+# Value transfer a.id->b.id is illegal due to the limit in b.
+# Value transfer b.id->b.id is illegal due to the left outer join.
+select * from
+  (select id from functional.alltypes where id != 1) a
+left outer join
+  (select id from functional.alltypessmall where id != 2 limit 10) b
+on (a.id = b.id)
+where a.id > 10 and b.id > 20
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [LEFT OUTER JOIN]
+|  hash predicates: id = id
+|  other predicates: id > 20
+|  row-size=8B cardinality=730
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     predicates: id != 2
+|     limit: 10
+|     row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id > 10, id != 1
+   row-size=4B cardinality=730
+====
+# Test value transfers for outer-joined inline views with a limit.
+# Value transfer a.id->b.id is legal.
+# Value transfer b.id->b.id is illegal due to the left outer join.
+select * from
+  (select id from functional.alltypes where id != 1 limit 10) a
+left outer join
+  (select id from functional.alltypessmall where id != 2) b
+on (a.id = b.id)
+where a.id > 10 and b.id > 20
+---- PLAN
+PLAN-ROOT SINK
+|
+03:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = id
+|  other predicates: id > 20
+|  runtime filters: RF000 <- id
+|  row-size=8B cardinality=1
+|
+|--01:SELECT
+|  |  predicates: id > 10
+|  |  row-size=4B cardinality=1
+|  |
+|  00:SCAN HDFS [functional.alltypes]
+|     partitions=24/24 files=24 size=478.45KB
+|     predicates: id != 1
+|     limit: 10
+|     row-size=4B cardinality=10
+|
+02:SCAN HDFS [functional.alltypessmall]
+   partitions=4/4 files=4 size=6.32KB
+   predicates: functional.alltypessmall.id > 10, functional.alltypessmall.id > 20, functional.alltypessmall.id != 1, id != 2
+   runtime filters: RF000 -> id
+   row-size=4B cardinality=10
+====
+# Test value transfers for outer-joined inline views with a limit.
+# Value transfer b.id->a.id is illegal due to the limit in a.
+# Value transfer a.id->b.id is illegal due to the right outer join.
+select * from
+  (select id from functional.alltypes where id != 1 limit 10) a
+right outer join
+  (select id from functional.alltypessmall where id != 2) b
+on (a.id = b.id)
+where a.id > 10 and b.id > 20
+---- PLAN
+PLAN-ROOT SINK
+|
+02:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = id
+|  other predicates: id > 10
+|  runtime filters: RF000 <- id
+|  row-size=8B cardinality=10
+|
+|--01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     predicates: functional.alltypessmall.id > 20, id != 2
+|     row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: id != 1
+   runtime filters: RF000 -> id
+   limit: 10
+   row-size=4B cardinality=10
+====
+# Test value transfers for outer-joined inline views with a limit.
+# Value transfer b.id->a.id is legal.
+# Value transfer a.id->b.id is illegal due to the right outer join.
+select * from
+  (select id from functional.alltypes where id != 1) a
+right outer join
+  (select id from functional.alltypessmall where id != 2 limit 10) b
+on (a.id = b.id)
+where a.id > 10 and b.id > 20
+---- PLAN
+PLAN-ROOT SINK
+|
+03:HASH JOIN [RIGHT OUTER JOIN]
+|  hash predicates: id = id
+|  other predicates: id > 10
+|  runtime filters: RF000 <- id
+|  row-size=8B cardinality=1
+|
+|--02:SELECT
+|  |  predicates: id > 20
+|  |  row-size=4B cardinality=1
+|  |
+|  01:SCAN HDFS [functional.alltypessmall]
+|     partitions=4/4 files=4 size=6.32KB
+|     predicates: id != 2
+|     limit: 10
+|     row-size=4B cardinality=10
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   predicates: functional.alltypes.id > 10, functional.alltypes.id > 20, functional.alltypes.id != 2, id != 1
+   runtime filters: RF000 -> id
+   row-size=4B cardinality=730
+====
+# IMPALA-3450: limits on select nodes are reflected in cardinality estimates. The test for
+# this is embedded in PlannerTestBase.java and is not visible in these plans, as they only
+# have explain_level=1
+select * from (select * from functional.alltypes limit 100) v where id < 10 limit 1
+---- PLAN
+PLAN-ROOT SINK
+|
+01:SELECT
+|  predicates: functional.alltypes.id < 10
+|  limit: 1
+|  row-size=89B cardinality=1
+|
+00:SCAN HDFS [functional.alltypes]
+   partitions=24/24 files=24 size=478.45KB
+   limit: 100
+   row-size=89B cardinality=100
+====

@@ -1,0 +1,90 @@
+====
+---- QUERY
+# Regression test for IMPALA-1488. Right joins should not spill any partitions
+# with hash tables with matches.
+SELECT COUNT(*) FROM lineitem l1 RIGHT OUTER JOIN lineitem l2
+ON l1.l_orderkey = l2.l_orderkey
+---- RESULTS
+30012985
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Regression test for IMPALA-1919. When spilling right joins or full outer joins
+# there is chance to call process batch while the out_batch is AtCapacity().
+SET mem_limit = 400m;
+SELECT COUNT(*) FROM lineitem l1 RIGHT OUTER JOIN lineitem l2
+ON l1.l_orderkey = l2.l_orderkey
+WHERE l2.l_linenumber % 2 = 0
+---- RESULTS
+13291122
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Regression test for IMPALA-2168. When repartitioning spilled right joins or full
+# outer joins there is chance to try to access NULL streams.
+SET mem_limit = 1g;
+SELECT straight_join * FROM orders o
+RIGHT OUTER JOIN lineitem l ON o.o_orderkey =  if(l.l_orderkey % 2 = 0, 0, l.l_orderkey)
+ORDER BY l_receiptdate, l_orderkey, l_shipdate
+limit 10
+---- CATCH: ANY_OF
+Repartitioning did not reduce the size of a spilled partition
+Memory limit exceeded
+__NO_ERROR__
+====
+---- QUERY
+# Regression test for IMPALA-2612. The following query will cause CastToChar
+# to be invoked when building the hash tables in partitioned hash join nodes.
+# CastToChar will do "local" memory allocation. Without the fix of IMPALA-2612,
+# the peak memory consumption will be higher.
+SET mem_limit = 300m;
+SELECT COUNT(*) from orders t1 LEFT OUTER JOIN orders t2
+ON cast(t1.o_comment as char(120)) = cast(t2.o_comment as char(120))
+---- RESULTS
+1565026
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Regression test for IMPALA-9338. The following query duplicates the same condition
+# with different letter cases. Without the fix of IMPALA-9338, the query should crash.
+SET mem_limit = 300m;
+SELECT c_custkey from customer c left outer join lineitem l
+ON c.c_custkey = l.l_orderkey and c.C_CUSTKEY = l.L_ORDERKEY
+ORDER BY c_custkey limit 1
+---- RESULTS
+1
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Regression test for IMPALA-9338. The following query uses reserved key as columns,
+# and duplicates the same condition with different letter cases, should provide a
+# correct plan after the fix.
+drop table if exists default.t1;
+drop table if exists default.t2;
+create table default.t1(`insert` bigint);
+create table default.t2(`select` bigint);
+insert into default.t1(`insert`)
+select c_custkey
+from tpch_parquet.customer
+limit 100;
+insert into default.t2(`select`)
+select o_custkey
+from tpch_parquet.orders
+limit 100000;
+explain select * from default.t1 b
+left join default.t2 a
+ON b.`insert` = a.`select`
+AND a.`SELECT` = b.`INSERT`;
+---- RESULTS: VERIFY_IS_SUBSET
+'PLAN-ROOT SINK'
+'05:EXCHANGE [UNPARTITIONED]'
+'02:HASH JOIN [RIGHT OUTER JOIN, PARTITIONED]'
+'|--04:EXCHANGE [HASH(b.`INSERT`,b.`insert`)]'
+'|  00:SCAN $FILESYSTEM_NAME [default.t1 b]'
+'03:EXCHANGE [HASH(a.`SELECT`,a.`select`)]'
+'01:SCAN $FILESYSTEM_NAME [default.t2 a]'
+====

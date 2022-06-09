@@ -1,0 +1,555 @@
+====
+---- QUERY
+# Test DECIMAL V1 divide result type
+set decimal_v2=false;
+select d1 / d2, d2 / d1, d3 / d4, d5 / d3, d3 / d5 from decimal_tbl;
+---- RESULTS
+0.55535553555,1.8006482982,NULL,10000.0891810008,0.000099999108197945064
+21.12612612612,0.0473347547,NULL,0.2544210023,3.930493123209169054441
+37.07207207207,0.0269744835,NULL,0.0000810000,12345.678900000000000000000
+37.07207207207,0.0269744835,NULL,0.0908820008,11.003278877005347593582
+398.92492492492,0.0025067373,NULL,0.0000630900,15850.349728459731155875669
+---- TYPES
+DECIMAL, DECIMAL, DECIMAL, DECIMAL, DECIMAL
+====
+---- QUERY
+# Verify DECIMAL V2. Differences with V1:
+#  * d3/d4 does not overflow
+#  * d5/d3 has more scale
+set decimal_v2=true;
+select d1 / d2, d2 / d1, d3 / d4, d5 / d3, d3 / d5 from decimal_tbl;
+---- RESULTS
+0.55535553555,1.8006482982,10.000000,10000.08918100081154710738508,0.000099999108197945065
+21.12612612613,0.0473347548,100.000000,0.25442100231523112106860,3.930493123209169054441
+37.07207207207,0.0269744836,1000.000000,0.09088200082702620752594,11.003278877005347593583
+37.07207207207,0.0269744836,10000.000000,0.00008100000073710000671,12345.678900000000000000000
+398.92492492492,0.0025067373,100000.000000,0.00006309009057411982422,15850.349728459731155875669
+---- TYPES
+DECIMAL, DECIMAL, DECIMAL, DECIMAL, DECIMAL
+====
+---- QUERY
+# Test DECIMAL V1 division by zero.
+set decimal_v2=false;
+select d1 / cast(0 as decimal(7, 2)), d1 / 0, 10.0 / 0 from decimal_tbl;
+---- RESULTS
+NULL,NULL,Infinity
+NULL,NULL,Infinity
+NULL,NULL,Infinity
+NULL,NULL,Infinity
+NULL,NULL,Infinity
+---- TYPES
+DECIMAL,DECIMAL,DOUBLE
+====
+---- QUERY
+# Test DECIMAL V2 division by zero. Verify that Impala throws an error.
+set decimal_v2=true;
+select d1 / cast(0 as decimal(7, 2)) from decimal_tbl;
+---- CATCH
+UDF ERROR: Cannot divide decimal by zero
+====
+---- QUERY
+set decimal_v2=true;
+select d1 / 0 from decimal_tbl;
+---- CATCH
+UDF ERROR: Cannot divide decimal by zero
+====
+---- QUERY
+set decimal_v2=true;
+select 10.0 / 0;
+---- CATCH
+UDF ERROR: Cannot divide decimal by zero
+====
+---- QUERY
+# Test DECIMAL V1 modulo zero.
+set decimal_v2=false;
+select d1 % cast(0 as decimal(7, 2)), d1 % 0, 10.0 % 0 from decimal_tbl;
+---- RESULTS
+NULL,NULL,NULL
+NULL,NULL,NULL
+NULL,NULL,NULL
+NULL,NULL,NULL
+NULL,NULL,NULL
+---- TYPES
+DECIMAL,DECIMAL,DOUBLE
+====
+---- QUERY
+# Test DECIMAL V2 modulo zero. Verify that Impala throws an error.
+set decimal_v2=true;
+select d1 % cast(0 as decimal(7, 2)) from decimal_tbl;
+---- CATCH
+UDF ERROR: Cannot divide decimal by zero
+====
+---- QUERY
+# Test DECIMAL V2 modulo zero. Verify that Impala throws an error.
+set decimal_v2=true;
+select d1 % 0 from decimal_tbl;
+---- CATCH
+UDF ERROR: Cannot divide decimal by zero
+====
+---- QUERY
+# Test DECIMAL V2 modulo zero. Verify that Impala throws an error.
+set decimal_v2=true;
+select 10.0 % 0 from decimal_tbl;
+---- CATCH
+UDF ERROR: Cannot divide decimal by zero
+====
+---- QUERY
+# Test DECIMAL V1 decimal overflow
+set decimal_v2=false;
+select
+  cast(9999999999999999999999999999 as decimal(38, 6)) *
+  cast(9999999999999999999999999999 as decimal(38, 6))
+---- RESULTS
+NULL
+---- TYPES
+DECIMAL
+---- ERRORS
+UDF WARNING: Decimal expression overflowed, returning NULL
+====
+---- QUERY
+# Test DECIMAL V2 decimal overflow
+set decimal_v2=true;
+select
+  cast(9999999999999999999999999999 as decimal(38, 6)) *
+  cast(9999999999999999999999999999 as decimal(38, 6))
+---- CATCH
+UDF ERROR: Decimal expression overflowed
+====
+---- QUERY
+# IMPALA-1837: Handle loss of precision when implicitly casting a literal to a decimal.
+# Here "1.8" will be implicitly cast to a decimal(38,38), losing precision.
+set decimal_v2=false;
+select coalesce(1.8, cast(0 as decimal(38,38)));
+---- TYPES
+DECIMAL
+---- RESULTS
+0.00000000000000000000000000000000000000
+---- ERRORS
+UDF WARNING: Decimal expression overflowed, returning NULL
+====
+---- QUERY
+# DECIMAL v1 sum() overflow. A negative number is incorrectly returned due to overflow.
+set decimal_v2=false;
+select sum(d6 * cast(4e37 as decimal(38,0))) from decimal_tbl;
+---- RESULTS
+-40282366920938463463374607431768211456
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# DECIMAL v2 sum() overflow.
+set decimal_v2=true;
+select sum(d6 * cast(4e37 as decimal(38,0))) from decimal_tbl;
+---- CATCH
+UDF ERROR: Sum computation overflowed
+====
+---- QUERY
+# DECIMAL v1 avg() overflow. A negative number is incorrectly returned due to overflow.
+set decimal_v2=false;
+select avg(d6 * cast(4e37 as decimal(38,0))) from decimal_tbl;
+---- RESULTS
+-28056473384187692692674921486353642291
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# DECIMAL v2 avg() overflow.
+set decimal_v2=true;
+select avg(d6 * cast(4e37 as decimal(38,0))) from decimal_tbl;
+---- CATCH
+UDF ERROR: Avg computation overflowed
+====
+---- QUERY
+# DECIMAL v1 avg() and sum() could incorrecly indicate an overflow error if
+# only the absolute values are considered.
+set decimal_v2=false;
+with t as (
+  select cast(99999999999999999999999999999999999999 as decimal(38, 0)) as c
+  union all
+  select cast(-99999999999999999999999999999999999999 as decimal(38, 0)) as c)
+select sum(c), avg(c) from t;
+---- RESULTS
+0,0
+---- TYPES
+DECIMAL,DECIMAL
+====
+---- QUERY
+# DECIMAL v2 avg() and sum() could incorrecly indicate an overflow error if
+# only the absolute values are considered.
+set decimal_v2=true;
+with t as (
+  select cast(99999999999999999999999999999999999999 as decimal(38, 0)) as c
+  union all
+  select cast(-99999999999999999999999999999999999999 as decimal(38, 0)) as c)
+select sum(c), avg(c) from t;
+---- RESULTS
+0,0.000000
+---- TYPES
+DECIMAL,DECIMAL
+====
+---- QUERY
+# Test casting behavior without decimal_v2 query option set.
+set decimal_v2=false;
+select cast(d3 as decimal(20, 3)) from decimal_tbl;
+---- RESULTS
+1.234
+12.345
+123.456
+1234.567
+12345.678
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# Test casting behavior with decimal_v2 query option set.
+set decimal_v2=true;
+select cast(d3 as decimal(20, 3)) from decimal_tbl;
+---- RESULTS
+1.235
+12.346
+123.457
+1234.568
+12345.679
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# Test casting behavior without decimal_v2 query option set.
+set decimal_v2=false;
+select sum(cast(d3 as DECIMAL(20,2)) + cast(d5 as DECIMAL(20,4))) from decimal_tbl;
+---- RESULTS
+26078.2788
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# Test casting behavior with decimal_v2 query option set.
+set decimal_v2=true;
+select sum(cast(d3 as DECIMAL(20,2)) + cast(d5 as DECIMAL(20,4))) from decimal_tbl;
+---- RESULTS
+26078.3189
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# Test AVG() with DECIMAL_V1
+set decimal_v2=false;
+select avg(d1), avg(d2), avg(d3), avg(d4), avg(d5), avg(d6) from decimal_tbl;
+---- RESULTS
+32222,666,2743.4567651580,0.12345678900000000000000000000000000000,2472.20577,1
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# Test AVG() with DECIMAL_V2
+set decimal_v2=true;
+select avg(d1), avg(d2), avg(d3), avg(d4), avg(d5), avg(d6) from decimal_tbl;
+---- RESULTS
+32222.200000,666.400000,2743.4567651580,0.12345678900000000000000000000000000000,2472.205778,1.000000
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# Test AVG() with DECIMAL_V1
+set decimal_v2=false;
+select l_tax, avg(cast(l_extendedprice as decimal(38,10))), avg(l_extendedprice)
+from tpch_parquet.lineitem group by l_tax order by 1;
+---- RESULTS
+0.00,38241.5984613546,38241.59
+0.01,38283.5417664599,38283.54
+0.02,38250.4873094187,38250.48
+0.03,38259.2810374789,38259.28
+0.04,38247.1967454731,38247.19
+0.05,38234.8480874721,38234.84
+0.06,38246.4342924027,38246.43
+0.07,38281.1963710003,38281.19
+0.08,38251.6233675941,38251.62
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# Test AVG() with DECIMAL_V2
+set decimal_v2=true;
+select l_tax, avg(cast(l_extendedprice as decimal(38,10))), avg(l_extendedprice)
+from tpch_parquet.lineitem group by l_tax order by 1;
+---- RESULTS
+0.00,38241.5984613546,38241.598461
+0.01,38283.5417664600,38283.541766
+0.02,38250.4873094187,38250.487309
+0.03,38259.2810374789,38259.281037
+0.04,38247.1967454731,38247.196745
+0.05,38234.8480874721,38234.848087
+0.06,38246.4342924027,38246.434292
+0.07,38281.1963710004,38281.196371
+0.08,38251.6233675942,38251.623368
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# Test AVG() with DECIMAL_V1
+set decimal_v2=false;
+select avg(l_extendedprice) as a from tpch_parquet.lineitem
+group by l_tax having avg(l_extendedprice) > 38247.190 order by 1;
+---- RESULTS
+38250.48
+38251.62
+38259.28
+38281.19
+38283.54
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# Test AVG() with DECIMAL_V2
+set decimal_v2=true;
+select avg(l_extendedprice) as a from tpch_parquet.lineitem
+group by l_tax having avg(l_extendedprice) > 38247.190 order by 1;
+---- RESULTS
+38247.196745
+38250.487309
+38251.623368
+38259.281037
+38281.196371
+38283.541766
+---- TYPES
+DECIMAL
+====
+---- QUERY
+# Test AVG overflow due to DECIMAL_v2
+set decimal_v2=false;
+select avg(c) from (select cast(1e32 as decimal(38,0)) - cast(1 as decimal(38,0)) as c) t
+---- RESULTS
+99999999999999999999999999999999
+---- TYPES
+DECIMAL
+====
+---- QUERY
+set decimal_v2=false;
+select avg(c) from (select cast(1e32 as decimal(38,0)) as c) t;
+---- RESULTS
+100000000000000000000000000000000
+---- TYPES
+DECIMAL
+====
+---- QUERY
+set decimal_v2=true;
+select avg(c) from (select cast(1e32 as decimal(38,0)) - cast(1 as decimal(38,0)) as c) t
+---- RESULTS
+99999999999999999999999999999999.000000
+---- TYPES
+DECIMAL
+====
+---- QUERY
+set decimal_v2=true;
+select avg(c) from (select cast(1e32 as decimal(38,0)) as c) t;
+---- CATCH
+UDF ERROR: Avg computation overflowed
+====
+---- QUERY
+# Test sum() and avg() analytic fns with start bounds (tests Remove() for decimal)
+# with DECIMAL_V1
+set decimal_v2=false;
+select
+sum(c1) over (order by c1 rows between 5 preceding and current row),
+sum(c2) over (order by c1 rows between 5 preceding and 5 following),
+sum(c3) over (order by c1 rows between 5 preceding and 2 preceding),
+avg(c1) over (order by c1 rows between 5 preceding and current row),
+avg(c2) over (order by c1 rows between 5 preceding and 5 following),
+avg(c3) over (order by c1 rows between 5 preceding and 2 preceding)
+from decimal_tiny where c2 < 112
+---- RESULTS: VERIFY_IS_EQUAL_SORTED
+0.0000,618.33330,NULL,0.0000,103.05555,NULL
+0.1111,725.66662,NULL,0.0555,103.66666,NULL
+0.3333,834.22216,0.0,0.1111,104.27777,0.0
+0.6666,943.99992,0.1,0.1666,104.88888,0.0
+1.1110,1054.99990,0.3,0.2222,105.49999,0.1
+1.6665,1054.99990,0.6,0.2777,105.49999,0.1
+2.3331,954.99990,1.0,0.3888,106.11110,0.2
+2.9997,853.77768,1.4,0.4999,106.72221,0.3
+3.6663,751.33324,1.8,0.6110,107.33332,0.4
+4.3329,647.66658,2.2,0.7221,107.94443,0.5
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# Test sum() and avg() analytic fns with start bounds (tests Remove() for decimal)
+# with DECIMAL_V2
+set decimal_v2=true;
+select
+sum(c1) over (order by c1 rows between 5 preceding and current row),
+sum(c2) over (order by c1 rows between 5 preceding and 5 following),
+sum(c3) over (order by c1 rows between 5 preceding and 2 preceding),
+avg(c1) over (order by c1 rows between 5 preceding and current row),
+avg(c2) over (order by c1 rows between 5 preceding and 5 following),
+avg(c3) over (order by c1 rows between 5 preceding and 2 preceding)
+from decimal_tiny where c2 < 112
+---- RESULTS: VERIFY_IS_EQUAL_SORTED
+0.0000,618.33330,NULL,0.000000,103.055550,NULL
+0.1111,725.66662,NULL,0.055550,103.666660,NULL
+0.3333,834.22216,0.0,0.111100,104.277770,0.000000
+0.6666,943.99992,0.1,0.166650,104.888880,0.050000
+1.1110,1054.99990,0.3,0.222200,105.499990,0.100000
+1.6665,1054.99990,0.6,0.277750,105.499990,0.150000
+2.3331,954.99990,1.0,0.388850,106.111100,0.250000
+2.9997,853.77768,1.4,0.499950,106.722210,0.350000
+3.6663,751.33324,1.8,0.611050,107.333320,0.450000
+4.3329,647.66658,2.2,0.722150,107.944430,0.550000
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# IMPALA-6183: Make sure precision is not lost when converting decimal to double
+# with DECIMAL_V1
+set decimal_v2=false;
+select
+  cast(cast(1.01234567890123456789 as decimal(21,20)) as double),
+  cast(cast(1.01234567890123456789 as decimal(38,37)) as double),
+  cast(cast(1.01234567890123456789 as decimal(11,10)) as double)
+---- RESULTS
+1.0123456789012345,1.0123456789012345,1.0123456789
+---- TYPES
+DOUBLE,DOUBLE,DOUBLE
+====
+---- QUERY
+# IMPALA-6183: Make sure precision is not lost when converting decimal to double
+# with DECIMAL_V2
+set decimal_v2=true;
+select
+  cast(cast(1.01234567890123456789 as decimal(21,20)) as double),
+  cast(cast(1.01234567890123456789 as decimal(38,37)) as double),
+  cast(cast(1.01234567890123456789 as decimal(11,10)) as double)
+---- RESULTS
+1.0123456789012345,1.0123456789012345,1.0123456789
+---- TYPES
+DOUBLE,DOUBLE,DOUBLE
+====
+---- QUERY
+# IMPALA-5936: big decimal numbers with % operator
+set decimal_v2=true;
+select
+cast(42607032167 as decimal(18, 0)) % 3,
+cast(42606774111 as decimal(18, 0)) % 3,
+cast(42363009429 as decimal(18, 0)) % 3,
+cast(42603003271 as decimal(18, 0)) % 3,
+cast(42606961501 as decimal(18, 0)) % 3,
+cast(42608445511 as decimal(18, 0)) % 3
+---- RESULTS
+2,0,0,1,1,1
+---- TYPES
+DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL,DECIMAL
+====
+---- QUERY
+# IMPALA-5014: Check that we round when converting a decimal to timestamp
+set decimal_v2=false;
+select
+cast(cast(12333333333.9999999994 as decimal(38, 10)) as timestamp),
+cast(cast(12333333333.9999999995 as decimal(38, 10)) as timestamp),
+cast(cast(333.9999999994 as decimal(13, 10)) as timestamp),
+cast(cast(333.9999999995 as decimal(13, 10)) as timestamp),
+cast(cast(12333333333.1111111114 as decimal(38, 10)) as timestamp),
+cast(cast(12333333333.1111111115 as decimal(38, 10)) as timestamp),
+cast(cast(12333333333.111111111411111 as decimal(38, 15)) as timestamp),
+cast(cast(12333333333.111111111511111 as decimal(38, 15)) as timestamp),
+cast(cast(12333333333.1111111114 as decimal(38, 27)) as timestamp),
+cast(cast(12333333333.1111111115 as decimal(38, 27)) as timestamp),
+cast(cast(12333333333.111 as decimal(38, 3)) as timestamp),
+cast(cast(12333333333 as decimal(38, 0)) as timestamp);
+---- RESULTS
+2360-10-29 21:55:33.999999999,2360-10-29 21:55:33.999999999,1970-01-01 00:05:33.999999999,1970-01-01 00:05:33.999999999,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111000000,2360-10-29 21:55:33
+---- TYPES
+TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP
+====
+---- QUERY
+set decimal_v2=true;
+select
+cast(cast(12333333333.9999999994 as decimal(38, 10)) as timestamp),
+cast(cast(12333333333.9999999995 as decimal(38, 10)) as timestamp),
+cast(cast(333.9999999994 as decimal(13, 10)) as timestamp),
+cast(cast(333.9999999995 as decimal(13, 10)) as timestamp),
+cast(cast(12333333333.1111111114 as decimal(38, 10)) as timestamp),
+cast(cast(12333333333.1111111115 as decimal(38, 10)) as timestamp),
+cast(cast(12333333333.111111111411111 as decimal(38, 15)) as timestamp),
+cast(cast(12333333333.111111111511111 as decimal(38, 15)) as timestamp),
+cast(cast(12333333333.1111111114 as decimal(38, 27)) as timestamp),
+cast(cast(12333333333.1111111115 as decimal(38, 27)) as timestamp),
+cast(cast(12333333333.111 as decimal(38, 3)) as timestamp),
+cast(cast(12333333333 as decimal(38, 0)) as timestamp);
+---- RESULTS
+2360-10-29 21:55:33.999999999,2360-10-29 21:55:34,1970-01-01 00:05:33.999999999,1970-01-01 00:05:34,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111112,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111112,2360-10-29 21:55:33.111111111,2360-10-29 21:55:33.111111112,2360-10-29 21:55:33.111000000,2360-10-29 21:55:33
+---- TYPES
+TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP
+====
+---- QUERY
+# Check that converting from decimal to date is not allowed
+set decimal_v2=false;
+select cast(cast(0.499 as decimal(9, 3)) as date);
+---- CATCH
+AnalysisException: Invalid type cast of CAST(0.499 AS DECIMAL(9,3)) from DECIMAL(9,3) to DATE
+====
+---- QUERY
+set decimal_v2=true;
+select cast(cast(0.499 as decimal(9, 3)) as date);
+---- CATCH
+AnalysisException: Invalid type cast of CAST(0.499 AS DECIMAL(9,3)) from DECIMAL(9,3) to DATE
+====
+---- QUERY
+# IMPALA-6405: String to Decimal conversion errors
+set decimal_v2=false;
+select cast("abc" as decimal(5, 2));
+---- RESULTS
+NULL
+---- TYPES
+DECIMAL
+---- ERRORS
+UDF WARNING: String to Decimal parse failed
+====
+---- QUERY
+set decimal_v2=true;
+select cast("abc" as decimal(5, 2));
+---- CATCH
+UDF ERROR: String to Decimal parse failed
+====
+---- QUERY
+set decimal_v2=false;
+select cast("1234.5" as decimal(5, 2));
+---- RESULTS
+NULL
+---- TYPES
+DECIMAL
+---- ERRORS
+UDF WARNING: String to Decimal cast overflowed
+====
+---- QUERY
+set decimal_v2=true;
+select cast("1234.5" as decimal(5, 2));
+---- CATCH
+UDF ERROR: String to Decimal cast overflowed
+====
+---- QUERY
+# mod and % should be equivalent in Decimal V2 mode.
+set decimal_v2=true;
+select typeof(9.8 % 3);
+---- RESULTS
+'DECIMAL(2,1)'
+====
+---- QUERY
+# mod and % should be equivalent in Decimal V2 mode.
+set decimal_v2=true;
+select typeof(mod(9.7,3));
+---- RESULTS
+'DECIMAL(2,1)'
+====
+---- QUERY
+# mod and % are different in Decimal V1 mode for this case.
+set decimal_v2=false;
+select typeof(9.6 % 3);
+---- RESULTS
+'DOUBLE'
+====
+---- QUERY
+# mod and % are different in Decimal V1 mode for this case.
+set decimal_v2=false;
+select typeof(mod(9.6, 3));
+---- RESULTS
+'DECIMAL(4,1)'
+====

@@ -1,0 +1,94 @@
+version: 1
+dn: dc=myorg,dc=com
+objectClass: domain
+objectClass: top
+dc: myorg
+
+dn: ou=Users,dc=myorg,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: Users
+
+dn: ou=Users2,dc=myorg,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: Users
+
+dn: ou=Groups,dc=myorg,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: Groups
+
+dn: cn=Test1Ldap,ou=Users,dc=myorg,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Test1Ldap
+sn: Ldap
+uid: ldaptest1
+userPassword: 12345
+
+dn: cn=Test2Ldap,ou=Users,dc=myorg,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Test2Ldap
+sn: Ldap
+uid: ldaptest2
+userPassword: abcde
+
+dn: cn=Test3Ldap,ou=Users,dc=myorg,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Test3Ldap
+sn: Ldap
+uid: ldaptest3
+userPassword: 67890
+
+dn: cn=Test4Ldap,ou=Users,dc=myorg,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Test4Ldap
+sn: Ldap
+uid: ldaptest4
+userPassword: fghij
+
+dn: cn=Test5Ldap,ou=Users2,dc=myorg,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Test5Ldap
+sn: Ldap
+uid: ldaptest5
+userPassword: klmnop
+
+dn: cn=Ldap\, (Test6*),ou=Users2,dc=myorg,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: Ldap\, (Test6*)
+sn: Ldap
+uid: ldaptes6
+userPassword: qrstu
+
+dn: cn=group1,ou=Groups,dc=myorg,dc=com
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: group1
+uniqueMember: cn=Test1Ldap,ou=Users,dc=myorg,dc=com
+uniqueMember: cn=Test2Ldap,ou=Users,dc=myorg,dc=com
+uniqueMember: cn=Ldap\, (Test6*),ou=Users2,dc=myorg,dc=com
+
+dn: cn=group2,ou=Groups,dc=myorg,dc=com
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: group2
+uniqueMember: cn=Test1Ldap,ou=Users,dc=myorg,dc=com

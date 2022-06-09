@@ -1,0 +1,72 @@
+====
+---- QUERY
+# TODO: IMPALA-3350: Add 'group by' to these tests to exercise different code paths.
+select min(string_col) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 1 bytes.
+====
+---- QUERY
+select max(string_col) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 1 bytes.
+====
+---- QUERY
+select sample(timestamp_col) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 2536 bytes.
+====
+---- QUERY
+select group_concat(string_col) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 4 bytes.
+====
+---- QUERY
+select extract(year from timestamp_col) from functional.alltypes limit 10
+---- CATCH
+FunctionContextImpl::AllocateForResults() failed to allocate 4 bytes.
+====
+---- QUERY
+select trunc(timestamp_col, 'YEAR') from functional.alltypes limit 10
+---- CATCH
+FunctionContextImpl::AllocateForResults() failed to allocate 4 bytes.
+====
+---- QUERY
+select first_value(string_col) over (partition by month order by year) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 1 bytes.
+====
+---- QUERY
+select last_value(string_col) over (partition by month order by year) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 1 bytes.
+====
+---- QUERY
+select rand() from functional.alltypes;
+---- CATCH
+FunctionContext::Allocate() failed to allocate 16 bytes.
+====
+---- QUERY
+select case when min(int_col) = 0 then 0 end from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 16 bytes.
+====
+---- QUERY
+select cast(string_col as char(120)) from functional.alltypes
+---- CATCH
+FunctionContextImpl::AllocateForResults() failed to allocate 120 bytes.
+====
+---- QUERY
+select appx_median(int_col) from functional.alltypes
+---- CATCH
+FunctionContext::Allocate() failed to allocate 2536 bytes.
+====
+---- QUERY
+select to_date(now())
+---- CATCH
+FunctionContextImpl::AllocateForResults() failed to allocate 10 bytes.
+====
+---- QUERY
+select get_json_object('{"a": 1}', '$.a')
+---- CATCH
+row_regex:(.*)FunctionContextImpl::AllocateForResults\(\) failed to allocate (32|48) bytes
+====

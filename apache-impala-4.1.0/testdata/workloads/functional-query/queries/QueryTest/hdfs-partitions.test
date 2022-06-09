@@ -1,0 +1,182 @@
+====
+---- QUERY
+select year, count(*) from alltypes group by 1 order by 1 limit 10
+---- RESULTS
+2009,3650
+2010,3650
+---- TYPES
+INT, BIGINT
+====
+---- QUERY
+select month, count(*) from alltypes group by 1 order by 1 limit 100
+---- RESULTS
+1,620
+2,560
+3,620
+4,600
+5,620
+6,600
+7,620
+8,620
+9,600
+10,620
+11,600
+12,620
+---- TYPES
+INT, BIGINT
+====
+---- QUERY
+select year, month, count(*) from alltypes group by 1, 2 order by 1, 2 limit 100
+---- RESULTS
+2009,1,310
+2009,2,280
+2009,3,310
+2009,4,300
+2009,5,310
+2009,6,300
+2009,7,310
+2009,8,310
+2009,9,300
+2009,10,310
+2009,11,300
+2009,12,310
+2010,1,310
+2010,2,280
+2010,3,310
+2010,4,300
+2010,5,310
+2010,6,300
+2010,7,310
+2010,8,310
+2010,9,300
+2010,10,310
+2010,11,300
+2010,12,310
+---- TYPES
+INT, INT, BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year=2009
+---- RESULTS
+3650
+---- TYPES
+BIGINT
+====
+---- QUERY
+# still works if 'year' needs a cast
+select count(*) from alltypes where year = 2009.0
+---- RESULTS
+3650
+---- TYPES
+BIGINT
+====
+---- QUERY
+# finds bindings for partition keys regardless of order of operands
+select count(*) from alltypes where 2009 = year
+---- RESULTS
+3650
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where 2009.0 = year
+---- RESULTS
+3650
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where month=1
+---- RESULTS
+620
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year=2009 and month=1
+---- RESULTS
+310
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year=2009 and month > 6
+---- RESULTS
+1840
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year=2009 and month < 6
+---- RESULTS
+1510
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year<=2009 and month < 6
+---- RESULTS
+1510
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where month < 9 and month > 6
+---- RESULTS
+1240
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year < 2010 and year < 2009 and month > 6
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+select count(*) from alltypes where year < 2010 and month > 6 and month > 12
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Test multi files partitioned table (hdfs)
+select count(*) from alltypesaggmultifiles where day is not null
+---- RESULTS
+10000
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Test partition pruning when a binary predicate contains a NullLiteral
+select count(*) from alltypestiny where year != null or year = null
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Test partition pruning when an IN predicate contains a NullLiteral
+select count(*) from alltypesagg where day in (1, null)
+---- RESULTS
+1000
+---- TYPES
+BIGINT
+====
+---- QUERY
+# Test partition pruning when a NOT IN predicate contains a NullLiteral
+select count(*) from alltypesagg where day not in (1, 2, null)
+---- RESULTS
+0
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-2514: DCHECK on ExprContext::Close()
+select int_col from functional.alltypes
+where year=date_part('yyyyMMMdd hh:mm:ss', current_timestamp());
+---- CATCH
+InternalException: Invalid Date Part Field: yyyyMMMdd hh:mm:ss
+====

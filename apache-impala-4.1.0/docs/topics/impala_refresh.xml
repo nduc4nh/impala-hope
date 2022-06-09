@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="refresh">
+
+  <title>REFRESH Statement</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>REFRESH</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="DDL"/>
+      <data name="Category" value="Tables"/>
+      <data name="Category" value="Hive"/>
+      <data name="Category" value="Metastore"/>
+      <data name="Category" value="ETL"/>
+      <data name="Category" value="Ingest"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Data Analysts"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      The <codeph>REFRESH</codeph> statement reloads the metadata for the table from the
+      metastore database and does an incremental reload of the file and block metadata from the
+      HDFS NameNode. <codeph>REFRESH</codeph> is used to avoid inconsistencies between Impala
+      and external metadata sources, namely Hive Metastore (HMS) and NameNodes.
+    </p>
+
+    <p> The <codeph>REFRESH</codeph> statement is only required if you load data
+      from outside of Impala. Updated metadata, as a result of running
+        <codeph>REFRESH</codeph>, is broadcast to all Impala coordinators. </p>
+
+    <p>
+      See <xref href="impala_hadoop.xml#intro_metastore"/> for the information about the way
+      Impala uses metadata and how it shares the same metastore database as Hive.
+    </p>
+
+    <p>
+      Once issued, the <codeph>REFRESH</codeph> statement cannot be cancelled.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/syntax_blurb"/>
+
+<codeblock rev="IMPALA-1683">REFRESH [<varname>db_name</varname>.]<varname>table_name</varname> [PARTITION (<varname>key_col1</varname>=<varname>val1</varname> [, <varname>key_col2</varname>=<varname>val2</varname>...])]</codeblock>
+
+    <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+    <p>
+      The table name is a required parameter, and the table must already exist and be known to
+      Impala.
+    </p>
+
+    <p>
+      Only the metadata for the specified table is reloaded.
+    </p>
+
+    <p>
+      Use the <codeph>REFRESH</codeph> statement to load the latest metastore metadata for a
+      particular table after one of the following scenarios happens outside of Impala:
+    </p>
+
+    <ul>
+      <li> Deleting, adding, or modifying files. <p> For example, after loading
+          new data files into the HDFS data directory for the table, appending
+          to an existing HDFS file, inserting data from Hive via
+            <codeph>INSERT</codeph> or <codeph>LOAD DATA</codeph>. </p>
+      </li>
+
+      <li>
+        Deleting, adding, or modifying partitions.
+        <p>
+          For example, after issuing <codeph>ALTER TABLE</codeph> or other table-modifying SQL
+          statement in Hive
+        </p>
+      </li>
+    </ul>
+
+    <note rev="2.3.0">
+      <p rev="2.3.0">
+        In <keyword keyref="impala23_full"/> and higher, the <codeph>ALTER TABLE
+        <varname>table_name</varname> RECOVER PARTITIONS</codeph> statement is a faster
+        alternative to <codeph>REFRESH</codeph> when you are only adding new partition
+        directories through Hive or manual HDFS operations. See
+        <xref
+          href="impala_alter_table.xml#alter_table"/> for details.
+      </p>
+    </note>
+
+    <p conref="../shared/impala_common.xml#common/refresh_vs_invalidate"/>
+
+    <p rev="IMPALA-1683">
+      <b>Refreshing a single partition:</b>
+    </p>
+
+    <p rev="IMPALA-1683">
+      In <keyword keyref="impala27_full"/> and higher, the <codeph>REFRESH</codeph> statement
+      can apply to a single partition at a time, rather than the whole table. Include the
+      optional <codeph>PARTITION (<varname>partition_spec</varname>)</codeph> clause and specify
+      values for each of the partition key columns.
+    </p>
+
+    <p>
+      The following rules apply:
+      <ul>
+        <li>
+          The <codeph>PARTITION</codeph> clause of the <codeph>REFRESH</codeph> statement must
+          include all the partition key columns.
+        </li>
+
+        <li>
+          The order of the partition key columns does not have to match the column order in the
+          table.
+        </li>
+
+        <li>
+          Specifying a nonexistent partition does not cause an error.
+        </li>
+
+        <li>
+          The partition can be one that Impala created and is already aware of, or a new
+          partition created through Hive.
+        </li>
+      </ul>
+    </p>
+
+    <p rev="IMPALA-1683">
+      The following examples demonstrates the above rules.
+    </p>
+
+<codeblock rev="IMPALA-1683"><![CDATA[
+-- Partition doesn't exist.
+refresh p2 partition (y=0, z=3);
+refresh p2 partition (y=0, z=-1)
+
+-- Key columns specified in a different order than the table definition.
+refresh p2 partition (z=1, y=0)
+
+-- Incomplete partition spec causes an error.
+refresh p2 partition (y=0)
+ERROR: AnalysisException: Items in partition spec must exactly match the partition columns in the table definition: default.p2 (1 vs 2)
+]]>
+</codeblock>
+
+    <p>
+      For examples of using <codeph>REFRESH</codeph> and <codeph>INVALIDATE METADATA</codeph>
+      with a combination of Impala and Hive operations, see
+      <xref href="impala_tutorial.xml#tutorial_impala_hive"/>.
+    </p>
+
+    <p>
+      <b>Related impala-shell options:</b>
+    </p>
+
+    <p rev="1.1">
+      Due to the expense of reloading the metadata for all tables, the
+      <cmdname>impala-shell</cmdname> <codeph>-r</codeph> option is not recommended.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/permissions_blurb"/>
+
+    <p rev="IMPALA-1683">
+      All HDFS and Ranger permissions and privilege requirements are the same whether you
+      refresh the entire table or a single partition.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/hdfs_blurb"/>
+
+    <p>
+      The <codeph>REFRESH</codeph> statement checks HDFS permissions of the underlying data
+      files and directories, caching this information so that a statement can be cancelled
+      immediately if for example the <codeph>impala</codeph> user does not have permission to
+      write to the data directory for the table. Impala reports any lack of write permissions as
+      an <codeph>INFO</codeph> message in the log file.
+    </p>
+
+    <p>
+      If you change HDFS permissions to make data readable or writeable by the Impala user,
+      issue another <codeph>REFRESH</codeph> to make Impala aware of the change.
+    </p>
+
+    <p rev="kudu" conref="../shared/impala_common.xml#common/kudu_blurb"/>
+
+    <p conref="../shared/impala_common.xml#common/kudu_metadata_intro"/>
+
+    <p conref="../shared/impala_common.xml#common/kudu_metadata_details"/>
+
+    <p conref="../shared/impala_common.xml#common/related_info"/>
+
+    <p>
+      <xref href="impala_hadoop.xml#intro_metastore"/>,
+      <xref href="impala_invalidate_metadata.xml#invalidate_metadata"/>
+    </p>
+
+  </conbody>
+
+</concept>

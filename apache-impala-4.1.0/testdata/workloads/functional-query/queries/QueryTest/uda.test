@@ -1,0 +1,180 @@
+====
+---- QUERY
+select hll(int_col) from functional.alltypestiny;
+---- RESULTS
+'2'
+---- TYPES
+string
+====
+---- QUERY
+select test_count(int_col) from functional.alltypestiny;
+---- RESULTS
+8
+---- TYPES
+bigint
+====
+---- QUERY
+select test_count(int_col) from functional.alltypesagg;
+---- RESULTS
+10980
+---- TYPES
+bigint
+====
+---- QUERY
+select sum_small_decimal(c3) from functional.decimal_tiny;
+---- RESULTS
+45.00
+---- TYPES
+decimal
+====
+---- QUERY
+select trunc_sum(double_col),sum(double_col) from functional_parquet.alltypes where id < 5555;
+---- RESULTS
+252348,252348.5
+---- TYPES
+bigint,double
+====
+---- QUERY
+select arg_is_const(int_col, 1) from functional_parquet.alltypes;
+---- RESULTS
+true
+---- TYPES
+boolean
+====
+---- QUERY
+# Test with even number of input rows.
+select toggle_null(id), count(*)
+from functional_parquet.alltypesagg
+---- RESULTS
+NULL,11000
+---- TYPES
+int,bigint
+====
+---- QUERY
+# Test with odd number of input rows.
+select toggle_null(id), count(*)
+from functional_parquet.alltypesagg
+where id <= 9998
+---- RESULTS
+1,10999
+---- TYPES
+int,bigint
+====
+---- QUERY
+# Test that input NULLs are passed to aggregate functions ok.
+select count_nulls(tinyint_col), count(*)
+from functional.alltypesagg
+---- RESULTS
+2000,11000
+---- TYPES
+bigint,bigint
+====
+---- QUERY
+# Test that all types are exposed via the FunctionContext correctly.
+# This relies on asserts in the UDA funciton
+select agg_intermediate(int_col), count(*)
+from functional.alltypesagg
+---- RESULTS
+NULL,11000
+---- TYPES
+bigint,bigint
+====
+---- QUERY
+# Test that all types are exposed via the FunctionContext correctly.
+# This relies on asserts in the UDA funciton
+select agg_decimal_intermediate(cast(c3 as decimal(2,1)), 2), count(*)
+from functional.decimal_tiny
+---- RESULTS
+NULL,100
+---- TYPES
+decimal,bigint
+====
+---- QUERY
+# Test that all types are exposed via the FunctionContext correctly.
+# This relies on asserts in the UDA funciton
+select agg_date_intermediate(date_col, 2), count(*)
+from functional.date_tbl
+---- RESULTS
+NULL,22
+---- TYPES
+date,bigint
+====
+---- QUERY
+# Test that all types are exposed via the FunctionContext correctly.
+# This includes distinct aggregate expression to test IMPALA-5251.
+# It also relies on asserts in the UDA funciton.
+select
+   agg_string_intermediate(cast(c1 as decimal(20,10)), 1000, "foobar"),
+   agg_decimal_intermediate(cast(c3 as decimal(2,1)), 2),
+   agg_date_intermediate(date_col, 2),
+   agg_intermediate(int_col),
+   avg(c2),
+   min(c3-c1),
+   max(c1+c3),
+   count(distinct int_col),
+   sum(distinct int_col),
+   max(date_col)
+from
+   functional.alltypesagg,
+   functional.decimal_tiny,
+   functional.date_tbl
+---- RESULTS
+100,NULL,NULL,NULL,160.499890,-10.0989,11.8989,999,499500,9999-12-31
+---- TYPES
+decimal,decimal,date,bigint,decimal,decimal,decimal,bigint,bigint,date
+====
+---- QUERY
+# Test that all types are exposed via the FunctionContext correctly.
+# This includes distinct aggregate expression to test IMPALA-5251.
+# It also relies on asserts in the UDA funciton.
+select
+   agg_string_intermediate(cast(c1 as decimal(20,10)), 1000, "foobar"),
+   agg_decimal_intermediate(cast(c3 as decimal(2,1)), 2),
+   agg_date_intermediate(date_col, 2),
+   agg_intermediate(int_col),
+   ndv(c2),
+   sum(distinct c1)/count(distinct c1),
+   ndv(date_col)
+from
+   functional.alltypesagg,
+   functional.decimal_tiny,
+   functional.date_tbl
+group by
+   year,month,day
+---- RESULTS
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+100,NULL,NULL,NULL,99,5.499450,16
+---- TYPES
+decimal,decimal,date,bigint,bigint,decimal,bigint
+====
+---- QUERY
+# Test that char intermediate works as expected. The function char_intermediate_sum()
+# computes the sum with an intermediate int.
+select year, month, day, char_intermediate_sum(int_col), sum(int_col)
+from functional.alltypesagg
+group by year, month, day
+order by year, month, day
+---- RESULTS
+2010,1,1,499500,499500
+2010,1,2,499500,499500
+2010,1,3,499500,499500
+2010,1,4,499500,499500
+2010,1,5,499500,499500
+2010,1,6,499500,499500
+2010,1,7,499500,499500
+2010,1,8,499500,499500
+2010,1,9,499500,499500
+2010,1,10,499500,499500
+2010,1,NULL,495000,495000
+---- TYPES
+int,int,int,int,bigint
+====

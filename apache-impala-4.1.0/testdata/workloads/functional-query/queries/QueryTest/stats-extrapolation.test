@@ -1,0 +1,244 @@
+====
+---- QUERY
+# This test relies on a deterministic row order so we use "sort by (id)".
+create table alltypes sort by (id) like functional_parquet.alltypes;
+alter table alltypes set tblproperties("impala.enable.stats.extrapolation"="true");
+insert into alltypes partition(year, month)
+select * from functional_parquet.alltypes where year = 2009;
+====
+---- QUERY
+explain select id from alltypes;
+---- RESULTS: VERIFY_IS_SUBSET
+'   stored statistics:'
+'     table: rows=unavailable size=unavailable'
+'     partitions: 0/12 rows=5.97K'
+'     columns: unavailable'
+row_regex:.* extrapolated-rows=unavailable.*
+'   tuple-ids=0 row-size=4B cardinality=5.97K'
+---- TYPES
+STRING
+====
+---- QUERY
+# Disable the estimation of cardinality for an hdfs table withot stats.
+SET DISABLE_HDFS_NUM_ROWS_ESTIMATE=1;
+explain select id from alltypes;
+---- RESULTS: VERIFY_IS_SUBSET
+'   stored statistics:'
+'     table: rows=unavailable size=unavailable'
+'     partitions: 0/12 rows=unavailable'
+'     columns: unavailable'
+row_regex:.* extrapolated-rows=unavailable.*
+'   tuple-ids=0 row-size=4B cardinality=unavailable'
+---- TYPES
+STRING
+====
+---- QUERY
+compute stats alltypes
+---- RESULTS
+'Updated 1 partition(s) and 11 column(s).'
+---- TYPES
+STRING
+====
+---- QUERY
+# Only the table-level row count is stored. The partition row counts are extrapolated.
+show table stats alltypes
+---- LABELS
+YEAR, MONTH, #ROWS, EXTRAP #ROWS, #FILES, SIZE, BYTES CACHED, CACHE REPLICATION, FORMAT, INCREMENTAL STATS, LOCATION
+---- RESULTS
+'2009','1',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=1'
+'2009','10',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=10'
+'2009','11',-1,302,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=11'
+'2009','12',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=12'
+'2009','2',-1,290,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=2'
+'2009','3',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=3'
+'2009','4',-1,302,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=4'
+'2009','5',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=5'
+'2009','6',-1,302,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=6'
+'2009','7',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=7'
+'2009','8',-1,307,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=8'
+'2009','9',-1,302,1,regex:.*B,'NOT CACHED','NOT CACHED','PARQUET','false','$NAMENODE/test-warehouse/$DATABASE.db/alltypes/year=2009/month=9'
+'Total','',3650,3650,12,regex:.*B,'0B','','','',''
+---- TYPES
+STRING,STRING,BIGINT,BIGINT,BIGINT,STRING,STRING,STRING,STRING,STRING,STRING
+====
+---- QUERY
+# Stats are available now.
+explain select id from alltypes;
+---- RESULTS: VERIFY_IS_EQUAL
+row_regex:.*Max Per-Host Resource Reservation: Memory=.*
+row_regex:.*Per-Host Resource Estimates: Memory=.*
+'Codegen disabled by planner'
+row_regex:.*Analyzed query: SELECT id FROM test_stats_extrapolation_.*.alltypes.*
+''
+'F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1'
+row_regex:.*Per-Host Resources: mem-estimate=.* mem-reservation=.*
+'PLAN-ROOT SINK'
+'|  output exprs: id'
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.alltypes]'
+row_regex:.*partitions=12/12 files=12 size=.*
+'   stored statistics:'
+row_regex:.*table: rows=3.65K size=.*
+'     partitions: 0/12 rows=unavailable'
+'     columns: all'
+row_regex:.* extrapolated-rows=3.65K .*
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'   tuple-ids=0 row-size=4B cardinality=3.65K'
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====
+---- QUERY
+# Select a subset of partitions.
+explain select id from alltypes where month in (1, 2, 3);
+---- RESULTS: VERIFY_IS_EQUAL
+row_regex:.*Max Per-Host Resource Reservation: Memory=.*
+row_regex:.*Per-Host Resource Estimates: Memory=.*
+'Codegen disabled by planner'
+row_regex:.*Analyzed query: SELECT id FROM test_stats_extrapolation_.*.alltypes WHERE.*
+'`month` IN (CAST(1 AS INT), CAST(2 AS INT), CAST(3 AS INT))'
+''
+'F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1'
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'PLAN-ROOT SINK'
+'|  output exprs: id'
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.alltypes]'
+'   partition predicates: `month` IN (CAST(1 AS INT), CAST(2 AS INT), CAST(3 AS INT))'
+row_regex:.*partitions=3/12 files=3 size=.*
+'   stored statistics:'
+row_regex:.*table: rows=3.65K size=.*
+'     partitions: 0/3 rows=unavailable'
+'     columns: all'
+row_regex:.* extrapolated-rows=904.*
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'   tuple-ids=0 row-size=4B cardinality=904'
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====
+---- QUERY
+# Double the data in existing partitions.
+insert into alltypes partition(year, month)
+select * from functional_parquet.alltypes where year = 2009;
+explain select id from alltypes;
+---- RESULTS: VERIFY_IS_EQUAL
+row_regex:.*Max Per-Host Resource Reservation: Memory=.*
+row_regex:.*Per-Host Resource Estimates: Memory=.*
+row_regex:.*Analyzed query: SELECT id FROM test_stats_extrapolation_.*.alltypes.*
+''
+'F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1'
+row_regex:.*Per-Host Resources: mem-estimate=.* mem-reservation=.*
+'PLAN-ROOT SINK'
+'|  output exprs: id'
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.alltypes]'
+row_regex:.*partitions=12/12 files=24 size=.*
+'   stored statistics:'
+row_regex:.*table: rows=3.65K size=.*
+'     partitions: 0/12 rows=unavailable'
+'     columns: all'
+row_regex:.* extrapolated-rows=7.30K .*
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'   tuple-ids=0 row-size=4B cardinality=7.30K'
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====
+---- QUERY
+# Create new partitions and extrapolate their row count.
+insert into alltypes partition(year, month)
+select * from functional_parquet.alltypes where year = 2010;
+explain select id from alltypes where year = 2010;
+---- RESULTS: VERIFY_IS_EQUAL
+row_regex:.*Max Per-Host Resource Reservation: Memory=.*
+row_regex:.*Per-Host Resource Estimates: Memory=20MB.*
+'Codegen disabled by planner'
+row_regex:.*Analyzed query: SELECT id FROM test_stats_extrapolation_.*.alltypes WHERE.*
+'`year` = CAST(2010 AS INT)'
+''
+'F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1'
+row_regex:.*Per-Host Resources: mem-estimate=.* mem-reservation=.*
+'PLAN-ROOT SINK'
+'|  output exprs: id'
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.alltypes]'
+'   partition predicates: `year` = CAST(2010 AS INT)'
+row_regex:.*partitions=12/24 files=12 size=.*
+'   stored statistics:'
+row_regex:.*table: rows=3.65K size=.*
+'     partitions: 0/12 rows=unavailable'
+'     columns: all'
+row_regex:.* extrapolated-rows=3.65K .*
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'   tuple-ids=0 row-size=4B cardinality=3.65K'
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====
+---- QUERY
+# Compute stats and run the same query again.
+compute stats alltypes;
+explain select id from alltypes where year = 2010;
+---- RESULTS: VERIFY_IS_EQUAL
+row_regex:.*Max Per-Host Resource Reservation: Memory=.*
+row_regex:.*Per-Host Resource Estimates: Memory=20MB.*
+'Codegen disabled by planner'
+row_regex:.*Analyzed query: SELECT id FROM test_stats_extrapolation_.*.alltypes WHERE.*
+'`year` = CAST(2010 AS INT)'
+''
+'F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1'
+row_regex:.*Per-Host Resources: mem-estimate=.* mem-reservation=.*
+'PLAN-ROOT SINK'
+'|  output exprs: id'
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'|'
+'00:SCAN $FILESYSTEM_NAME [$DATABASE.alltypes]'
+'   partition predicates: `year` = CAST(2010 AS INT)'
+row_regex:.*partitions=12/24 files=12 size=.*
+'   stored statistics:'
+row_regex:.*table: rows=10.95K size=.*
+'     partitions: 0/12 rows=unavailable'
+'     columns: all'
+row_regex:.* extrapolated-rows=3.65K .*
+row_regex:.*mem-estimate=.* mem-reservation=.*
+'   tuple-ids=0 row-size=4B cardinality=3.65K'
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====
+---- QUERY
+# Test that dropping stats resets everything.
+drop stats alltypes;
+explain select id from alltypes;
+---- RESULTS: VERIFY_IS_SUBSET
+'   stored statistics:'
+'     table: rows=unavailable size=unavailable'
+row_regex:.* partitions: 0/24 rows=17\.9.*K
+'     columns: unavailable'
+row_regex:.* extrapolated-rows=unavailable.*
+row_regex:.* tuple-ids=0 row-size=4B cardinality=17\.9.*K
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====
+---- QUERY
+# Test that dropping stats resets everything.
+SET DISABLE_HDFS_NUM_ROWS_ESTIMATE=1;
+drop stats alltypes;
+explain select id from alltypes;
+---- RESULTS: VERIFY_IS_SUBSET
+'   stored statistics:'
+'     table: rows=unavailable size=unavailable'
+'     partitions: 0/24 rows=unavailable'
+'     columns: unavailable'
+row_regex:.* extrapolated-rows=unavailable.*
+'   tuple-ids=0 row-size=4B cardinality=unavailable'
+'   in pipelines: 00(GETNEXT)'
+---- TYPES
+STRING
+====

@@ -1,0 +1,13 @@
+====
+---- QUERY
+# Tests overflow. Note that decimal columns produce error on overflow
+# even without --strict_mode, so we don't select the decimal columns in
+# this test case.
+select tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col from Overflow
+---- TYPES
+tinyint, smallint, int, bigint, float, double
+---- RESULTS
+-128,-32768,-2147483648,-9223372036854775808,-Infinity,-Infinity
+1,2,3,4,5.5,6.6
+127,32767,2147483647,9223372036854775807,inf,inf
+====

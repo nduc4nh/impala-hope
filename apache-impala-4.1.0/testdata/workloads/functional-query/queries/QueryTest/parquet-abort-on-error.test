@@ -1,0 +1,61 @@
+====
+---- QUERY
+# IMPALA-2558: Trigger bad parse_status_ in HdfsParquetScanner::AssembleRows().
+# Abort on error must be used to trigger a status.
+# Set a single node and scanner thread to make this test deterministic.
+set num_nodes=1;
+set num_scanner_threads=1;
+select id, cnt from bad_column_metadata t, (select count(*) cnt from t.int_array) v
+---- CATCH
+Column metadata states there are 50 values, but read 100 values from column element.
+====
+---- QUERY
+# IMPALA-2558. Same as above but only selecting a scalar column.
+set num_nodes=1;
+set num_scanner_threads=1;
+select id from bad_column_metadata
+---- CATCH
+Column metadata states there are 11 values, but read 10 values from column id.
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d1 from bad_parquet_decimals
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd1' does not have the decimal precision set.
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d2 from bad_parquet_decimals
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd2' has a precision that does not match the table metadata precision. File metadata precision: 20, table metadata precision: 4.
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d3 from functional_parquet.bad_parquet_decimals;
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd3' has a precision that does not match the table metadata precision. File metadata precision: -1, table metadata precision: 4.
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d4 from functional_parquet.bad_parquet_decimals
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd4' does not have type_length set.
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d5 from functional_parquet.bad_parquet_decimals
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd5' has invalid type length: 0
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d6 from functional_parquet.bad_parquet_decimals
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd6' has invalid scale: -1. Precision is 4.
+====
+---- QUERY
+# IMPALA-10808, IMPALA-10814: Check illegal decimal file schemas
+select d7 from functional_parquet.bad_parquet_decimals;
+---- CATCH
+File '$NAMENODE/test-warehouse/bad_parquet_decimals_parquet/illegal_decimals.parq' column 'd7' has invalid scale: 4. Precision is 2.
+====

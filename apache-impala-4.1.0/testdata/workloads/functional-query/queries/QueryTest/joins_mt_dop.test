@@ -1,0 +1,51 @@
+====
+---- QUERY
+# Test that the right amount of memory is reserved for this plan - the planner assumes
+# that the join build does not run in parallel with the left side of the join.
+set num_nodes=1;
+set runtime_filter_wait_time_ms=$RUNTIME_FILTER_WAIT_TIME_MS;
+set runtime_filter_mode=LOCAL;
+select STRAIGHT_JOIN count(*) from alltypes p join [BROADCAST] alltypestiny b
+on p.month = b.int_col and b.month = 1 and b.string_col = "1"
+---- RESULTS
+620
+---- RUNTIME_PROFILE
+row_regex: .*Files rejected: 22 \(22\).*
+====
+---- QUERY
+# Test that the single-node plan is executable and produces the correct result for a
+# nested loop join mode that can't be executed in a distributed fashion.
+set num_nodes=1;
+select straight_join count(*)
+from functional.alltypestiny a right outer join functional.alltypes b
+  on a.id != b.id or a.int_col < b.int_col
+right outer join functional.alltypesagg c
+  on a.smallint_col >= c.smallint_col
+where a.id < 10 and c.bigint_col = 10
+---- RESULTS
+291990
+====
+---- QUERY
+# Regression IMPALA-9019: fix runtime filter propagation with mt_dop.
+# This plan has a global BROADCAST filter sent from the scan of alltypestiny
+# to the scan of alltypes. Before the bug was fixed, this filter would not
+# be produced, but was expected by the destination. Setting the wait time
+# higher than the time limit caused this query to reliably fail because
+# the destination scan would block waiting for the filter to arrive.
+set exec_time_limit_s=30;
+set runtime_filter_wait_time_ms=120000;
+select straight_join t1.id, t1.int_col
+from (select distinct * from alltypes) t1
+  join /*+broadcast*/ alltypestiny t2 on t1.id = t2.id;
+---- TYPES
+int,int
+---- RESULTS
+0,0
+1,1
+2,2
+3,3
+4,4
+5,5
+6,6
+7,7
+====

@@ -1,0 +1,38 @@
+====
+---- QUERY
+use tpch_nested_parquet
+====
+---- QUERY
+# IMPALA-2289: Test proper handling of AtCapacity() inside the subplan node.
+# num_nodes is set to 1 in the python test to make it very likely to hit the once buggy
+# code path because a single scan node instance must process all input files.
+select c_custkey, o_orderkey
+from customer c left outer join c.c_orders
+where c_custkey = 67974;
+---- RESULTS
+67974,NULL
+---- TYPES
+bigint,bigint
+---- RUNTIME_PROFILE
+row_regex: .*NUM_NODES=1.*
+====
+---- QUERY
+# Regression test for IMPALA-11200
+select c_custkey, v.* from customer c,
+  (select o_orderpriority, count(o_orderkey) c
+   from c.c_orders
+   group by o_orderpriority) v
+where c_custkey < 4;
+---- RESULTS
+2,'2-HIGH',1
+2,'4-NOT SPECIFIED',2
+2,'1-URGENT',4
+1,'2-HIGH',1
+1,'5-LOW',2
+1,'1-URGENT',2
+1,'3-MEDIUM',1
+---- TYPES
+BIGINT,STRING,BIGINT
+---- RUNTIME_PROFILE
+!row_regex: .*Codegen Enabled, Codegen Enabled.*
+====

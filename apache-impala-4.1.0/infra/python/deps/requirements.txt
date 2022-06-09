@@ -1,0 +1,74 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# To download requirements use the download_requirements script in this dir.
+
+# Dependents are indented. Dependents that have multiple parents are not listed
+# multiple times (though maybe they could be).
+
+allpairs == 2.0.1
+argparse == 1.4.0
+cm-api == 10.0.0
+  # Already available as part of python on Linux.
+  readline == 6.2.4.1; sys_platform == 'darwin'
+flake8 == 2.6.2
+  mccabe == 0.3.1
+  pycodestyle == 2.0.0
+  pyflakes == 1.2.3
+gcovr == 3.4
+hdfs == 2.0.2
+  docopt == 0.6.2
+  execnet == 1.4.0
+    apipkg == 1.4
+impyla == 0.18a1
+  bitarray == 2.3.0
+  pure-sasl == 0.6.2
+  # six == 1.14.0 (specified separately)
+  thrift_sasl == 0.4.3
+kazoo == 2.2.1
+pexpect == 3.3
+pg8000 == 1.10.2
+prettytable == 0.7.2
+psutil == 5.6.3
+pyparsing == 2.0.3
+pytest == 2.9.2
+  py == 1.4.32
+  pytest-forked == 0.2
+  pytest-random == 0.02
+  pytest-runner == 4.2
+  pytest-xdist == 1.17.1
+  pytest-timeout == 1.2.1
+python-magic == 0.4.11
+pywebhdfs == 0.3.2
+  pbr == 3.1.1
+requests == 2.20.0
+   chardet == 3.0.4
+   idna == 2.8
+   urllib3 == 1.24.2
+   certifi == 2020.12.5
+sasl == 0.2.1
+sh == 1.11
+six == 1.14.0
+sqlparse == 0.3.1
+texttable == 0.8.3
+virtualenv == 16.7.10
+avro==1.10.2
+
+# Required for Kudu:
+  Cython == 0.29.14
+  pytz == 2020.1
+

@@ -1,0 +1,285 @@
+====
+---- QUERY
+set mem_limit=4gb;
+# IMPALA-1619 group_concat() error
+select length(group_concat(l_comment, "!")) from (
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem) a
+---- CATCH
+Concatenated string length is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+# IMPALA-2620: Allocation by UDF/UDA need to take into account of memory limit.
+SET mem_limit=512m;
+select length(group_concat(l_comment, "!")) from (
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem union all
+select l_comment from tpch_parquet.lineitem) a
+---- CATCH
+Memory limit exceeded
+====
+---- QUERY
+#IMPALA-3350: Results of string functions can exceed 1GB.
+set mem_limit=4gb;
+select length(concat_ws(',', s, s, s, s)) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+Concatenated string length is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(repeat(s, 10)) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+repeat() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(lpad(s, 1073741830, '!')) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+lpad() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(rpad(s, 1073741830, '~')) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+rpad() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+set mem_limit=4gb;
+select space(1073741830);
+---- CATCH
+space() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(regexp_replace(s, '.', '++++++++')) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+String length larger than allowed limit of 1 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(replace(s, ' ', '++++++++')) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- RESULTS
+625718301
+=====
+---- QUERY
+set mem_limit=5gb;
+select replace(x, '+', '000') from (select (replace(s, ' ', '++++++++')) x from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2) t3;
+---- CATCH
+replace() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select trunc(timestamp_col, space(1073741830)) from functional.alltypes
+---- CATCH
+space() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select extract(timestamp_col, space(1073741830)) from functional.alltypes
+---- CATCH
+space() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(madlib_encode_vector(concat_ws(',', s, s, s, s))) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+Concatenated string length is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select length(madlib_decode_vector(concat_ws(',', s, s, s, s))) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+Concatenated string length is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+# IMPALA-4874: Generate a large row made up of multiple large strings to test RPC
+#              transmission. This uses hashing to make this difficult to compress,
+#              which results in a larger row batch.
+select length(group_concat(h, "!")),
+       length(group_concat(h, "-"))
+from (
+select cast(fnv_hash(concat(l_comment, 'a')) as string) as h from tpch_parquet.lineitem union all
+select cast(fnv_hash(concat(l_comment, 'b')) as string) as h from tpch_parquet.lineitem union all
+select cast(fnv_hash(concat(l_comment, 'c')) as string) as h from tpch_parquet.lineitem union all
+select cast(fnv_hash(concat(l_comment, 'd')) as string) as h from tpch_parquet.lineitem) a;
+---- TYPES
+INT,INT
+---- RESULTS
+489174530,489174530
+=====
+---- QUERY
+set mem_limit=4gb;
+select repeat('the quick brown fox', 1024 * 1024 * 100)
+---- CATCH
+repeat() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select lpad(s, 1024 * 1024 * 1024 * 5, ' ') from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+lpad() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select rpad(s, 1024 * 1024 * 1024 * 5, ' ') from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+rpad() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=4gb;
+select space(1024 * 1024 * 1024 * 5);
+---- CATCH
+space() result is larger than allowed limit of 1.00 GB character data
+=====
+---- QUERY
+set mem_limit=8gb;
+select concat(lpad(s, 1073741820 , ' '),lpad(s, 1073741820 , ' '),lpad(s, 1073741820 , ' '),lpad(s, 1073741820 , ' '),lpad(s, 1073741820 , ' ')) from (
+  select group_concat(l_comment, "!") s from (
+    select l_comment from tpch.lineitem union all
+    select l_comment from tpch.lineitem) t1
+  ) t2
+---- CATCH
+Concatenated string length is larger than allowed limit of 1.00 GB character data
+=====
+

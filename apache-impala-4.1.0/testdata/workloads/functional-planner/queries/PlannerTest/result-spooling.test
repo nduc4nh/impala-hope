@@ -1,0 +1,140 @@
+# Validate the minimum memory reservation for PLAN-ROOT SINK is bounded by the spillable
+# buffer size.
+select * from functional.alltypes order by id limit 10
+---- DISTRIBUTEDPLAN
+Max Per-Host Resource Reservation: Memory=4.03MB Threads=3
+Per-Host Resource Estimates: Memory=20MB
+F01:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Host Resources: mem-estimate=4.02MB mem-reservation=4.00MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+02:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: id ASC
+|  limit: 10
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=89B cardinality=10
+|  in pipelines: 01(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=3
+Per-Host Resources: mem-estimate=16.00MB mem-reservation=32.00KB thread-reservation=2
+01:TOP-N [LIMIT=10]
+|  order by: id ASC
+|  mem-estimate=890B mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=89B cardinality=10
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [functional.alltypes, RANDOM]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   stored statistics:
+     table: rows=7.30K size=478.45KB
+     partitions: 24/24 rows=7.30K
+     columns: all
+   extrapolated-rows=disabled max-scan-range-rows=310
+   mem-estimate=16.00MB mem-reservation=32.00KB thread-reservation=1
+   tuple-ids=0 row-size=89B cardinality=7.30K
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+Max Per-Host Resource Reservation: Memory=4.06MB Threads=3
+Per-Host Resource Estimates: Memory=36MB
+F01:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=4.02MB mem-reservation=4.00MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: id, bool_col, tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, date_string_col, string_col, timestamp_col, year, month
+|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+02:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: id ASC
+|  limit: 10
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=89B cardinality=10
+|  in pipelines: 01(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=6
+Per-Instance Resources: mem-estimate=16.00MB mem-reservation=32.00KB thread-reservation=1
+01:TOP-N [LIMIT=10]
+|  order by: id ASC
+|  mem-estimate=890B mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=89B cardinality=10
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [functional.alltypes, RANDOM]
+   HDFS partitions=24/24 files=24 size=478.45KB
+   stored statistics:
+     table: rows=7.30K size=478.45KB
+     partitions: 24/24 rows=7.30K
+     columns: all
+   extrapolated-rows=disabled max-scan-range-rows=310
+   mem-estimate=16.00MB mem-reservation=32.00KB thread-reservation=0
+   tuple-ids=0 row-size=89B cardinality=7.30K
+   in pipelines: 00(GETNEXT)
+====
+# Validate that the maximum memory reservation for PLAN-ROOT SINK is bounded by
+# MAX_PINNED_RESULT_SPOOLING_MEMORY.
+select * from tpch.lineitem order by l_orderkey
+---- DISTRIBUTEDPLAN
+Max Per-Host Resource Reservation: Memory=24.00MB Threads=3
+Per-Host Resource Estimates: Memory=659MB
+F01:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Host Resources: mem-estimate=130.69MB mem-reservation=4.00MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment
+|  mem-estimate=100.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+02:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: l_orderkey ASC
+|  mem-estimate=30.69MB mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=231B cardinality=6.00M
+|  in pipelines: 01(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=3
+Per-Host Resources: mem-estimate=528.26MB mem-reservation=20.00MB thread-reservation=2
+01:SORT
+|  order by: l_orderkey ASC
+|  mem-estimate=440.26MB mem-reservation=12.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=1 row-size=231B cardinality=6.00M
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [tpch.lineitem, RANDOM]
+   HDFS partitions=1/1 files=1 size=718.94MB
+   stored statistics:
+     table: rows=6.00M size=718.94MB
+     columns: all
+   extrapolated-rows=disabled max-scan-range-rows=1.07M
+   mem-estimate=88.00MB mem-reservation=8.00MB thread-reservation=1
+   tuple-ids=0 row-size=231B cardinality=6.00M
+   in pipelines: 00(GETNEXT)
+---- PARALLELPLANS
+Max Per-Host Resource Reservation: Memory=44.00MB Threads=3
+Per-Host Resource Estimates: Memory=778MB
+F01:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
+|  Per-Instance Resources: mem-estimate=161.38MB mem-reservation=4.00MB thread-reservation=1
+PLAN-ROOT SINK
+|  output exprs: l_orderkey, l_partkey, l_suppkey, l_linenumber, l_quantity, l_extendedprice, l_discount, l_tax, l_returnflag, l_linestatus, l_shipdate, l_commitdate, l_receiptdate, l_shipinstruct, l_shipmode, l_comment
+|  mem-estimate=100.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|
+02:MERGING-EXCHANGE [UNPARTITIONED]
+|  order by: l_orderkey ASC
+|  mem-estimate=61.38MB mem-reservation=0B thread-reservation=0
+|  tuple-ids=1 row-size=231B cardinality=6.00M
+|  in pipelines: 01(GETNEXT)
+|
+F00:PLAN FRAGMENT [RANDOM] hosts=3 instances=6
+Per-Instance Resources: mem-estimate=308.13MB mem-reservation=20.00MB thread-reservation=1
+01:SORT
+|  order by: l_orderkey ASC
+|  mem-estimate=220.13MB mem-reservation=12.00MB spill-buffer=2.00MB thread-reservation=0
+|  tuple-ids=1 row-size=231B cardinality=6.00M
+|  in pipelines: 01(GETNEXT), 00(OPEN)
+|
+00:SCAN HDFS [tpch.lineitem, RANDOM]
+   HDFS partitions=1/1 files=1 size=718.94MB
+   stored statistics:
+     table: rows=6.00M size=718.94MB
+     columns: all
+   extrapolated-rows=disabled max-scan-range-rows=1.07M
+   mem-estimate=88.00MB mem-reservation=8.00MB thread-reservation=0
+   tuple-ids=0 row-size=231B cardinality=6.00M
+   in pipelines: 00(GETNEXT)
+====

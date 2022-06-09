@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept rev="1.1" id="invalidate_metadata">
+
+  <title>INVALIDATE METADATA Statement</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>INVALIDATE METADATA</navtitle>
+
+  </titlealts>
+
+  <prolog>
+    <metadata>
+      <data name="Category" value="Impala"/>
+      <data name="Category" value="SQL"/>
+      <data name="Category" value="DDL"/>
+      <data name="Category" value="ETL"/>
+      <data name="Category" value="Ingest"/>
+      <data name="Category" value="Metastore"/>
+      <data name="Category" value="Schemas"/>
+      <data name="Category" value="Tables"/>
+      <data name="Category" value="Developers"/>
+      <data name="Category" value="Data Analysts"/>
+    </metadata>
+  </prolog>
+
+  <conbody>
+
+    <p>
+      The <codeph>INVALIDATE METADATA</codeph> statement marks the metadata for one or all
+      tables as stale. The next time the Impala service performs a query against a table whose
+      metadata is invalidated, Impala reloads the associated metadata before the query proceeds.
+      As this is a very expensive operation compared to the incremental metadata update done by
+      the <codeph>REFRESH</codeph> statement, when possible, prefer <codeph>REFRESH</codeph>
+      rather than <codeph>INVALIDATE METADATA</codeph>.
+    </p>
+
+    <p>
+      <codeph>INVALIDATE METADATA</codeph> is required when the following changes are made
+      outside of Impala, in Hive and other Hive client, such as SparkSQL:
+      <ul>
+        <li>
+          Metadata of existing tables changes.
+        </li>
+
+        <li>
+          New tables are added, and Impala will use the tables.
+        </li>
+
+        <li>
+          The <codeph>SERVER</codeph> or <codeph>DATABASE</codeph> level Ranger privileges are
+          changed.
+        </li>
+
+        <li>
+          Block metadata changes, but the files remain the same (HDFS rebalance).
+        </li>
+
+        <li>
+          UDF jars change.
+        </li>
+
+        <li>
+          Some tables are no longer queried, and you want to remove their metadata from the
+          catalog and coordinator caches to reduce memory requirements.
+        </li>
+      </ul>
+    </p>
+
+    <p>
+      No <codeph>INVALIDATE METADATA</codeph> is needed when the changes are made by
+      <codeph>impalad</codeph>.
+    </p>
+
+    <p>
+      See <xref href="impala_hadoop.xml#intro_metastore"/> for the information about the way
+      Impala uses metadata and how it shares the same metastore database as Hive.
+    </p>
+
+    <p>
+      Once issued, the <codeph>INVALIDATE METADATA</codeph> statement cannot be cancelled.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/syntax_blurb"/>
+
+<codeblock>INVALIDATE METADATA [[<varname>db_name</varname>.]<varname>table_name</varname>]</codeblock>
+
+    <p>
+      If there is no table specified, the cached metadata for all tables is flushed and synced
+      with Hive Metastore (HMS). If tables were dropped from the HMS, they will be removed from
+      the catalog, and if new tables were added, they will show up in the catalog.
+    </p>
+
+    <p>
+      If you specify a table name, only the metadata for that one table is flushed and synced
+      with the HMS.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/usage_notes_blurb"/>
+
+    <p>
+      To return accurate query results, Impala need to keep the metadata current for the
+      databases and tables queried. Therefore, if some other entity modifies information used by
+      Impala in the metastore, the information cached by Impala must be updated via
+      <codeph>INVALIDATE METADATA</codeph> or <codeph>REFRESH</codeph>.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/refresh_vs_invalidate"/>
+
+    <p>
+      Use <codeph>REFRESH</codeph> after invalidating a specific table to separate the metadata
+      load from the first query that's run against that table.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/example_blurb"/>
+
+    <p rev="1.2.4">
+      This example illustrates creating a new database and new table in Hive, then doing an
+      <codeph>INVALIDATE METADATA</codeph> statement in Impala using the fully qualified table
+      name, after which both the new table and the new database are visible to Impala.
+    </p>
+
+    <p>
+      Before the <codeph>INVALIDATE METADATA</codeph> statement was issued, Impala would give a
+      <q>not found</q> error if you tried to refer to those database or table names.
+    </p>
+
+<codeblock rev="1.2.4">$ hive
+hive&gt; CREATE DATABASE new_db_from_hive;
+hive&gt; CREATE TABLE new_db_from_hive.new_table_from_hive (x INT);
+hive&gt; quit;
+
+$ impala-shell
+&gt; REFRESH new_db_from_hive.new_table_from_hive;
+ERROR: AnalysisException: Database does not exist: new_db_from_hive
+
+&gt; INVALIDATE METADATA new_db_from_hive.new_table_from_hive;
+
+&gt; SHOW DATABASES LIKE 'new*';
++--------------------+
+| new_db_from_hive   |
++--------------------+
+
+&gt; SHOW TABLES IN new_db_from_hive;
++---------------------+
+| new_table_from_hive |
++---------------------+</codeblock>
+
+    <p>
+      Use the <codeph>REFRESH</codeph> statement for incremental metadata update.
+    </p>
+
+<codeblock>
+> REFRESH new_table_from_hive;
+</codeblock>
+
+    <p>
+      For more examples of using <codeph>INVALIDATE METADATA</codeph> with a combination of
+      Impala and Hive operations, see
+      <xref
+        href="impala_tutorial.xml#tutorial_impala_hive"/>.
+    </p>
+
+    <p conref="../shared/impala_common.xml#common/hdfs_blurb"/>
+
+    <p>
+      By default, the <codeph>INVALIDATE METADATA</codeph> command checks HDFS permissions of
+      the underlying data files and directories, caching this information so that a statement
+      can be cancelled immediately if for example the <codeph>impala</codeph> user does not have
+      permission to write to the data directory for the table. (This checking does not apply
+      when the <cmdname>catalogd</cmdname> configuration option
+      <codeph>--load_catalog_in_background</codeph> is set to <codeph>false</codeph>, which it
+      is by default.) Impala reports any lack of write permissions as an <codeph>INFO</codeph>
+      message in the log file.
+    </p>
+
+    <p>
+      If you change HDFS permissions to make data readable or writeable by the Impala user,
+      issue another <codeph>INVALIDATE METADATA</codeph> to make Impala aware of the change.
+    </p>
+
+    <p rev="kudu" conref="../shared/impala_common.xml#common/kudu_blurb"/>
+
+    <p conref="../shared/impala_common.xml#common/kudu_metadata_intro"/>
+
+    <p conref="../shared/impala_common.xml#common/kudu_metadata_details"/>
+
+    <p conref="../shared/impala_common.xml#common/related_info"/>
+
+    <p>
+      <xref href="impala_hadoop.xml#intro_metastore"/>,
+      <xref
+        href="impala_refresh.xml#refresh"/>
+    </p>
+
+  </conbody>
+
+</concept>

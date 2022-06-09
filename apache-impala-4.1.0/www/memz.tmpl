@@ -1,0 +1,199 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+{{> www/common-header.tmpl }}
+
+<h2>Memory Usage</h2>
+
+{{#consumption}}
+Memory consumption / limit: <strong>{{consumption}}</strong> / <strong>{{mem_limit}}</strong>
+{{/consumption}}
+
+{{#detailed}}
+<h3>Breakdown</h3>
+<pre>{{detailed}}</pre>
+{{/detailed}}
+
+<h3>tcmalloc</h3>
+<pre>{{overview}}</pre>
+
+<h3>System</h3>
+<pre>{{systeminfo}}</pre>
+
+{{?aggregate_metrics}}
+<h3>Process and system memory metrics</h3>
+<table class='table table-bordered table-hover'>
+  <tr>
+    <th>Name</th>
+    <th>Value</th>
+    <th>Description</th>
+  </tr>
+{{/aggregate_metrics}}
+{{#aggregate_metrics}}
+  <tr>
+    <td><tt>{{name}}</tt></td>
+    {{! Is this a stats metric? }}
+    {{?mean}}
+    <td>
+      Last (of {{count}}): <strong>{{last}}</strong>.
+      Min: {{min}}, max: {{max}}, avg: {{mean}}</td>
+    {{/mean}}
+    {{^mean}}
+    <td>
+      {{human_readable}}
+    </td>
+    {{/mean}}
+    <td>
+      {{description}}
+    </td>
+  </tr>
+{{/aggregate_metrics}}
+{{?aggregate_metrics}}
+</table>
+{{/aggregate_metrics}}
+
+{{?buffer_pool}}
+<h3>Buffer pool memory metrics</h3>
+<table class='table table-bordered table-hover'>
+  <tr>
+    <th>Name</th>
+    <th>Value</th>
+    <th>Description</th>
+  </tr>
+{{/buffer_pool}}
+{{#buffer_pool}}
+  <tr>
+    <td><tt>{{name}}</tt></td>
+    {{! Is this a stats metric? }}
+    {{?mean}}
+    <td>
+      Last (of {{count}}): <strong>{{last}}</strong>.
+      Min: {{min}}, max: {{max}}, avg: {{mean}}</td>
+    {{/mean}}
+    {{^mean}}
+    <td>
+      {{human_readable}}
+    </td>
+    {{/mean}}
+    <td>
+      {{description}}
+    </td>
+  </tr>
+{{/buffer_pool}}
+{{?buffer_pool}}
+</table>
+{{/buffer_pool}}
+
+{{?jvm_total}}
+<h3>JVM aggregate memory metrics</h3>
+<table class='table table-bordered table-hover'>
+  <tr>
+    <th>Name</th>
+    <th>Value</th>
+    <th>Description</th>
+  </tr>
+{{/jvm_total}}
+{{#jvm_total}}
+  <tr>
+    <td><tt>{{name}}</tt></td>
+    {{! Is this a stats metric? }}
+    {{?mean}}
+    <td>
+      Last (of {{count}}): <strong>{{last}}</strong>.
+      Min: {{min}}, max: {{max}}, avg: {{mean}}</td>
+    {{/mean}}
+    {{^mean}}
+    <td>
+      {{human_readable}}
+    </td>
+    {{/mean}}
+    <td>
+      {{description}}
+    </td>
+  </tr>
+{{/jvm_total}}
+{{?jvm_total}}
+</table>
+{{/jvm_total}}
+
+
+{{?jvm_heap}}
+<h3>JVM heap memory metrics</h3>
+<table class='table table-bordered table-hover'>
+  <tr>
+    <th>Name</th>
+    <th>Value</th>
+    <th>Description</th>
+  </tr>
+{{/jvm_heap}}
+{{#jvm_heap}}
+  <tr>
+    <td><tt>{{name}}</tt></td>
+    {{! Is this a stats metric? }}
+    {{?mean}}
+    <td>
+      Last (of {{count}}): <strong>{{last}}</strong>.
+      Min: {{min}}, max: {{max}}, avg: {{mean}}</td>
+    {{/mean}}
+    {{^mean}}
+    <td>
+      {{human_readable}}
+    </td>
+    {{/mean}}
+    <td>
+      {{description}}
+    </td>
+  </tr>
+{{/jvm_heap}}
+{{?jvm_heap}}
+</table>
+{{/jvm_heap}}
+
+{{?jvm_non_heap}}
+<h3>JVM non-heap memory metrics</h3>
+<table class='table table-bordered table-hover'
+  <tr>
+    <th>Name</th>
+    <th>Value</th>
+    <th>Description</th>
+  </tr>
+{{/jvm_non_heap}}
+{{#jvm_non_heap}}
+  <tr>
+    <td><tt>{{name}}</tt></td>
+    {{! Is this a stats metric? }}
+    {{?mean}}
+    <td>
+      Last (of {{count}}): <strong>{{last}}</strong>.
+      Min: {{min}}, max: {{max}}, avg: {{mean}}</td>
+    {{/mean}}
+    {{^mean}}
+    <td>
+      {{human_readable}}
+    </td>
+    {{/mean}}
+    <td>
+      {{description}}
+    </td>
+  </tr>
+{{/jvm_non_heap}}
+{{?jvm_non_heap}}
+</table>
+{{/jvm_non_heap}}
+
+{{> www/common-footer.tmpl }}

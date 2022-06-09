@@ -1,0 +1,614 @@
+====
+---- QUERY
+CREATE TABLE iceberg_test
+STORED AS ICEBERG;
+---- CATCH
+AnalysisException: Table requires at least 1 column for managed iceberg table.
+====
+---- QUERY
+CREATE TABLE iceberg_test(
+  level STRING
+)
+PARTITIONED BY SPEC(level, hour(event_time))
+STORED AS ICEBERG;
+---- CATCH
+AnalysisException: Cannot find source column: event_time
+====
+---- QUERY
+CREATE TABLE non_iceberg_table_with_spec (i INT)
+PARTITIONED BY SPEC (i);
+---- CATCH
+AnalysisException: PARTITIONED BY SPEC is only valid for Iceberg tables.
+====
+---- QUERY
+CREATE TABLE iceberg_table_hadoop_tables(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+====
+---- QUERY
+# iceberg_non_partitioned is not partitioned
+SHOW PARTITIONS functional_parquet.iceberg_non_partitioned
+---- CATCH
+AnalysisException: Table is not partitioned: functional_parquet.iceberg_non_partitioned
+====
+---- QUERY
+CREATE TABLE iceberg_table_hadoop_tables_cat_loc(i INT)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables',
+              'iceberg.catalog_location'='/test-warehouse/cat_loc')
+---- CATCH
+iceberg.catalog_location cannot be set for Iceberg table stored in hadoop.tables
+====
+---- QUERY
+CREATE TABLE iceberg_table_hadoop_catalog(
+  level STRING
+)
+STORED AS ICEBERG
+LOCATION '/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test'
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog');
+---- CATCH
+AnalysisException: Location cannot be set for Iceberg table with 'hadoop.catalog'.
+====
+---- QUERY
+CREATE TABLE iceberg_table_hadoop_catalog(
+  level STRING
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog');
+---- CATCH
+AnalysisException: Table property 'iceberg.catalog_location' is necessary for Iceberg table with 'hadoop.catalog'.
+====
+---- QUERY
+CREATE EXTERNAL TABLE iceberg_external_table_hadoop_catalog
+STORED AS ICEBERG
+LOCATION '/test-warehouse/$DATABASE/hadoop_catalog_test/iceberg_test'
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+    'iceberg.catalog_location'='/test-warehouse/fake_table',
+    'iceberg.table_identifier'='fake_db.fake_table');
+---- CATCH
+AnalysisException: Location cannot be set for Iceberg table with 'hadoop.catalog'.
+====
+---- QUERY
+CREATE EXTERNAL TABLE iceberg_table_hadoop_catalog
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+    'iceberg.table_identifier'='fake_db.fake_table');
+---- CATCH
+AnalysisException: Table property 'iceberg.catalog_location' is necessary for Iceberg table with 'hadoop.catalog'.
+====
+---- QUERY
+CREATE EXTERNAL TABLE fake_iceberg_table_hadoop_catalog
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+    'iceberg.catalog_location'='/test-warehouse/fake_table',
+    'iceberg.table_identifier'='fake_db.fake_table');
+SHOW CREATE TABLE fake_iceberg_table_hadoop_catalog;
+---- CATCH
+row_regex:.*CAUSED BY: TableLoadingException: Table does not exist: fake_db.fake_table*
+====
+---- QUERY
+CREATE TABLE iceberg_overwrite_bucket (i int)
+PARTITIONED BY SPEC (bucket(3, i))
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+INSERT OVERWRITE iceberg_overwrite_bucket VALUES (1), (2), (3);
+---- CATCH
+AnalysisException: The Iceberg table has BUCKET partitioning.
+====
+---- QUERY
+CREATE TABLE iceberg_hive_cat_with_cat_locaction (i int)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hive.catalog',
+    'iceberg.catalog_location'='/test-warehouse/catalog_loc')
+---- CATCH
+iceberg.catalog_location cannot be set for Iceberg table stored in hive.catalog
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_tables_with_metdata_locaction (i int)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables',
+    'metadata_location'='/test-warehouse/catalog/metadata_loc')
+---- CATCH
+metadata_location cannot be set for Iceberg tables
+====
+---- QUERY
+CREATE TABLE iceberg_hadoop_cat_with_metadata_locaction (i int)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+    'iceberg.catalog_location'='/test-warehouse/catalog',
+    'metadata_location'='/test-warehouse/catalog/metadata_loc')
+---- CATCH
+metadata_location cannot be set for Iceberg tables
+====
+---- QUERY
+CREATE TABLE iceberg_hive_cat_with_metadata_locaction (i int)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hive.catalog',
+    'metadata_location'='/test-warehouse/catalog/metadata_loc')
+---- CATCH
+metadata_location cannot be set for Iceberg tables
+====
+---- QUERY
+CREATE TABLE iceberg_partitioned_insert(
+  level STRING,
+  event_time TIMESTAMP
+)
+PARTITIONED BY SPEC(level)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+INSERT INTO iceberg_partitioned_insert PARTITION(level='level') VALUES(now());
+---- CATCH
+Static partitioning is not supported for Iceberg tables.
+====
+---- QUERY
+CREATE TABLE all_colss_needed_for_insert (i int, j int, k int)
+PARTITIONED BY SPEC (j, k)
+STORED AS ICEBERG;
+---- RESULTS
+'Table has been created.'
+====
+---- QUERY
+insert into all_colss_needed_for_insert values (1);
+---- CATCH
+has more columns (3) than the SELECT / VALUES clause returns
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_tables RENAME TO iceberg_table_hadoop_tables_new;
+---- CATCH
+UnsupportedOperationException: Cannot rename Iceberg tables that use 'hadoop.tables' as catalog.
+====
+---- QUERY
+CREATE TABLE iceberg_table_hive_catalog (level STRING)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hive.catalog')
+====
+---- QUERY
+CREATE TABLE iceberg_table_hadoop_catalog(
+  level STRING,
+  event_time TIMESTAMP
+)
+STORED AS ICEBERG
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/$DATABASE/hadoop_catalog_test');
+ALTER TABLE iceberg_table_hadoop_catalog RENAME TO iceberg_table_hadoop_catalog_new;
+---- CATCH
+UnsupportedOperationException: Cannot rename Iceberg tables that use 'hadoop.catalog' as catalog.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog set TBLPROPERTIES('iceberg.catalog'='hadoop.tables');
+---- CATCH
+AnalysisException: Changing the 'iceberg.catalog' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog unset TBLPROPERTIES('iceberg.catalog');
+---- CATCH
+AnalysisException: Unsetting the 'iceberg.catalog' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog set TBLPROPERTIES('iceberg.catalog_location'='/fake_location');
+---- CATCH
+AnalysisException: Changing the 'iceberg.catalog_location' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog unset TBLPROPERTIES('iceberg.catalog_location');
+---- CATCH
+AnalysisException: Unsetting the 'iceberg.catalog_location' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog set TBLPROPERTIES('iceberg.table_identifier'='fake_db.fake_table');
+---- CATCH
+AnalysisException: Changing the 'iceberg.table_identifier' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog unset TBLPROPERTIES('iceberg.table_identifier');
+---- CATCH
+AnalysisException: Unsetting the 'iceberg.table_identifier' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog set TBLPROPERTIES('metadata_location'='/test-warehouse/metadata_loc');
+---- CATCH
+AnalysisException: Changing the 'metadata_location' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog unset TBLPROPERTIES('metadata_location');
+---- CATCH
+AnalysisException: Unsetting the 'metadata_location' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hive_catalog set TBLPROPERTIES('metadata_location'='/test-warehouse/metadata_loc');
+---- CATCH
+AnalysisException: Changing the 'metadata_location' table property is not supported for Iceberg table.
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog set FILEFORMAT PARQUET;
+---- CATCH
+AnalysisException: ALTER TABLE SET FILEFORMAT is not supported on Iceberg tables: $DATABASE.iceberg_table_hadoop_catalog
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog SET ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+---- CATCH
+AnalysisException: ALTER TABLE SET ROWFORMAT is not supported on Iceberg tables: $DATABASE.iceberg_table_hadoop_catalog
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog SET LOCATION '/fake_location';
+---- CATCH
+AnalysisException: ALTER TABLE SET LOCATION is not supported on Iceberg tables: $DATABASE.iceberg_table_hadoop_catalog
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog ADD PARTITION(fake_col='fake_value');
+---- CATCH
+AnalysisException: ALTER TABLE ADD PARTITION is not supported for Iceberg tables: $DATABASE.iceberg_table_hadoop_catalog
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog DROP PARTITION(fake_col='fake_value');
+---- CATCH
+AnalysisException: ALTER TABLE DROP PARTITION is not supported for Iceberg tables: $DATABASE.iceberg_table_hadoop_catalog
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog RECOVER PARTITIONS;
+---- CATCH
+AnalysisException: ALTER TABLE RECOVER PARTITIONS is not supported on Iceberg tables: $DATABASE.iceberg_table_hadoop_catalog
+====
+---- QUERY
+ALTER TABLE iceberg_table_hadoop_catalog REPLACE COLUMNS(level INT, register_time DATE);
+---- CATCH
+AnalysisException: ALTER TABLE REPLACE COLUMNS is not supported on Iceberg tables.
+====
+---- QUERY
+CREATE TABLE iceberg_transactional(i int)
+STORED AS ICEBERG
+tblproperties('iceberg.catalog'='hadoop.tables', 'transactional'='true');
+---- CATCH
+Iceberg tables cannot have Hive ACID table properties.
+====
+---- QUERY
+CREATE TABLE iceberg_insert_only(i int)
+STORED AS ICEBERG
+tblproperties('iceberg.catalog'='hadoop.catalog',
+'iceberg.catalog_location'='/$EXTERNAL_WAREHOUSE_DIR/specified_location',
+'transactional'='true', 'transactional_properties'='insert_only');
+---- CATCH
+Iceberg tables cannot have Hive ACID table properties.
+====
+---- QUERY
+DESCRIBE HISTORY functional_parquet.emptytable;
+---- CATCH
+DESCRIBE HISTORY must specify an Iceberg table: functional_parquet.emptytable
+====
+---- QUERY
+# CHAR is not supported.
+CREATE TABLE chars_formats (cs CHAR(5))
+STORED AS iceberg;
+---- CATCH
+Type CHAR(5) is not supported in Iceberg
+====
+---- QUERY
+# VARCHAR is not supported.
+CREATE TABLE chars_formats (vc VARCHAR(100))
+STORED AS iceberg;
+---- CATCH
+Type VARCHAR(100) is not supported in Iceberg
+====
+---- QUERY
+# Impala cannot write UTC normalized timestamps.
+INSERT INTO functional_parquet.iceberg_non_partitioned
+VALUES (1, "user", "action", now());
+---- CATCH
+AnalysisException: The Iceberg table has a TIMESTAMPTZ column that Impala cannot write.
+====
+---- QUERY
+CREATE TABLE iceberg_kudu_option(id int primary key)
+STORED AS ICEBERG
+---- CATCH
+AnalysisException: Unsupported column options for file format 'ICEBERG': 'id INT PRIMARY KEY'
+====
+---- QUERY
+# PARTITIONED BY and PARTITIONED BY SPEC is not allowed in same statement.
+CREATE TABLE iceberg_part_spec_part (i INT)
+PARTITIONED BY (p INT)
+PARTITIONED BY SPEC (TRUNCATE(10, i))
+STORED AS ICEBERG;
+---- CATCH
+Syntax error in line
+====
+---- QUERY
+# PARTITIONED BY SPEC and PARTITIONED BY is not allowed in same statement.
+CREATE TABLE iceberg_part_part_spec (i INT)
+PARTITIONED BY SPEC (TRUNCATE(10, i))
+PARTITIONED BY (p INT)
+STORED AS ICEBERG;
+---- CATCH
+Syntax error in line
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_fileformat (i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.format.default'='or');
+---- CATCH
+Invalid fileformat for Iceberg table: or
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_fileformat (i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_fileformat SET TBLPROPERTIES ('write.format.default'='parq');
+---- CATCH
+Invalid fileformat for Iceberg table: parq
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_partition (i int)
+PARTITIONED BY SPEC (wrong(i))
+STORED AS ICEBERG;
+---- CATCH
+Unsupported iceberg partition type: WRONG
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_row_group_size1 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES(
+    'write.format.default'='orc',
+    'write.parquet.row-group-size-bytes'='134217728');
+---- CATCH
+write.parquet.row-group-size-bytes should be set only for parquet file format
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_row_group_size2 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.row-group-size-bytes'='8388607');
+---- CATCH
+Parquet row group size for Iceberg table should fall in the range of [8388608..2146435072]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_row_group_size2 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_row_group_size2 SET
+TBLPROPERTIES('write.parquet.row-group-size-bytes'='8388607');
+---- CATCH
+Parquet row group size for Iceberg table should fall in the range of [8388608..2146435072]
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_row_group_size3 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.row-group-size-bytes'='134217728a');
+---- CATCH
+Invalid parquet row group size for Iceberg table: 134217728a
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_row_group_size3 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_row_group_size3 SET
+TBLPROPERTIES('write.parquet.row-group-size-bytes'='134217728a');
+---- CATCH
+Invalid parquet row group size for Iceberg table: 134217728a
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_row_group_size4 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.row-group-size-bytes'='2146435073');
+---- CATCH
+Parquet row group size for Iceberg table should fall in the range of [8388608..2146435072]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_row_group_size4 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_row_group_size4 SET
+TBLPROPERTIES('write.parquet.row-group-size-bytes'='2146435073');
+---- CATCH
+Parquet row group size for Iceberg table should fall in the range of [8388608..2146435072]
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_page_size1 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.format.default'='orc', 'write.parquet.page-size-bytes'='65536');
+---- CATCH
+write.parquet.page-size-bytes should be set only for parquet file format
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_page_size2 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.page-size-bytes'='65535');
+---- CATCH
+Parquet page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_page_size2 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_page_size2 SET
+TBLPROPERTIES('write.parquet.page-size-bytes'='65535');
+---- CATCH
+Parquet page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_page_size3 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.page-size-bytes'='655 36');
+---- CATCH
+Invalid parquet page size for Iceberg table: 655 36
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_page_size3 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_page_size3 SET
+TBLPROPERTIES('write.parquet.page-size-bytes'='655 36');
+---- CATCH
+Invalid parquet page size for Iceberg table: 655 36
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_page_size4 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.page-size-bytes'='1073741825');
+---- CATCH
+Parquet page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_page_size4 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_page_size4 SET
+TBLPROPERTIES('write.parquet.page-size-bytes'='1073741825');
+---- CATCH
+Parquet page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_dict_size1 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.format.default'='orc', 'write.parquet.dict-size-bytes'='65536');
+---- CATCH
+write.parquet.dict-size-bytes should be set only for parquet file format
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_dict_size2 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.dict-size-bytes'='65535');
+---- CATCH
+Parquet dictionary page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_dict_size2 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_dict_size2 SET
+TBLPROPERTIES('write.parquet.dict-size-bytes'='65535');
+---- CATCH
+Parquet dictionary page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_dict_size3 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.dict-size-bytes'='655 36');
+---- CATCH
+Invalid parquet dictionary page size for Iceberg table: 655 36
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_dict_size3 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_dict_size3 SET
+TBLPROPERTIES('write.parquet.dict-size-bytes'='655 36');
+---- CATCH
+Invalid parquet dictionary page size for Iceberg table: 655 36
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_dict_size4 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.dict-size-bytes'='1073741825');
+---- CATCH
+Parquet dictionary page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_dict_size4 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_dict_size4 SET
+TBLPROPERTIES('write.parquet.dict-size-bytes'='1073741825');
+---- CATCH
+Parquet dictionary page size for Iceberg table should fall in the range of [65536..1073741824]
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_comp_codec1 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.format.default'='orc',
+'write.parquet.compression-codec'='snappy');
+---- CATCH
+write.parquet.compression-codec should be set only for parquet file format
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_comp_codec2 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.compression-codec'='snapp');
+---- CATCH
+Invalid parquet compression codec for Iceberg table: snapp
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_comp_codec2 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_comp_codec2 SET
+TBLPROPERTIES('write.parquet.compression-codec'='snapp');
+---- CATCH
+Invalid parquet compression codec for Iceberg table: snapp
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_comp_level1 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.format.default'='orc',
+'write.parquet.compression-level'='2');
+---- CATCH
+write.parquet.compression-level should be set only for parquet file format
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_comp_level2 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.compression-level'='2');
+---- CATCH
+Parquet compression level cannot be set for codec SNAPPY. Only ZSTD codec supports compression level table property.
+====
+---- QUERY
+CREATE TABLE iceberg_wrong_parquet_comp_level3 ( i int)
+STORED AS ICEBERG
+TBLPROPERTIES('write.parquet.compression-codec'='zstd',
+'write.parquet.compression-level'='0');
+---- CATCH
+Parquet compression level for Iceberg table should fall in the range of [1..22]
+====
+---- QUERY
+CREATE TABLE iceberg_set_wrong_parquet_comp_level4 ( i int)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_set_wrong_parquet_comp_level4 SET
+TBLPROPERTIES('write.parquet.compression-level'='0');
+---- CATCH
+Parquet compression level for Iceberg table should fall in the range of [1..22]
+====
+---- QUERY
+CREATE TABLE non_iceberg_table (i INT);
+ALTER TABLE non_iceberg_table SET PARTITION SPEC (i);
+---- CATCH
+AnalysisException: ALTER TABLE SET PARTITION SPEC is only supported for Iceberg tables: $DATABASE.non_iceberg_table
+====
+---- QUERY
+SELECT * FROM non_iceberg_table FOR SYSTEM_TIME AS OF now();
+---- CATCH
+AS OF clause is only supported for Iceberg tables.
+====
+---- QUERY
+SELECT * FROM non_iceberg_table FOR SYSTEM_VERSION AS OF 42;
+---- CATCH
+AS OF clause is only supported for Iceberg tables.
+====
+---- QUERY
+CREATE TABLE iceberg_alter_part ( i int, d DATE, s STRUCT<f1:BIGINT,f2:BIGINT>)
+STORED AS ICEBERG;
+ALTER TABLE iceberg_alter_part SET PARTITION SPEC (g);
+---- CATCH
+AnalysisException: Source column 'g' does not exist in table: $DATABASE.iceberg_alter_part
+====
+---- QUERY
+ALTER TABLE iceberg_alter_part SET PARTITION SPEC (s);
+---- CATCH
+AnalysisException: Source column 's' in table $DATABASE.iceberg_alter_part must be a primitive type
+====
+---- QUERY
+ALTER TABLE iceberg_alter_part SET PARTITION SPEC (YEAR(i));
+---- CATCH
+ImpalaRuntimeException: Failed to ALTER table 'iceberg_alter_part': Cannot partition type int by year
+====
+---- QUERY
+ALTER TABLE iceberg_alter_part SET PARTITION SPEC (HOUR(d));
+---- CATCH
+ImpalaRuntimeException: Failed to ALTER table 'iceberg_alter_part': Cannot partition type date by hour
+====
+---- QUERY
+select * from functional_parquet.iceberg_v2_delete_positional;
+---- CATCH
+row_regex:.*CAUSED BY: TableLoadingException: Unsupported Iceberg V2 feature, table .* contains delete files..*
+====
+---- QUERY
+CREATE TABLE ice_clone LIKE functional_parquet.iceberg_non_partitioned;
+---- CATCH
+Cloning an Iceberg table using CREATE TABLE LIKE is not supported.
+====
+---- QUERY
+CREATE TABLE clone_ice LIKE functional_parquet.alltypestiny STORED AS ICEBERG;
+---- CATCH
+CREATE TABLE LIKE is not supported for Iceberg tables.
+====

@@ -1,0 +1,169 @@
+====
+---- QUERY: TPCDS-CALL_CENTER
+select count(*) from call_center
+---- RESULTS
+6
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-CATALOG_PAGE
+select count(*) from catalog_page
+---- RESULTS
+11718
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-CATALOG_RETURNS
+select count(*) from catalog_returns
+---- RESULTS
+144067
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-CATALOG_SALES
+select count(*) from catalog_sales
+---- RESULTS
+1441548
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-CUSTOMER
+select count(*) from customer
+---- RESULTS
+100000
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-CUSTOMER_ADDRESS
+select count(*) from customer_address;
+---- RESULTS
+50000
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-CUSTOMER_DEMOGRAPHICS
+select count(*) from customer_demographics;
+---- RESULTS
+1920800
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-DATE_DIM
+select count(*) from date_dim;
+---- RESULTS
+73049
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-HOUSEHOLD_DEMOGRAPHICS
+select count(*) from household_demographics;
+---- RESULTS
+7200
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-INCOME_BAND
+select count(*) from income_band;
+---- RESULTS
+20
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-INVENTORY
+select count(*) from inventory;
+---- RESULTS
+11745000
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-ITEM
+select count(*) from item;
+---- RESULTS
+18000
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-PROMOTION
+select count(*) from promotion;
+---- RESULTS
+300
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-SHIP_MODE
+select count(*) from ship_mode;
+---- RESULTS
+20
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-STORE
+select count(*) from store;
+---- RESULTS
+12
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-STORE_RETURNS
+select count(*) from store_returns;
+---- RESULTS
+287514
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-STORE_SALES
+select count(*) from store_sales;
+---- RESULTS
+2880404
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-TIME_DIM
+select count(*) from time_dim;
+---- RESULTS
+86400
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-WAREHOUSE
+select count(*) from warehouse;
+---- RESULTS
+5
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-WEB_PAGE
+select count(*) from web_page;
+---- RESULTS
+60
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-WEB_RETURNS
+select count(*) from web_returns;
+---- RESULTS
+71763
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-WEB_SALES
+select count(*) from web_sales;
+---- RESULTS
+719384
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-WEB_SITE
+select count(*) from web_site;
+---- RESULTS
+30
+---- TYPES
+BIGINT
+====
+---- QUERY: TPCDS-COUNT-REASON
+select count(*) from reason;
+---- RESULTS
+35
+---- TYPES
+BIGINT
+====

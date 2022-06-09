@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="intro_client">
+
+  <title>Impala Client Access</title>
+
+  <titlealts audience="PDF">
+
+    <navtitle>Client Access</navtitle>
+
+  </titlealts>
+
+  <conbody>
+
+    <p>
+      Application developers have a number of options to interface with Impala. The core
+      development language with Impala is SQL. You can also use Java or other languages to
+      interact with Impala through the standard JDBC and ODBC interfaces used by many business
+      intelligence tools. For specialized kinds of analysis, you can supplement the Impala
+      built-in functions by writing user-defined functions in C++ or Java.
+    </p>
+
+    <p>
+      You can connect and submit requests to the Impala through:
+    </p>
+
+    <ul>
+      <li>
+        The impala-shell interactive command interpreter
+      </li>
+
+      <li>
+        The Hue web-based user interface
+      </li>
+
+      <li>
+        JDBC
+      </li>
+
+      <li>
+        ODBC
+      </li>
+    </ul>
+
+    <p>
+      Impala clients can connect to the Coordinator Impala Daemon (<codeph>impalad</codeph>) via
+      HiveServer2 over HTTP or over the TCP binary. Both HTTP and binary support the Kerberos
+      SPNEGO and LDAP for authentication to Impala. See below for the default ports and the
+      Impala flags to change the ports.
+    </p>
+
+    <p>
+      <simpletable frame="all" relcolwidth="1.0* 1.03* 2.38*"
+        id="simpletable_tr2_gnt_43b">
+
+        <strow>
+
+          <stentry><b>Protocol</b>
+
+          </stentry>
+
+          <stentry><b>Default Port</b>
+
+          </stentry>
+
+          <stentry><b>Flag to Specify an Alternate Port</b>
+
+          </stentry>
+
+        </strow>
+
+        <strow>
+
+          <stentry>HTTP</stentry>
+
+          <stentry>28000</stentry>
+
+          <stentry><codeph>&#8209;&#8209;hs2_http_port</codeph>
+
+          </stentry>
+
+        </strow>
+
+        <strow>
+
+          <stentry>Binary TCP</stentry>
+
+          <stentry>21050</stentry>
+
+          <stentry><codeph>&#8209;&#8209;hs2_port</codeph>
+
+          </stentry>
+
+        </strow>
+
+      </simpletable>
+    </p>
+
+    <p>
+      Each <codeph>impalad</codeph> daemon process, running on separate nodes in a cluster,
+      listens to <xref href="impala_ports.xml#ports">several ports</xref> for incoming requests:
+    </p>
+
+    <ul>
+      <li>
+        Requests from <codeph>impala-shell</codeph> and Hue are routed to the
+        <codeph>impalad</codeph> daemons through the same port.
+      </li>
+
+      <li>
+        The <codeph>impalad</codeph> daemons listen on separate ports for JDBC and ODBC
+        requests.
+      </li>
+    </ul>
+
+    <section id="section_egg_wjt_f3b">
+
+      <title>Impala Startup Options for Client Connections</title>
+
+      <p>
+        Use the following flags when starting Impala Daemon coordinator to control client
+        connections to Impala.
+      </p>
+
+      <dl>
+        <dlentry>
+
+          <dt>
+            --accepted_client_cnxn_timeout
+          </dt>
+
+          <dd>
+            Controls how Impala treats new connection requests if it has run out of the number
+            of threads configured by <codeph>--fe_service_threads</codeph>.
+            <p>
+              If <codeph>--accepted_client_cnxn_timeout > 0</codeph>, new connection requests
+              are rejected if Impala can't get a server thread within the specified (in seconds)
+              timeout.
+            </p>
+
+            <p>
+              If <codeph>--accepted_client_cnxn_timeout=0</codeph>, i.e. no timeout, clients
+              wait indefinitely to open the new session until more threads are available.
+            </p>
+
+            <p>
+              The default timeout is 5 minutes.
+            </p>
+
+            <p>
+              The timeout applies only to client facing thrift servers, i.e., HS2 and Beeswax
+              servers.
+            </p>
+          </dd>
+
+        </dlentry>
+
+        <dlentry>
+
+          <dt>
+            --disconnected_session_timeout
+          </dt>
+
+          <dd>
+            When a HiveServer2 session has had no open connections for longer than this value,
+            the session will be closed, and any associated queries will be unregistered.
+            <p>
+              Specify the value in hours.
+            </p>
+
+            <p>
+              The default value is 1 hour.
+            </p>
+
+            <p>
+              This flag does not apply to Beeswax clients. When a Beeswax client connection is
+              closed, Impala closes the session associated with that connection.
+            </p>
+          </dd>
+
+        </dlentry>
+
+        <dlentry>
+
+          <dt>
+            --fe_service_threads
+          </dt>
+
+          <dd>
+            Specifies the maximum number of concurrent client connections allowed. The default
+            value is 64 with which 64 queries can run simultaneously.
+            <p>
+              If you have more clients trying to connect to Impala than the value of this
+              setting, the later arriving clients have to wait for the duration specified by
+              <codeph>--accepted_client_cnxn_timeout</codeph>. You can increase this value to
+              allow more client connections. However, a large value means more threads to be
+              maintained even if most of the connections are idle, and it could negatively
+              impact query latency. Client applications should use the connection pool to avoid
+              need for large number of sessions.
+            </p>
+          </dd>
+
+        </dlentry>
+
+        <dlentry>
+
+          <dt>
+            --hs2_http_port
+          </dt>
+
+          <dd>
+            Specifies the port for clients to connect to Impala server over HTTP.
+            <p>
+              The default port is 28000.
+            </p>
+
+            <p>
+              You can disable the HTTP end point for clients by setting the flag to
+              <codeph>0</codeph>.
+            </p>
+
+            <p>
+              To enable TLS/SSL for HiveServer2 HTTP endpoint use
+              <codeph>--ssl_server_certificate</codeph> and <codeph>--ssl_private_key</codeph>.
+              See <xref
+                href="impala_ssl.xml#ssl"/> for detail.
+            </p>
+          </dd>
+
+        </dlentry>
+
+        <dlentry>
+
+          <dt>
+            --idle_client_poll_time_s
+          </dt>
+
+          <dd>
+            The value of this setting specifies how frequently Impala polls to check if a client
+            connection is idle and closes it if the connection is idle. A client connection is
+            idle if all sessions associated with the client connection are idle.
+            <p>
+              By default, <codeph>--idle_client_poll_time_s</codeph> is set to 30 seconds.
+            </p>
+
+            <p>
+              If <codeph>--idle_client_poll_time_s</codeph> is set to 0, idle client connections
+              stay open until explicitly closed by the clients.
+            </p>
+
+            <p>
+              The connection will only be closed if all the associated sessions are idle or
+              closed. Sessions cannot be idle unless either the flag
+              <codeph>--idle_session_timeout</codeph> or the
+              <codeph>IDLE_SESSION_TIMEOUT</codeph> query option is set to greater than 0. If
+              idle session timeout is not configured, a session cannot become idle by
+              definition, and therefore its connection stays open until the client explicitly
+              closes it.
+            </p>
+          </dd>
+
+        </dlentry>
+
+        <dlentry>
+
+          <dt>
+            --max_cookie_lifetime_s
+          </dt>
+
+          <dd>
+            Starting in Impala 3.4.0, Impala uses cookies for authentication when clients
+            connect via HiveServer2 over HTTP. Use the <codeph>--max_cookie_lifetime_s</codeph>
+            startup flag to control how long generated cookies are valid for.
+            <p>
+              Specify the value in seconds.
+            </p>
+            <p>
+              The default value is 1 day.
+            </p>
+
+            <p>
+              Setting the flag to <codeph>0</codeph> disables cookie support.
+            </p>
+
+            <p>
+              When an unexpired cookie is successfully verified, the user name contained in the
+              cookie is set on the connection.
+            </p>
+
+            <p>
+              Each <codeph>impalad</codeph> uses its own key to generate the signature, so
+              clients that reconnect to a different <codeph>impalad</codeph> have to
+              re-authenticate.
+            </p>
+
+            <p>
+              On a single <codeph>impalad</codeph>, cookies are valid across sessions and
+              connections.
+            </p>
+          </dd>
+
+        </dlentry>
+      </dl>
+
+    </section>
+
+  </conbody>
+
+</concept>

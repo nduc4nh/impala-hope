@@ -1,0 +1,220 @@
+====
+---- QUERY
+select c1 from illtypes
+---- CATCH
+Type mismatch: table column BOOLEAN is map to column int in ORC file
+====
+---- QUERY
+select c2 from illtypes
+---- CATCH
+Type mismatch: table column FLOAT is map to column boolean in ORC file
+====
+---- QUERY
+select c3 from illtypes
+---- CATCH
+Type mismatch: table column BOOLEAN is map to column tinyint in ORC file
+====
+---- QUERY
+select c4 from illtypes
+---- CATCH
+Type mismatch: table column TINYINT is map to column smallint in ORC file
+====
+---- QUERY
+select c5 from illtypes
+---- CATCH
+Type mismatch: table column SMALLINT is map to column int in ORC file
+====
+---- QUERY
+select c6 from illtypes
+---- CATCH
+Type mismatch: table column INT is map to column bigint in ORC file
+====
+---- QUERY
+select c7 from illtypes
+---- CATCH
+Type mismatch: table column BOOLEAN is map to column float in ORC file
+====
+---- QUERY
+select c8 from illtypes
+---- CATCH
+Type mismatch: table column STRING is map to column double in ORC file
+====
+---- QUERY
+select c9 from illtypes
+---- CATCH
+Type mismatch: table column INT is map to column string in ORC file
+====
+---- QUERY
+select c10 from illtypes
+---- CATCH
+Type mismatch: table column FLOAT is map to column string in ORC file
+====
+---- QUERY
+select c11 from illtypes
+---- CATCH
+Type mismatch: table column BIGINT is map to column timestamp in ORC file
+====
+---- QUERY
+select c11 from illtypes_ts_to_date
+---- CATCH
+Type mismatch: table column DATE is map to column timestamp in ORC file
+====
+---- QUERY
+select c2 from illtypes_date_tbl
+---- CATCH
+Type mismatch: table column TIMESTAMP is map to column date in ORC file
+====
+---- QUERY
+select * from safetypes order by c1
+---- TYPES
+bigint,boolean,smallint,int,bigint,bigint,double,double,char,string,timestamp,int,int
+---- RESULTS
+0,true,0,0,0,0,0,0,'01/','0',2009-01-01 00:00:00,2009,1
+1,false,1,1,1,10,1.100000023841858,10.1,'01/','1',2009-01-01 00:01:00,2009,1
+2,true,0,0,0,0,0,0,'02/','0',2009-02-01 00:00:00,2009,2
+3,false,1,1,1,10,1.100000023841858,10.1,'02/','1',2009-02-01 00:01:00,2009,2
+4,true,0,0,0,0,0,0,'03/','0',2009-03-01 00:00:00,2009,3
+5,false,1,1,1,10,1.100000023841858,10.1,'03/','1',2009-03-01 00:01:00,2009,3
+6,true,0,0,0,0,0,0,'04/','0',2009-04-01 00:00:00,2009,4
+7,false,1,1,1,10,1.100000023841858,10.1,'04/','1',2009-04-01 00:01:00,2009,4
+====
+---- QUERY
+select d1 from mismatch_decimals
+---- TYPES
+decimal
+---- RESULTS
+1234
+2345
+12345
+12345
+132842
+====
+---- QUERY
+select d2 from mismatch_decimals where d6 = 1
+---- TYPES
+decimal
+---- RESULTS
+---- CATCH
+can't be truncated to table column DECIMAL(8,0)
+====
+---- QUERY
+select d3 from mismatch_decimals
+---- TYPES
+decimal
+---- RESULTS
+1.2345678900
+12.3456789000
+123.4567890000
+1234.5678900000
+12345.6789000000
+====
+---- QUERY
+select d4 from mismatch_decimals
+---- TYPES
+decimal
+---- RESULTS
+---- CATCH
+Type mismatch: table column DECIMAL(20,20) is map to column decimal(38,38) in ORC file
+====
+---- QUERY
+select d5 from mismatch_decimals
+---- TYPES
+decimal
+---- RESULTS
+---- CATCH
+Type mismatch: table column DECIMAL(2,0) is map to column decimal(10,5) in ORC file
+====
+---- QUERY
+select d6 from mismatch_decimals
+---- TYPES
+decimal
+---- RESULTS
+1
+1
+1
+1
+1
+====
+---- HIVE_QUERY
+# Create a table with UNION, ARRAY, MAP types by Hive and insert values into it.
+create external table $DATABASE.union_complextypes(
+  id int,
+  u uniontype<int, boolean>,
+  int_array array<int>,
+  int_map map<string, int>)
+stored as orc
+tblproperties ('external.table.purge'='TRUE');
+insert into $DATABASE.union_complextypes
+  select 0, create_union(1, 50, false), array(0), map('key0', 0);
+# Create an external table on the ORC files with different schema.
+create external table $DATABASE.ill_complextypes(
+  id int,
+  u map<int, double>,
+  int_map map<string, int>,
+  int_array array<int>)
+stored as orc
+location '$NAMENODE/test-warehouse/$DATABASE.db/union_complextypes';
+====
+---- QUERY
+invalidate metadata ill_complextypes;
+# Should be able to read the first column that match the file schema.
+select id from ill_complextypes
+---- TYPES
+INT
+---- RESULTS
+0
+====
+---- QUERY
+select u.key, u.value from ill_complextypes.u
+---- CATCH
+File '$NAMENODE/test-warehouse/$DATABASE.db/union_complextypes/000000_0'
+ has an incompatible ORC schema for column '$DATABASE.ill_complextypes.u',
+ Column type: map, ORC schema: uniontype<int,boolean>
+====
+---- QUERY
+select m.key, m.value from ill_complextypes.int_map m
+---- CATCH
+File '$NAMENODE/test-warehouse/$DATABASE.db/union_complextypes/000000_0'
+ has an incompatible ORC schema for column '$DATABASE.ill_complextypes.int_map',
+ Column type: map, ORC schema: array<int>
+====
+---- QUERY
+select a.item from ill_complextypes.int_array a
+---- CATCH
+File '$NAMENODE/test-warehouse/$DATABASE.db/union_complextypes/000000_0'
+ has an incompatible ORC schema for column '$DATABASE.ill_complextypes.int_array',
+ Column type: array, ORC schema: map<string,int>
+====
+---- HIVE_QUERY
+use $DATABASE;
+create external table orc_complextypes like functional_parquet.complextypestbl
+stored as orc
+tblproperties ('external.table.purge'='TRUE');
+insert into orc_complextypes select * from functional_parquet.complextypestbl;
+====
+---- QUERY
+invalidate metadata orc_complextypes;
+# Create a table whose nested types don't match the underlying ORC files.
+create external table ill_complextypes2 (id bigint,
+  int_array map<string, int>,
+  int_array_array array<struct<x:int>>,
+  int_map array<struct<k:string,v:int>>,
+  int_map_array array<array<struct<k:string,v:int>>>
+) stored as orc location '$NAMENODE/test-warehouse/$DATABASE.db/orc_complextypes';
+select a.item.x from ill_complextypes2.int_array_array a;
+---- CATCH
+has an incompatible ORC schema for column '$DATABASE.ill_complextypes2.int_array_array.item',
+ Column type: struct, ORC schema: array<int>
+====
+---- QUERY
+select a.item.k, a.item.v from ill_complextypes2.int_map a
+---- CATCH
+has an incompatible ORC schema for column '$DATABASE.ill_complextypes2.int_map',
+ Column type: array, ORC schema: map<string,int>
+====
+---- QUERY
+select inner_arr.item.k, inner_arr.item.v from ill_complextypes2.int_map_array a, a.item inner_arr
+---- CATCH
+has an incompatible ORC schema for column '$DATABASE.ill_complextypes2.int_map_array.item',
+ Column type: array, ORC schema: map<string,int>
+====

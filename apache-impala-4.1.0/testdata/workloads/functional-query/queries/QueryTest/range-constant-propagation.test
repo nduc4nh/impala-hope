@@ -1,0 +1,64 @@
+====
+---- QUERY
+# Constant propagation for range predicates on timestamp.
+select count(*), sum(int_col) from alltypes_date_partition
+where date_col = cast(timestamp_col as date)
+and timestamp_col between '2009-01-01' and '2009-02-01';
+---- RESULTS
+156,620
+---- TYPES
+BIGINT, BIGINT
+====
+---- QUERY
+# Mix of various predicates some of which are eligible for propagation
+with dp_view as
+(select * from alltypes_date_partition
+where date_col = cast(timestamp_col as date))
+select count(*), sum(int_col) from dp_view
+where int_col < 100 and timestamp_col >= '2009-01-01'
+and bigint_col in (20, 40)
+and timestamp_col <= '2009-02-01';
+---- RESULTS
+62,186
+---- TYPES
+BIGINT, BIGINT
+====
+---- QUERY
+# IMPALA-10314
+# Simple limit in outer query referencing a with clause subquery.
+# WHERE clause has an always_true hint.
+set optimize_simple_limit=true;
+with dp_view as
+(select * from alltypes_date_partition_2
+where /* +always_true */ date_col = cast(timestamp_col as date))
+select count(*) from (select * from dp_view limit 10) t;
+---- RESULTS
+10
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-10360
+# Query against a view that has hints for table sampling
+# and WHERE clause.
+set optimize_simple_limit=true;
+select count(*) from (select * from alltypes_dp_2_view_2 limit 10) t;
+---- RESULTS
+10
+---- TYPES
+BIGINT
+====
+---- QUERY
+# IMPALA-9745
+# Test correctness of constant propagation in the presence of
+# implicit casts
+select * from
+ (select o_orderdate, to_timestamp(o_orderdate, 'yyyy-MM-dd') ts
+  from tpch.orders) dt where ts = '1996-12-01' and o_orderdate = ts
+limit 2;
+---- RESULTS
+'1996-12-01',1996-12-01 00:00:00
+'1996-12-01',1996-12-01 00:00:00
+---- TYPES
+STRING,TIMESTAMP
+====
